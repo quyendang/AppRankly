@@ -23,6 +23,7 @@ for (const [name, content] of Object.entries(fixtures))
     Buffer.from("\ufeff" + content, "utf16le"),
   );
 const factory = require("../lib/viewerFactory");
+require("../lib/googleAppDiscovery").discoverGoogleApps = async () => [];
 let failDiscovery = false;
 factory.buildGoogleViewer = (cfg, pkg) => {
   const viewer = new (require("../lib/GooglePlayStoreStatsViewer"))({

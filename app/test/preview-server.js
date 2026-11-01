@@ -39,6 +39,13 @@ const apps = [
     version: "3.1.0",
     rating: 4.6,
   },
+  {
+    id: "apple:example.free",
+    packageName: "example.free",
+    name: "Free Journal",
+    platform: "apple",
+    appId: "456",
+  },
 ];
 const portfolio = require("../lib/portfolio");
 portfolio.listApps = async () => ({ apps, warnings: [] });
@@ -65,7 +72,9 @@ portfolio.appStats = async (app, range) => {
   return {
     dailyTrends,
     installs: dailyTrends.reduce((s, d) => s + d.installs, 0),
-    revenueByCurrency: app.platform === "apple" ? { USD: count * 20 } : {},
+    revenueByCurrency: app.platform !== "apple" ? {} : app.appId === "456"
+      ? Object.fromEntries(["USD", "EUR", "GBP", "JPY", "VND", "CAD", "AUD"].map(c => [c, 0]))
+      : { USD: count * 20 + 0.49, EUR: 12.75, GBP: -2, JPY: 1200, VND: 250000, CAD: 6.99 },
     activeDevices: app.platform === "apple" ? null : 8400,
     lastDate: range.endDate,
     retention: null,

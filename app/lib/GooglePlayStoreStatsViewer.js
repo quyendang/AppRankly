@@ -260,6 +260,12 @@ class GooglePlayStoreStatsViewer {
   }
 
   async listPackages() {
+    const reporting = await resolver.resolve("google:app-discovery", {}, () =>
+      require("./googleAppDiscovery").discoverGoogleApps(this.keyJson),
+    ).catch(() => {
+      console.warn("GOOGLE_APP_DISCOVERY_UNAVAILABLE: enable Play Developer Reporting API and check service account access; using report files.");
+      return [];
+    });
     try {
       await this.initializeStorage();
       const bucketName = this.inputParamsModel.bucketName;
@@ -284,7 +290,7 @@ class GooglePlayStoreStatsViewer {
         }
       });
 
-      return Array.from(packages).map((pkg) => ({
+      const reportApps = Array.from(packages).map((pkg) => ({
         name: pkg
           .split(".")
           .pop()
@@ -293,8 +299,10 @@ class GooglePlayStoreStatsViewer {
           .join(" "),
         packageName: pkg,
       }));
+      return [...new Map([...reportApps, ...reporting].map(app => [app.packageName, app])).values()];
     } catch (e) {
-      console.error("Error listing packages:", e);
+      if (reporting.length) return reporting;
+      console.error("GOOGLE_REPORT_DISCOVERY_FAILED");
       throw e;
     }
   }

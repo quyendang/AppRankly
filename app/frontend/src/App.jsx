@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { revenueSummary } from "./revenue.js";
 import {
   LayoutGrid,
   Smartphone,
@@ -124,15 +125,6 @@ export default function App() {
         : new Intl.NumberFormat(i18n.language, {
             maximumFractionDigits: digits,
           }).format(v),
-    [i18n.language],
-  );
-  const money = useCallback(
-    (v, c) =>
-      new Intl.NumberFormat(i18n.language, {
-        style: "currency",
-        currency: c,
-        maximumFractionDigits: 0,
-      }).format(v),
     [i18n.language],
   );
   const formatDate = (value) =>
@@ -342,27 +334,28 @@ export default function App() {
       await loadNotes();
     }, "syncStarted");
   }
-  function currencies(list) {
-    const result = {};
-    for (const app of list)
-      for (const [c, v] of Object.entries(app.revenueByCurrency || {}))
-        result[c] = (result[c] || 0) + v;
-    return result;
-  }
   function revenue(list) {
-    const entries = Object.entries(currencies(list));
-    return entries.length ? (
-      entries.map(([currency, value]) => (
-        <strong key={currency}>
-          {money(value, currency)}
-          <small>{currency}</small>
-        </strong>
-      ))
-    ) : (
+    const { hasReports, entries } = revenueSummary(list);
+    if (!hasReports) return (
       <span className="muted" title={t("noCurrencyData")}>
         —
       </span>
     );
+    if (!entries.length) return (
+      <div className="revenue-zero"><strong>0</strong><span>{t("zeroRevenue")}</span></div>
+    );
+    const row = ([currency, value]) => (
+      <div className="revenue-amount" key={currency}>
+        <strong>{number(value, 2)}</strong><span>{currency}</span>
+      </div>
+    );
+    return <div className="revenue-summary">
+      {entries.slice(0, 2).map(row)}
+      {entries.length > 2 && <details className="revenue-more">
+        <summary>{t("moreCurrencies", { count: entries.length - 2 })}</summary>
+        <div className="revenue-breakdown">{entries.slice(2).map(row)}</div>
+      </details>}
+    </div>;
   }
   function kpis(list) {
     const available = list.filter((a) => a.installs != null),
