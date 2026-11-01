@@ -1,6 +1,6 @@
 # AppRankly — personal app portfolio
 
-A single-owner dashboard for your own Google Play and App Store apps. Compare your portfolio, inspect analytics, track ASO keywords and competitors, review public listings, maintain notes and releases, export data, and optionally receive notifications. AI requests require a server-generated payload preview and explicit confirmation.
+A single-owner dashboard for your own Google Play and App Store apps. Compare your portfolio, inspect analytics, track ASO keywords and competitors, review public listings, maintain notes and releases, export data, and optionally receive notifications. General AI analyses require a server-generated payload preview and explicit confirmation. Review replies use a one-click **AI-Generated Response** action to draft in the reviewer’s language; publishing always requires separate approval.
 
 The Spectrum interface uses warm accents, self-hosted fonts, English/Vietnamese localization, and light/dark/system appearance. The application runs as one Express service serving a React/Vite frontend, with Chart.js and SQLite.
 

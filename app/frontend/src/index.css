@@ -3638,7 +3638,6 @@ input[type="checkbox"] {
 .review .reply-text p { white-space: pre-wrap; margin: 8px 0; }
 .review-quote { margin: 0 0 20px; padding: 16px; background: var(--surface-alt); border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 180px; overflow-y: auto; }
 .reply-count { text-align: right; color: var(--muted); font-size: 12px; margin: 0 0 14px; }
-.reply-ai-preview { margin: 16px 0; }
 .login-screen {
   min-height: 100dvh;
   display: grid;

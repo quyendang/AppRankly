@@ -40,12 +40,16 @@ scraper.getAppleLookup = async () => ({
 scraper.getAppleReviewsRSS = async () => [];
 const ai = require("../lib/ai");
 let calls = 0,
-  lastPayload = "";
+  lastPayload = "", lastSystem = "", replyDraft = "Merci pour votre avis ! Ravi que l’application vous soit utile.";
+require("../lib/storeReviews").loadReviews = async () => ({
+  reviews: [{ id: "review-fr", rating: 5, text: "Très bonne application, merci !", language: "fr" }], sourceStatus: "available",
+});
 ai.generateJSON = async (input) => {
   calls++;
   lastPayload = input.prompt;
+  lastSystem = input.system;
   return {
-    data: { summary: "Safe result", recommendations: [], candidates: [] },
+    data: { summary: "Safe result", recommendations: [], candidates: JSON.parse(input.prompt).kind === "reviewReply" ? [replyDraft] : [] },
     provider: "openai",
     model: "synthetic",
     usage: { inputTokens: 1, outputTokens: 1 },
@@ -316,6 +320,27 @@ const { createApp } = require("../server");
       400,
     );
     assert.equal(calls, 1);
+    const replyPreview = await (await request("/api/ai/preview", "POST", {
+      appId: fakeApp.id, kind: "reviewReply", reviewId: "review-fr", locale: "vi",
+    }, cookie)).json();
+    assert.equal(replyPreview.payload.review.language, "fr");
+    assert.ok(!replyPreview.payload.metrics && !replyPreview.payload.notes);
+    const generated = await (await request("/api/ai/run", "POST", {
+      previewId: replyPreview.previewId, confirmed: true,
+    }, cookie)).json();
+    assert.equal(generated.result.candidates[0], replyDraft);
+    assert.match(lastSystem, /same language as the review text, not the dashboard locale/);
+    assert.match(lastSystem, /friendly, natural/);
+    assert.ok(!lastSystem.includes("Reply in Vietnamese"));
+    assert.ok(!lastPayload.includes(process.env.OPENAI_API_KEY));
+    replyDraft = "x".repeat(5971);
+    const invalidPreview = await (await request("/api/ai/preview", "POST", {
+      appId: fakeApp.id, kind: "reviewReply", reviewId: "review-fr", locale: "en",
+    }, cookie)).json();
+    assert.equal((await request("/api/ai/run", "POST", {
+      previewId: invalidPreview.previewId, confirmed: true,
+    }, cookie)).status, 400);
+    replyDraft = "Merci !";
     assert.equal(
       (await request("/api/notes/" + note.id, "DELETE", null, cookie)).status,
       200,

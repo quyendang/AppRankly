@@ -2131,37 +2131,32 @@ function Brand() {
 function ReviewReplyDialog({ app, review, busy, action, error, onClose, onSaved }) {
   const { t, i18n } = useTranslation();
   const [text, setText] = useState(review.replyText || "");
-  const [preview, setPreview] = useState(null);
-  const [consent, setConsent] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const limit = app.platform === "google" ? 350 : 5970;
   return <Dialog title={t("replyReview")} onClose={onClose}>
     <p className="modal-intro">{app.name} · {app.platform === "google" ? "Google Play" : "App Store"}</p>
     <blockquote className="review-quote">{review.text || review.body || review.title}</blockquote>
     <FormField label={t("replyBody")}>
-      <textarea rows={5} maxLength={limit} value={text} onChange={event => { setText(event.target.value); setConfirmed(false); }} />
+      <textarea rows={5} maxLength={limit} value={text} disabled={busy} onChange={event => { setText(event.target.value); setConfirmed(false); }} />
     </FormField>
     <p className="reply-count">{text.length} / {limit}</p>
-    <Button disabled={busy} icon={Sparkles} onClick={() => action(async () => {
-      const next = await api("/api/ai/preview", { method: "POST", body: {
-        appId: app.id, kind: "reviewReply", reviewId: review.id, locale: i18n.language,
-      } });
-      setPreview(next); setConsent(false);
-    })}>{t("prepareAIReply")}</Button>
-    {preview && <section className="reply-ai-preview">
-      {preview.destination && <p>{t("aiDestination", { provider: preview.destination.provider, origin: preview.destination.origin, model: preview.destination.model })}</p>}
-      <pre className="payload">{JSON.stringify(preview.payload, null, 2)}</pre>
-      <label className="consent-label"><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} />{t("aiConsent")}</label>
-      <Button disabled={busy || !consent} onClick={() => action(async () => {
+    <Button disabled={busy} aria-busy={generating} icon={Sparkles} onClick={() => action(async () => {
+      setGenerating(true);
+      setConfirmed(false);
+      try {
+        const preview = await api("/api/ai/preview", { method: "POST", body: {
+          appId: app.id, kind: "reviewReply", reviewId: review.id, locale: i18n.language,
+        } });
         const result = await api("/api/ai/run", { method: "POST", body: { previewId: preview.previewId, confirmed: true } });
         const draft = result.result?.candidates?.[0];
-        if (typeof draft !== "string" || !draft.trim()) throw new Error("OPERATION_FAILED");
-        setText(draft); setConfirmed(false); setPreview(null);
-      })}>{t("generateReplyDraft")}</Button>
-    </section>}
+        if (typeof draft !== "string" || !draft.trim() || draft.length > limit) throw new Error("INVALID_REVIEW_REPLY");
+        setText(draft); setConfirmed(false);
+      } finally { setGenerating(false); }
+    })}>{t(generating ? "generatingAIResponse" : "generateAIResponse")}</Button>
     <p className="privacy-note">{t("replyPublishHint")}</p>
     {error && <p role="alert" className="content-message">{t(error, { defaultValue: t("OPERATION_FAILED") })}</p>}
-    <label className="consent-label"><input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />{t("confirmPublicReply")}</label>
+    <label className="consent-label"><input type="checkbox" disabled={busy} checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />{t("confirmPublicReply")}</label>
     <div className="modal-footer">
       <Button onClick={onClose}>{t("cancel")}</Button>
       <Button primary disabled={busy || !confirmed || !text.trim() || text.length > limit} onClick={() => action(async () => {
