@@ -3880,3 +3880,22 @@ input[type="checkbox"] {
   padding: 6px 0;
   overflow-wrap: anywhere;
 }
+
+/* Quick UI pass: compact revenue, rating stars, clickable rows */
+.kpi > span { font-size: 11px; font-weight: 600; letter-spacing: 0.02em; }
+.kpi > small { font-size: 11px; }
+.fx-details > summary { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; list-style: none; color: var(--muted); font: 600 11px/1.6 var(--body); }
+.fx-details > summary::-webkit-details-marker { display: none; }
+.fx-details > summary .icon { width: 12px; height: 12px; }
+.fx-details[open] > summary { color: var(--accent); margin-bottom: 6px; }
+.fx-details > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.stars { --pct: calc(var(--rating) / 5 * 100%); font-size: 18px; letter-spacing: 2px; line-height: 1; }
+.stars::before { content: "★★★★★"; background: linear-gradient(90deg, var(--warning) var(--pct), var(--line) var(--pct)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.star-mark { color: var(--warning); margin-right: 4px; }
+.app-table td, .app-table th { font-variant-numeric: tabular-nums; }
+.clickable-row { cursor: pointer; transition: background-color 120ms; }
+.clickable-row:hover { background: var(--surface-subtle); }
+.table-currency .revenue-amount { justify-content: flex-end; }
+@media (max-width: 600px) {
+  .toolbar { flex-wrap: wrap; }
+}

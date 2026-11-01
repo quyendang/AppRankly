@@ -4,7 +4,6 @@ import { revenueSummary, usdSummary } from "./revenue.js";
 import {
   LayoutGrid,
   Smartphone,
-  BarChart3 as ChartNoAxesCombined,
   Settings,
   Sun,
   Moon,
@@ -345,8 +344,14 @@ export default function App() {
       </details>}
     </div>;
   }
-  function revenue(list) {
+  function revenue(list, compact = false) {
     const converted = usdSummary(list, exchange);
+    if (compact) {
+      const { hasReports, entries } = revenueSummary(list);
+      return <div className="revenue-amount" title={entries.map(([c, v]) => number(v, 2) + " " + c).join(" · ") || undefined}>
+        <strong>{!hasReports || converted.total == null ? "—" : number(converted.total, 2)}</strong><span>USD</span>
+      </div>;
+    }
     return <div className="revenue-groups">
       <div className="usd-total"><span className="revenue-basis">{t("convertedTotal")}</span>
         <div className="revenue-amount"><strong>{converted.total == null ? "—" : number(converted.total, 2)}</strong><span>USD</span></div>
@@ -400,18 +405,29 @@ export default function App() {
           <small>{t("lastMonth")}</small>
         </div>
         <div className="kpi revenue-kpi">
-          <span>
-            {t("availableRevenue")}
-            <Info className="icon" />
-          </span>
+          <span>{t("availableRevenue")}</span>
           <div className="currency-values">{revenue(list)}</div>
-          {exchangeInfo(list)}
+          <details className="fx-details">
+            <summary><Info className="icon" />{t("howCalculated")}</summary>
+            {exchangeInfo(list)}
+          </details>
         </div>
-        <div className="kpi">
-          <span>{t("activeApps")}</span>
-          <div className="kpi-value">{list.length}</div>
-          <small>{t("privateWorkspace")}</small>
-        </div>
+        {list.length === 1 ? (
+          <div className="kpi">
+            <span>{t("storeRating")}</span>
+            <div className="kpi-value">
+              {number(list[0].rating, 1)}
+              {list[0].rating != null && <span className="stars" aria-hidden="true" style={{ "--rating": list[0].rating }} />}
+            </div>
+            <small>{t("storeRatingHint")}</small>
+          </div>
+        ) : (
+          <div className="kpi">
+            <span>{t("activeApps")}</span>
+            <div className="kpi-value">{list.length}</div>
+            <small>{t("privateWorkspace")}</small>
+          </div>
+        )}
       </section>
     );
   }
@@ -489,7 +505,15 @@ export default function App() {
             </thead>
             <tbody>
               {filtered.map((a) => (
-                <tr key={a.id}>
+                <tr
+                  key={a.id}
+                  className="clickable-row"
+                  onClick={(e) => {
+                    if (e.target.closest("button,a,details,summary")) return;
+                    setSelected(a.id);
+                    navigate("appDetail");
+                  }}
+                >
                   <td>
                     <button
                       className="app-row-button"
@@ -516,6 +540,7 @@ export default function App() {
                     <Sparkline
                       values={a.dailyTrends.map((d) => d.installs)}
                       max={max}
+                      tone={growth(a) > 0 ? "positive" : growth(a) < 0 ? "negative" : "accent"}
                       label={t("trend") + " " + a.name}
                     />
                   </td>
@@ -526,9 +551,10 @@ export default function App() {
                     <Change value={growth(a)} />
                   </td>
                   <td className="numeric revenue-column">
-                    <div className="table-currency">{revenue([a])}</div>
+                    <div className="table-currency">{revenue([a], true)}</div>
                   </td>
                   <td className="numeric rating-column">
+                    {a.rating != null && <span className="star-mark" aria-hidden="true">★</span>}
                     {number(a.rating, 1)}
                   </td>
                   <td>
@@ -609,7 +635,6 @@ export default function App() {
     return (
       <>
         <div className="detail-nav">
-          {appSelect()}
           <Tabs
             items={["overview", "countries", "versions", "storeListing", "keywords", "competitors", "reviews", "campaigns"]}
             value={detailTab}
@@ -1477,7 +1502,7 @@ export default function App() {
           {["portfolio", "appDetail"].includes(page) && (
             <div className="toolbar">
               <div className="filter-group">
-                <label className="select-wrap">
+                {page === "appDetail" ? current && appSelect() : <label className="select-wrap">
                   <Smartphone className="icon" />
                   <select
                     aria-label={t("platform")}
@@ -1488,7 +1513,7 @@ export default function App() {
                     <option value="apple">App Store</option>
                     <option value="google">Google Play</option>
                   </select>
-                </label>
+                </label>}
                 <label className="select-wrap">
                   <Calendar className="icon" />
                   <select
@@ -1507,6 +1532,11 @@ export default function App() {
                   {formatDate(rangeFor(period).startDate)} –{" "}
                   {formatDate(rangeFor(period).endDate)}
                 </span>
+                {page === "portfolio" && filtered.length > 0 && (
+                  <span className="toolbar-date">
+                    · {t("reportDate")}: {formatDate(filtered.map((a) => a.lastDate).filter(Boolean).sort().at(-1))}
+                  </span>
+                )}
               </div>
               <div className="toolbar-actions">
                 <Button
@@ -1516,6 +1546,11 @@ export default function App() {
                 >
                   {t("export")}
                 </Button>
+                {page === "portfolio" && (
+                  <Button onClick={() => exportData(true)} disabled={!filtered.length}>
+                    {t("downloadRaw")}
+                  </Button>
+                )}
                 <Button
                   icon={RefreshCw}
                   onClick={sync}
@@ -1589,26 +1624,6 @@ export default function App() {
               ) : (
                 <>
                   {kpis(filtered)}
-                  <div className="spectrum-insight">
-                    <span className="insight-symbol">
-                      <ChartNoAxesCombined className="icon" />
-                    </span>
-                    <div>
-                      <strong>{t("reportDate")}</strong>
-                      <p>
-                        {formatDate(
-                          filtered
-                            .map((a) => a.lastDate)
-                            .filter(Boolean)
-                            .sort()
-                            .at(-1),
-                        )}
-                      </p>
-                    </div>
-                    <Button onClick={() => exportData(true)}>
-                      {t("downloadRaw")}
-                    </Button>
-                  </div>
                   {appTable()}
                   <Panel title={t("trend")}>
                     <Chart

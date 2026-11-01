@@ -9,6 +9,7 @@ import {
   LineElement,
   Tooltip,
   Legend,
+  Filler,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
 import {
@@ -26,6 +27,7 @@ ChartJS.register(
   LineElement,
   Tooltip,
   Legend,
+  Filler,
 );
 export function Button({
   children,
@@ -154,7 +156,9 @@ export function Chart({ apps, previous = [], theme, range }) {
         label: t("currentPeriod"),
         data: values,
         borderColor: color,
-        backgroundColor: color,
+        backgroundColor: color + "22",
+        fill: "origin",
+        pointStyle: "circle",
         borderWidth: 2.5,
         pointRadius: 0,
         pointHoverRadius: 4,
@@ -165,9 +169,11 @@ export function Chart({ apps, previous = [], theme, range }) {
             {
               label: t("previousPeriod"),
               data: old,
-              borderColor: dark ? "#B88D77" : "#AD8270",
+              borderColor: muted,
+              backgroundColor: muted,
               borderDash: [5, 5],
-              borderWidth: 1.7,
+              borderWidth: 1.5,
+              pointStyle: "line",
               pointRadius: 0,
               tension: 0.2,
             },
@@ -193,8 +199,9 @@ export function Chart({ apps, previous = [], theme, range }) {
               labels: {
                 color: muted,
                 usePointStyle: true,
-                pointStyle: "circle",
-                boxWidth: 6,
+                boxWidth: 18,
+                boxHeight: 8,
+                padding: 16,
                 font: { family: "Be Vietnam Pro", size: 11 },
               },
             },
@@ -217,7 +224,7 @@ export function Chart({ apps, previous = [], theme, range }) {
     </div>
   );
 }
-export function Sparkline({ values, max = 1, label }) {
+export function Sparkline({ values, max = 1, label, tone = "accent" }) {
   if (!values?.length) return <span className="muted">—</span>;
   const segments = sparkSegments(values, max);
   if (!segments.length) return <span className="muted">—</span>;
@@ -233,12 +240,18 @@ export function Sparkline({ values, max = 1, label }) {
           key={index}
           points={points}
           fill="none"
-          stroke="var(--accent)"
+          stroke={`var(--${tone})`}
           strokeWidth="2"
           strokeLinejoin="round"
           strokeLinecap="round"
         />
       ))}
+      <circle
+        cx={segments.at(-1).split(" ").at(-1).split(",")[0]}
+        cy={segments.at(-1).split(" ").at(-1).split(",")[1]}
+        r="3"
+        fill={`var(--${tone})`}
+      />
     </svg>
   );
 }
