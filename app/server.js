@@ -118,6 +118,7 @@ function createApp() {
   app.post("/api/auth/logout", auth.logout);
   app.get("/api/auth/me", (req, res) => res.json({ owner: true }));
   app.get("/api/settings", (req, res) => res.json(config.getSettings()));
+  app.get("/api/exchange-rates", run(async (req, res) => res.json(await require("./lib/exchangeRates").getExchangeRates())));
   app.put(
     "/api/settings",
     run(async (req, res) => {

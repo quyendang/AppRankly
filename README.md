@@ -1,6 +1,6 @@
 # AppRankly — personal app portfolio
 
-A single-owner dashboard for your own Google Play and App Store apps. Compare your portfolio, inspect analytics, track ASO keywords and competitors, review public listings, maintain notes and releases, export data, and optionally receive notifications. General AI analyses require a server-generated payload preview and explicit confirmation. Review replies use a one-click **AI-Generated Response** action to draft in the reviewer’s language; publishing always requires separate approval.
+A single-owner dashboard for your own Google Play and App Store apps. Compare your portfolio, inspect analytics, track ASO keywords and competitors, review public listings and respond to customers inside App details, view estimated USD totals, export data, and optionally receive notifications. General AI analyses require a server-generated payload preview and explicit confirmation. Review replies use a one-click **AI-Generated Response** action to draft in the reviewer’s language; publishing always requires separate approval.
 
 The Spectrum interface uses warm accents, self-hosted fonts, English/Vietnamese localization, and light/dark/system appearance. The application runs as one Express service serving a React/Vite frontend, with Chart.js and SQLite.
 
@@ -49,7 +49,7 @@ For frontend development, run `npm run dev --prefix app/frontend` in another ter
 - Sessions last 12 hours in an HttpOnly cookie. Production adds Secure; SameSite is Strict. Changing the password hash or JWT secret invalidates existing sessions.
 - Team APIs, public setup, raw configuration APIs, Git synchronization, public demo generation, and AI-generated SQL execution have been removed.
 - OpenAI- and Anthropic-compatible proxies are supported through server-only `OPENAI_BASE_URL` / `ANTHROPIC_BASE_URL`; see the [proxy configuration guide](DEPLOYMENT.md#custom-openai--anthropic-proxy-endpoints). The configured destination receives the selected AI key and approved payload.
-- AI does not run automatically in the background. Private analytics and notes are excluded unless you select them and approve the preview.
+- AI does not run automatically in the background. Private analytics are excluded unless you select them and approve the preview; legacy notes are no longer selectable in the UI.
 - Revenue stays grouped by its original currency. Missing or unsupported measurements are shown as unavailable rather than fabricated zeros.
 
 ## Verification

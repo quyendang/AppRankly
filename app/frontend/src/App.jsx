@@ -1,11 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { revenueSummary } from "./revenue.js";
+import { revenueSummary, usdSummary } from "./revenue.js";
 import {
   LayoutGrid,
   Smartphone,
   BarChart3 as ChartNoAxesCombined,
-  BookOpen,
   Settings,
   Sun,
   Moon,
@@ -16,7 +15,6 @@ import {
   Download,
   Search,
   ArrowRight,
-  Plus,
   Sparkles,
   LogOut,
   Bell,
@@ -45,8 +43,6 @@ import {
 const pages = [
   ["portfolio", LayoutGrid],
   ["appDetail", Smartphone],
-  ["aso", ChartNoAxesCombined],
-  ["journal", BookOpen],
   ["settings", Settings],
 ];
 const day = 86400000;
@@ -73,7 +69,7 @@ export default function App() {
   const { t, i18n } = useTranslation();
   const [authenticated, setAuthenticated] = useState(null),
     [page, setPage] = useState(
-      pages.some(([p]) => p === location.hash.slice(1))
+      location.hash === "#aso" ? "appDetail" : pages.some(([p]) => p === location.hash.slice(1))
         ? location.hash.slice(1)
         : "portfolio",
     );
@@ -85,6 +81,7 @@ export default function App() {
     );
   const resolvedTheme =
     theme === "system" ? (systemDark ? "dark" : "light") : theme;
+  const [exchange, setExchange] = useState(null);
   const [period, setPeriod] = useState(30),
     [platform, setPlatform] = useState("all"),
     [query, setQuery] = useState(""),
@@ -98,16 +95,11 @@ export default function App() {
     [message, setMessage] = useState("");
   const [settings, setSettings] = useState(null),
     [integrations, setIntegrations] = useState(null),
-    [notes, setNotes] = useState([]),
-    [releases, setReleases] = useState([]),
     [notifications, setNotifications] = useState([]);
-  const [detailTab, setDetailTab] = useState("overview"),
-    [journalTab, setJournalTab] = useState("notes"),
-    [noteQuery, setNoteQuery] = useState(""),
+  const [detailTab, setDetailTab] = useState(location.hash === "#aso" ? "storeListing" : "overview"),
     [dimensions, setDimensions] = useState(null),
     [dimensionBusy, setDimensionBusy] = useState(false);
   const [asoData, setAsoData] = useState(null),
-    [asoTab, setAsoTab] = useState("storeListing"),
     [asoBusy, setAsoBusy] = useState(false),
     [searchCompetitors, setSearchCompetitors] = useState([]);
   const [modal, setModal] = useState(null),
@@ -180,11 +172,6 @@ export default function App() {
       setBusy(false);
     }
   }
-  async function loadNotes() {
-    const [n, r] = await Promise.all([api("/api/notes"), api("/api/releases")]);
-    setNotes(n);
-    setReleases(r);
-  }
   const loadASO = useCallback(
     async (signal) => {
       if (!current) return;
@@ -234,7 +221,9 @@ export default function App() {
   }, [page]);
   useEffect(() => {
     const change = () => {
-      if (pages.some(([p]) => p === location.hash.slice(1)))
+      if (location.hash === "#aso") { setPage("appDetail"); setDetailTab("storeListing"); }
+      else if (location.hash === "#journal") setPage("portfolio");
+      else if (pages.some(([p]) => p === location.hash.slice(1)))
         setPage(location.hash.slice(1));
     };
     window.addEventListener("hashchange", change);
@@ -276,29 +265,33 @@ export default function App() {
     Promise.all([
       api("/api/settings", { signal: abort.signal }),
       api("/api/integrations", { signal: abort.signal }),
-      api("/api/notes", { signal: abort.signal }),
-      api("/api/releases", { signal: abort.signal }),
       api("/api/notifications", { signal: abort.signal }),
     ])
-      .then(([s, i, n, r, alerts]) => {
+      .then(([s, i, alerts]) => {
         setSettings(s);
         setIntegrations(i);
-        setNotes(n);
-        setReleases(r);
         setNotifications(alerts.notifications);
       })
       .catch(handleError);
     return () => abort.abort();
   }, [authenticated, handleError]);
   useEffect(() => {
-    if (!authenticated || page !== "aso" || !current) return;
+    if (!authenticated) return;
+    const abort = new AbortController();
+    const load = () => api("/api/exchange-rates", { signal: abort.signal }).then(setExchange).catch(() => {});
+    load();
+    const timer = setInterval(load, 3600000);
+    return () => { abort.abort(); clearInterval(timer); };
+  }, [authenticated, refresh]);
+  useEffect(() => {
+    if (!authenticated || page !== "appDetail" || !current) return;
     setAsoData(null);
     const abort = new AbortController();
     loadASO(abort.signal);
     return () => abort.abort();
   }, [page, current?.id, authenticated, loadASO]);
   useEffect(() => {
-    if (!authenticated || page !== "appDetail" || !current) return;
+    if (!authenticated || page !== "appDetail" || !current || !["overview", "countries", "versions"].includes(detailTab)) return;
     const abort = new AbortController();
     setDimensions(null);
     setDimensionBusy(true);
@@ -318,11 +311,6 @@ export default function App() {
       });
     return () => abort.abort();
   }, [page, current?.id, period, detailTab, authenticated, handleError]);
-  const privateNotes = notes.filter(
-    (n) =>
-      current &&
-      (n.packageName === current.packageName || n.packageName === "all"),
-  );
   function navigate(next) {
     setPage(next);
     setDrawer(null);
@@ -332,7 +320,6 @@ export default function App() {
     await action(async () => {
       await api("/api/refresh", { method: "POST", body: {} });
       setRefresh((v) => v + 1);
-      await loadNotes();
     }, "syncStarted");
   }
   function revenueAmounts(list) {
@@ -359,7 +346,14 @@ export default function App() {
     </div>;
   }
   function revenue(list) {
-    return <div className="revenue-groups">{["apple", "google"].map(platform => {
+    const converted = usdSummary(list, exchange);
+    return <div className="revenue-groups">
+      <div className="usd-total"><span className="revenue-basis">{t("convertedTotal")}</span>
+        <div className="revenue-amount"><strong>{converted.total == null ? "—" : number(converted.total, 2)}</strong><span>USD</span></div>
+        {!!converted.missing.length && <small className="revenue-coverage">{t("missingRates", { currencies: converted.missing.join(", ") })}</small>}
+      </div>
+      <details className="original-revenue"><summary>{t("originalAmounts")}</summary>
+      <div className="revenue-groups">{["apple", "google"].map(platform => {
       const group = list.filter(app => app.platform === platform);
       if (!group.length) return null;
       const values = platform === "google" ? group.map(app => ({ ...app, revenueByCurrency: app.grossRevenueByCurrency || {} })) : group;
@@ -369,7 +363,21 @@ export default function App() {
         {platform === "google" && group.some(app => app.revenueStatus !== "available") &&
           <span className="revenue-coverage">{t(group.some(app => app.revenueAvailable) ? "revenuePartial" : "revenueUnavailable")}</span>}
       </div>;
-    })}</div>;
+      })}</div></details>
+    </div>;
+  }
+  function exchangeInfo(list) {
+    const converted = usdSummary(list, exchange);
+    const currencies = [...new Set(list.flatMap(app => Object.entries((app.platform === "google" ? app.grossRevenueByCurrency : app.revenueByCurrency) || {})
+      .filter(([, amount]) => Number.isFinite(amount) && amount !== 0).map(([currency]) => currency)))].filter(currency => currency !== "USD");
+    return <div className="fx-info">
+      <span>{t("usdEstimateHint")}</span>
+      {list.some(app => app.platform === "apple") && list.some(app => app.platform === "google") && <span>{t("mixedRevenueBasis")}</span>}
+      {!!currencies.length && <details><summary>{t("exchangeRates")} · Frankfurter {converted.dates.length ? "· " + converted.dates.join(" / ") : ""}</summary>
+        {currencies.map(currency => <span key={currency}>{exchange?.rates?.[currency] ? `1 ${currency} = ${number(exchange.rates[currency].rate, 6)} USD · ${exchange.rates[currency].date}` : t("missingRates", { currencies: currency })}</span>)}
+      </details>}
+      {exchange?.status === "stale" && <span role="status">{t("staleRates")}</span>}
+    </div>;
   }
   function kpis(list) {
     const available = list.filter((a) => a.installs != null),
@@ -397,7 +405,7 @@ export default function App() {
             <Info className="icon" />
           </span>
           <div className="currency-values">{revenue(list)}</div>
-          <small>{t("separateCurrencies")}</small>
+          {exchangeInfo(list)}
         </div>
         <div className="kpi">
           <span>{t("activeApps")}</span>
@@ -551,72 +559,6 @@ export default function App() {
       </Panel>
     );
   }
-  function timeline() {
-    const events = releases
-      .filter(
-        (r) =>
-          page !== "appDetail" ||
-          (r.packageName === current?.packageName &&
-            r.platform === current?.platform),
-      )
-      .sort((a, b) =>
-        (b.date || b.releaseDate || "").localeCompare(
-          a.date || a.releaseDate || "",
-        ),
-      );
-    return (
-      <Panel
-        title={t("releaseTimeline")}
-        action={
-          <Button
-            icon={ArrowRight}
-            onClick={() => {
-              navigate("journal");
-              setJournalTab("releases");
-            }}
-          >
-            {t("viewAll")}
-          </Button>
-        }
-      >
-        {events.length ? (
-          <div className="release-timeline">
-            {events.slice(0, 3).map((r, i) => (
-              <button
-                className="timeline-event"
-                key={r.id || i}
-                onClick={() => {
-                  const a = apps.find(
-                    (a) =>
-                      a.packageName === r.packageName &&
-                      a.platform === r.platform,
-                  );
-                  if (a) {
-                    setSelected(a.id);
-                    navigate("appDetail");
-                  }
-                }}
-              >
-                <span
-                  className="timeline-dot"
-                  style={{ "--event-color": "var(--accent)" }}
-                />
-                <time>{formatDate(r.date || r.releaseDate)}</time>
-                <strong>
-                  {apps.find((a) => a.packageName === r.packageName)?.name ||
-                    r.packageName}{" "}
-                  <span>v{r.version}</span>
-                </strong>
-                <small>{r.notes}</small>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <p className="content-message">{t("noReleases")}</p>
-        )}
-      </Panel>
-    );
-  }
   function breakdown() {
     const rows = Array.isArray(dimensions) ? dimensions : [];
     const total = rows.reduce(
@@ -669,13 +611,13 @@ export default function App() {
         <div className="detail-nav">
           {appSelect()}
           <Tabs
-            items={["overview", "countries", "versions"]}
+            items={["overview", "countries", "versions", "storeListing", "keywords", "competitors", "reviews", "campaigns"]}
             value={detailTab}
             onChange={setDetailTab}
           />
         </div>
-        {kpis([current])}
-        {detailTab === "overview" ? (
+        {["overview", "countries", "versions"].includes(detailTab) && kpis([current])}
+        {!["overview", "countries", "versions"].includes(detailTab) ? aso() : detailTab === "overview" ? (
           <>
             <Panel
               title={t("trend")}
@@ -710,7 +652,6 @@ export default function App() {
                 <p className="content-message">{t("dataCoverageText")}</p>
               </Panel>
             </div>
-            {timeline()}
           </>
         ) : (
           breakdown()
@@ -726,25 +667,11 @@ export default function App() {
       reviewList = asoData?.reviews || [];
     return (
       <>
-        <div className="detail-nav">
-          {appSelect()}
-          <Tabs
-            items={[
-              "storeListing",
-              "keywords",
-              "competitors",
-              "reviews",
-              "campaigns",
-            ]}
-            value={asoTab}
-            onChange={setAsoTab}
-          />
-        </div>
         {asoBusy ? (
           <p role="status" className="content-message">
             {t("loading")}
           </p>
-        ) : asoTab === "storeListing" ? (
+        ) : detailTab === "storeListing" ? (
           <>
             <div className="aso-grid">
               <Panel title={t("listingSnapshot")} className="listing-panel">
@@ -797,7 +724,7 @@ export default function App() {
               </Panel>
             </div>
           </>
-        ) : asoTab === "keywords" ? (
+        ) : detailTab === "keywords" ? (
           <Panel
             title={t("keywords")}
             action={
@@ -925,7 +852,7 @@ export default function App() {
               <p className="content-message">{t("noKeywords")}</p>
             )}
           </Panel>
-        ) : asoTab === "competitors" ? (
+        ) : detailTab === "competitors" ? (
           <Panel title={t("competitors")}>
             <form
               className="inline-form"
@@ -985,7 +912,7 @@ export default function App() {
               )}
             </div>
           </Panel>
-        ) : asoTab === "reviews" ? (
+        ) : detailTab === "reviews" ? (
           <Panel title={t("reviews")}>
             <div className="review-toolbar">
               <Tabs items={["allReviews", "unanswered", "answered"]} value={reviewFilter} onChange={setReviewFilter} />
@@ -1081,153 +1008,6 @@ export default function App() {
                 </button>
               </div>
             ))}
-          </Panel>
-        )}
-      </>
-    );
-  }
-  function journal() {
-    const visible = notes.filter(
-      (n) =>
-        (platform === "all" ||
-          n.platform === platform ||
-          n.platform === "all") &&
-        (n.title + " " + n.content)
-          .toLowerCase()
-          .includes(noteQuery.toLowerCase()),
-    );
-    const visibleReleases = releases.filter(
-      (r) =>
-        (platform === "all" || r.platform === platform) &&
-        (
-          r.version +
-          " " +
-          r.notes +
-          " " +
-          r.packageName +
-          " " +
-          (apps.find((a) => a.packageName === r.packageName)?.name || "")
-        )
-          .toLowerCase()
-          .includes(noteQuery.toLowerCase()),
-    );
-    return (
-      <>
-        <div className="journal-toolbar">
-          <Tabs
-            items={["notes", "releases"]}
-            value={journalTab}
-            onChange={setJournalTab}
-          />
-          {
-            <label className="search-field">
-              <Search className="icon" />
-              <input
-                type="search"
-                aria-label={t("searchJournal")}
-                placeholder={t("searchJournal")}
-                value={noteQuery}
-                onChange={(e) => setNoteQuery(e.target.value)}
-              />
-            </label>
-          }
-        </div>
-        <p className="privacy-note">
-          <Lock className="icon" />
-          {t("notesPrivacy")}
-        </p>
-        {journalTab === "notes" ? (
-          visible.length ? (
-            <div className="notes-grid">
-              {visible.map((n) => (
-                <article className="note-card" key={n.id}>
-                  <div className="note-top">
-                    <span>
-                      {apps.find((a) => a.packageName === n.packageName)
-                        ?.name || t("allApps")}
-                    </span>
-                    <time>{formatDate(n.updatedAt)}</time>
-                  </div>
-                  <h2>{n.title}</h2>
-                  <p>{n.content}</p>
-                  <div className="note-bottom">
-                    <span className="tag">{t("notes")}</span>
-                    <div>
-                      <button
-                        className="icon-button"
-                        aria-label={t("edit") + " " + n.title}
-                        onClick={() => setModal({ type: "note", note: n })}
-                      >
-                        <Pencil className="icon" />
-                      </button>
-                      <button
-                        className="icon-button"
-                        aria-label={t("delete") + " " + n.title}
-                        onClick={() => setModal({ type: "delete", note: n })}
-                      >
-                        <Trash2 className="icon" />
-                      </button>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <Empty
-              title="notes"
-              text="noNotesReal"
-              action={
-                <Button
-                  primary
-                  icon={Plus}
-                  onClick={() => setModal({ type: "note" })}
-                >
-                  {t("newNote")}
-                </Button>
-              }
-            />
-          )
-        ) : (
-          <Panel title={t("releases")}>
-            {visibleReleases.length ? (
-              visibleReleases.map((r, i) => (
-                <article className="release-row" key={r.id || i}>
-                  <time>{formatDate(r.date || r.releaseDate)}</time>
-                  <span className="release-line-dot" />
-                  <div>
-                    <strong>
-                      {apps.find((a) => a.packageName === r.packageName)
-                        ?.name || r.packageName}
-                    </strong>
-                    <h3>{r.notes}</h3>
-                    <span className="muted">{t(r.platform)}</span>
-                  </div>
-                  <span className="version-badge">v{r.version}</span>
-                  {r.id && (
-                    <button
-                      className="icon-button"
-                      aria-label={t("editRelease") + " " + r.version}
-                      onClick={() => setModal({ type: "release", release: r })}
-                    >
-                      <Pencil className="icon" />
-                    </button>
-                  )}
-                  {r.id && (
-                    <button
-                      className="icon-button"
-                      aria-label={t("deleteRelease")}
-                      onClick={() =>
-                        setModal({ type: "delete-release", release: r })
-                      }
-                    >
-                      <Trash2 className="icon" />
-                    </button>
-                  )}
-                </article>
-              ))
-            ) : (
-              <p className="content-message">{t("noReleases")}</p>
-            )}
           </Panel>
         )}
       </>
@@ -1497,7 +1277,7 @@ export default function App() {
       download(
         "apprankly.json",
         JSON.stringify(
-          { range: rangeFor(period), apps: filtered, notes, releases },
+          { range: rangeFor(period), apps: filtered, exchangeRates: exchange },
           null,
           2,
         ),
@@ -1570,11 +1350,7 @@ export default function App() {
       ? t("spectrumTitle")
       : page === "appDetail"
         ? current?.name || t("appDetail")
-        : page === "journal"
-          ? t("journalTitle")
-          : page === "settings"
-            ? t("settingsTitle")
-            : t("aso");
+        : t("settingsTitle");
   return (
     <>
       <a className="skip-link" href="#main-content">
@@ -1616,8 +1392,7 @@ export default function App() {
                 await api("/api/auth/logout", { method: "POST", body: {} });
                 setAuthenticated(false);
                 setData(null);
-                setNotes([]);
-                setReleases([]);
+                setExchange(null);
               })
             }
           >
@@ -1679,23 +1454,17 @@ export default function App() {
           <div className="page-heading">
             <div>
               <h1 ref={heading} tabIndex={-1}>
-                {title}
+                {page === "appDetail" && current ? <span className="detail-identity"><Avatar app={current} /></span> : title}
               </h1>
               <p>
                 {t(
                   page === "portfolio"
                     ? "portfolioSubtitle"
-                    : page === "journal"
-                      ? "journalSubtitle"
-                      : page === "settings"
-                        ? "settingsSubtitle"
-                        : page === "aso"
-                          ? "auditDesc"
-                          : "dataCoverageText",
+                    : page === "settings" ? "settingsSubtitle" : "appDetailSubtitle",
                 )}
               </p>
             </div>
-            {page === "aso" && current && (
+            {page === "appDetail" && current && (
               <Button
                 primary
                 icon={Sparkles}
@@ -1704,22 +1473,8 @@ export default function App() {
                 {t("previewAI")}
               </Button>
             )}
-            {page === "journal" && (
-              <Button
-                primary
-                icon={Plus}
-                disabled={journalTab === "releases" && !current}
-                onClick={() =>
-                  setModal({
-                    type: journalTab === "notes" ? "note" : "release",
-                  })
-                }
-              >
-                {t(journalTab === "notes" ? "newNote" : "newRelease")}
-              </Button>
-            )}
           </div>
-          {["portfolio", "appDetail", "aso"].includes(page) && (
+          {["portfolio", "appDetail"].includes(page) && (
             <div className="toolbar">
               <div className="filter-group">
                 <label className="select-wrap">
@@ -1865,15 +1620,10 @@ export default function App() {
                       range={data?.range}
                     />
                   </Panel>
-                  {timeline()}
                 </>
               )
             ) : page === "appDetail" ? (
               detail()
-            ) : page === "aso" ? (
-              aso()
-            ) : page === "journal" ? (
-              journal()
             ) : (
               settingsPage()
             )}
@@ -1904,15 +1654,14 @@ export default function App() {
       {modal?.type === "ai" && (
         <AIDialog
           app={current}
-          notes={privateNotes}
           range={rangeFor(period)}
           busy={busy}
           action={action}
           onClose={() => setModal(null)}
           onResult={(result) => {
             setAiResult(result);
-            navigate("aso");
-            setAsoTab("storeListing");
+            navigate("appDetail");
+            setDetailTab("storeListing");
             setModal(null);
           }}
         />
@@ -1922,156 +1671,6 @@ export default function App() {
           setAsoData(data => ({ ...data, reviews: data.reviews.map(item => item.id === review.id ? review : item) }));
           setModal(null); notify("replyPublished");
         }} />}
-      {["note", "release"].includes(modal?.type) && (
-        <Dialog
-          title={t(
-            modal.type === "release"
-              ? modal.release
-                ? "editRelease"
-                : "newRelease"
-              : modal.note
-                ? "edit"
-                : "newNote",
-          )}
-          onClose={() => setModal(null)}
-        >
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const form = new FormData(e.currentTarget),
-                isNote = modal.type === "note";
-              action(
-                async () => {
-                  await api(
-                    isNote
-                      ? "/api/notes" + (modal.note ? "/" + modal.note.id : "")
-                      : "/api/releases",
-                    {
-                      method: modal.note ? "PUT" : "POST",
-                      body: isNote
-                        ? {
-                            title: form.get("title"),
-                            content: form.get("content"),
-                            appId: form.get("appId") || null,
-                          }
-                        : {
-                            id: modal.release?.id,
-                            appId: modal.release
-                              ? `${modal.release.platform}:${modal.release.packageName}`
-                              : form.get("appId"),
-                            version: form.get("title"),
-                            notes: form.get("content"),
-                            date: form.get("date"),
-                          },
-                    },
-                  );
-                  await loadNotes();
-                  setModal(null);
-                },
-                isNote ? "noteSaved" : "releaseCreated",
-              );
-            }}
-          >
-            <FormField label={t("chooseApp")}>
-              <select
-                name="appId"
-                defaultValue={
-                  modal.note
-                    ? apps.find(
-                        (a) =>
-                          a.packageName === modal.note.packageName &&
-                          a.platform === modal.note.platform,
-                      )?.id || ""
-                    : modal.release
-                      ? `${modal.release.platform}:${modal.release.packageName}`
-                      : current?.id || ""
-                }
-                disabled={!!(modal.note || modal.release)}
-                required={modal.type === "release"}
-              >
-                {modal.type === "note" && (
-                  <option value="">{t("allApps")}</option>
-                )}
-                {apps.map((a) => (
-                  <option value={a.id} key={a.id}>
-                    {a.name} · {t(a.platform)}
-                  </option>
-                ))}
-              </select>
-            </FormField>
-            <FormField
-              label={t(modal.type === "release" ? "versionField" : "noteTitle")}
-            >
-              <input
-                name="title"
-                required
-                maxLength={modal.type === "release" ? 100 : 150}
-                defaultValue={modal.note?.title || modal.release?.version || ""}
-              />
-            </FormField>
-            {modal.type === "release" && (
-              <FormField label={t("date")}>
-                <input
-                  type="date"
-                  name="date"
-                  required
-                  defaultValue={
-                    modal.release?.date ||
-                    modal.release?.releaseDate ||
-                    new Date().toISOString().slice(0, 10)
-                  }
-                />
-              </FormField>
-            )}
-            <FormField
-              label={t(
-                modal.type === "release" ? "releaseNote" : "noteContent",
-              )}
-            >
-              <textarea
-                name="content"
-                required
-                maxLength={modal.type === "release" ? 10000 : 20000}
-                rows={5}
-                defaultValue={modal.note?.content || modal.release?.notes || ""}
-              />
-            </FormField>
-            <p className="fine-print">{t("aiWarning")}</p>
-            <div className="modal-footer">
-              <Button onClick={() => setModal(null)}>{t("cancel")}</Button>
-              <Button primary type="submit" disabled={busy}>
-                {t("save")}
-              </Button>
-            </div>
-          </form>
-        </Dialog>
-      )}
-      {["delete", "delete-release"].includes(modal?.type) && (
-        <Dialog title={t("confirmDelete")} onClose={() => setModal(null)}>
-          <p>{modal.note?.title || modal.release?.version}</p>
-          <div className="modal-footer">
-            <Button onClick={() => setModal(null)}>{t("cancel")}</Button>
-            <Button
-              primary
-              disabled={busy}
-              onClick={() =>
-                action(async () => {
-                  await api(
-                    modal.type === "delete"
-                      ? "/api/notes/" + modal.note.id
-                      : "/api/releases/" + modal.release.id,
-                    { method: "DELETE" },
-                  );
-                  await loadNotes();
-                  setModal(null);
-                }, "noteDeleted")
-              }
-            >
-              {t("delete")}
-            </Button>
-          </div>
-        </Dialog>
-      )}
       {modal?.type === "notifications" && (
         <Dialog title={t("notifications")} onClose={() => setModal(null)}>
           {!notifications.length && (
@@ -2166,12 +1765,11 @@ function ReviewReplyDialog({ app, review, busy, action, error, onClose, onSaved 
     </div>
   </Dialog>;
 }
-function AIDialog({ app, notes, range, action, busy, onClose, onResult }) {
+function AIDialog({ app, range, action, busy, onClose, onResult }) {
   const { t, i18n } = useTranslation();
   const [kind, setKind] = useState("audit"),
     [question, setQuestion] = useState(""),
     [metrics, setMetrics] = useState(false),
-    [selectedNotes, setSelectedNotes] = useState([]),
     [preview, setPreview] = useState(null),
     [confirmed, setConfirmed] = useState(false);
   function change(fn) {
@@ -2187,7 +1785,7 @@ function AIDialog({ app, notes, range, action, busy, onClose, onResult }) {
           value={kind}
           onChange={(e) => change(() => setKind(e.target.value))}
         >
-          {["audit", "variants", "reviews", "ask", "note"].map((k) => (
+          {["audit", "variants", "reviews", "ask"].map((k) => (
             <option value={k} key={k}>
               {t(k)}
             </option>
@@ -2211,24 +1809,6 @@ function AIDialog({ app, notes, range, action, busy, onClose, onResult }) {
           />
           {t("aiPrivate")}
         </label>
-        {notes.map((n) => (
-          <label key={n.id}>
-            <input
-              type="checkbox"
-              checked={selectedNotes.includes(n.id)}
-              onChange={(e) =>
-                change(() =>
-                  setSelectedNotes((v) =>
-                    e.target.checked
-                      ? [...v, n.id]
-                      : v.filter((x) => x !== n.id),
-                  ),
-                )
-              }
-            />
-            {n.title}
-          </label>
-        ))}
         <small>{t("aiPrivateHint")}</small>
       </div>
       <Button
@@ -2242,7 +1822,6 @@ function AIDialog({ app, notes, range, action, busy, onClose, onResult }) {
                 kind,
                 question,
                 includeMetrics: metrics,
-                noteIds: selectedNotes,
                 locale: i18n.language,
                 range,
               },

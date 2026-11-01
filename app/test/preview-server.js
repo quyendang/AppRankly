@@ -48,6 +48,10 @@ const apps = [
   },
 ];
 const portfolio = require("../lib/portfolio");
+require("../lib/exchangeRates").getExchangeRates = async () => ({
+  base: "USD", source: "Frankfurter", status: "available", fetchedAt: "2026-11-01T00:00:00Z",
+  rates: Object.fromEntries(Object.entries({ USD: 1, EUR: 1.1, GBP: 1.3, NZD: 0.6, CAD: 0.72, JPY: 0.0065, VND: 0.00004 }).map(([currency, rate]) => [currency, { rate, date: currency === "USD" ? null : "2026-10-30" }])),
+});
 portfolio.listApps = async () => ({ apps, warnings: [] });
 portfolio.ownedApp = async (id) => {
   const app = apps.find((a) => a.id === id);

@@ -58,6 +58,7 @@ ai.generateJSON = async (input) => {
 };
 process.env.OPENAI_BASE_URL = "https://proxy.synthetic.invalid/private-route";
 const { createApp } = require("../server");
+require("../lib/exchangeRates").getExchangeRates = async () => ({ base: "USD", source: "Frankfurter", status: "available", rates: { USD: { rate: 1, date: null } } });
 (async () => {
   let server;
   try {
@@ -111,6 +112,7 @@ const { createApp } = require("../server");
     assert.equal(secureCookie.status, 0, secureCookie.stderr);
     for (const url of [
       "/api/settings",
+      "/api/exchange-rates",
       "/api/notes",
       "/api/projects",
       "/api/config",
@@ -138,6 +140,10 @@ const { createApp } = require("../server");
     });
     assert.equal(login.status, 200);
     const cookie = login.headers.get("set-cookie");
+    const exchange = await (await request("/api/exchange-rates", "GET", null, cookie)).json();
+    assert.equal(exchange.base, "USD");
+    assert.equal(exchange.rates.USD.rate, 1);
+    assert.ok(!JSON.stringify(exchange).includes(process.env.OPENAI_API_KEY));
     assert.match(cookie, /HttpOnly/i);
     assert.match(cookie, /SameSite=Strict/i);
     assert.match(cookie, /Max-Age=43200/);

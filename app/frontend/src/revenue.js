@@ -11,3 +11,19 @@ export function revenueSummary(apps) {
       .sort(([a], [b]) => a.localeCompare(b)),
   };
 }
+export function usdSummary(apps, exchange) {
+  let total = 0, hasReports = false;
+  const missing = new Set(), dates = new Set();
+  for (const app of apps) {
+    const values = (app.platform === "google" ? app.grossRevenueByCurrency : app.revenueByCurrency) || {};
+    if (Object.keys(values).length || app.revenueAvailable) hasReports = true;
+    for (const [currency, amount] of Object.entries(values)) {
+      if (!Number.isFinite(amount) || amount === 0) continue;
+      const item = currency === "USD" ? { rate: 1 } : exchange?.rates?.[currency];
+      if (!item || !Number.isFinite(item.rate) || item.rate <= 0) { missing.add(currency); continue; }
+      if (item.date) dates.add(item.date);
+      total += amount * item.rate;
+    }
+  }
+  return { total: hasReports && !missing.size ? total : null, missing: [...missing], dates: [...dates].sort() };
+}
