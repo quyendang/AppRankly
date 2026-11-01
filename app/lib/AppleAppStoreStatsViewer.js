@@ -265,7 +265,32 @@ class AppleAppStoreStatsViewer {
       }),
     );
 
-    for (const { dateStr, rawTxt } of reports) {
+    // IAP/subscription Apple IDs identify the product; Parent Identifier is the app SKU.
+    const appSkus = new Set();
+    const parsedReports = await Promise.all(reports.map(async report => {
+      const rows = [];
+      if (report.rawTxt && report.rawTxt !== "__EMPTY__")
+        await new Promise((resolve, reject) => csv.parseString(report.rawTxt, { headers: true, delimiter: "\t" })
+          .on("data", row => {
+            rows.push(row);
+            if (String(row["Apple Identifier"] || "").trim() === String(numericId) && row.SKU)
+              appSkus.add(row.SKU.trim());
+          }).on("error", reject).on("end", resolve));
+      return { ...report, rows };
+    }));
+    if (!appSkus.size && parsedReports.some(report => report.rows.some(row => row["Parent Identifier"]))) {
+      const sku = await resolver.resolve("apple:app-sku", { appId: numericId, issuerId: this.issuerId }, async () => {
+        const response = await axios.get(`https://api.appstoreconnect.apple.com/v1/apps/${encodeURIComponent(numericId)}`, {
+          params: { "fields[apps]": "sku" }, headers: { Authorization: `Bearer ${this.generateToken()}` }, timeout: 10000,
+        });
+        const value = response.data?.data?.attributes?.sku;
+        if (!value) throw new Error("APPLE_SKU_UNAVAILABLE");
+        return value;
+      });
+      appSkus.add(sku);
+    }
+
+    for (const { dateStr, rawTxt, rows } of parsedReports) {
       if (!rawTxt || rawTxt === "__EMPTY__") continue;
       mergedTrends.set(dateStr, {
         date: dateStr,
@@ -278,60 +303,56 @@ class AppleAppStoreStatsViewer {
         revenue: null,
         revenueByCurrency: {},
       });
-      await new Promise((resolve, reject) => {
-        csv
-          .parseString(rawTxt, { headers: true, delimiter: "\t" })
-          .on("data", (row) => {
-            const appleId = (row["Apple Identifier"] || "").trim();
-            if (appleId !== String(numericId)) return;
+      for (const row of rows) {
+        const appleId = (row["Apple Identifier"] || "").trim();
+        const isApp = appleId === String(numericId);
+        if (!isApp && !appSkus.has(String(row["Parent Identifier"] || "").trim())) continue;
 
-            const rowDate = parseMMDDYYYY(row["Begin Date"]) || dateStr;
-            const trend = mergedTrends.get(rowDate) || {
-              date: rowDate,
-              dailyInstalls: 0,
-              dailyUninstalls: null,
-              dailyUserInstalls: 0,
-              dailyUserUninstalls: null,
-              netGrowth: 0,
-              activeDevices: null,
-              upgrades: 0,
-              revenue: 0,
-              netRevenue: 0,
-              impressions: 0,
-              pageViews: 0,
-              sessions: 0,
-              crashes: 0,
-            };
+        const rowDate = parseMMDDYYYY(row["Begin Date"]) || dateStr;
+        const trend = mergedTrends.get(rowDate) || {
+          date: rowDate,
+          dailyInstalls: 0,
+          dailyUninstalls: null,
+          dailyUserInstalls: 0,
+          dailyUserUninstalls: null,
+          netGrowth: 0,
+          activeDevices: null,
+          upgrades: 0,
+          revenue: 0,
+          netRevenue: 0,
+          impressions: 0,
+          pageViews: 0,
+          sessions: 0,
+          crashes: 0,
+        };
 
-            const units = parseInt(row["Units"]) || 0;
-            const proceeds = parseFloat(row["Developer Proceeds"]) || 0;
-            const productType = (row["Product Type Identifier"] || "").trim();
+        const units = Number(row["Units"]) || 0;
+        const proceeds = Number(row["Developer Proceeds"] ?? row["Developer Proceeds (per unit)"]);
+        if (!Number.isFinite(proceeds)) throw new Error("APPLE_REPORTS_INVALID");
+        const productType = (row["Product Type Identifier"] || "").trim();
 
-            if (FIRST_INSTALL_TYPES.has(productType)) {
-              trend.dailyInstalls += units;
-            } else if (
-              REDOWNLOAD_TYPES.has(productType) ||
-              UPDATE_TYPES.has(productType)
-            ) {
-              trend.upgrades += units;
-            }
+        if (isApp && FIRST_INSTALL_TYPES.has(productType)) {
+          trend.dailyInstalls += units;
+        } else if (
+          isApp && (REDOWNLOAD_TYPES.has(productType) ||
+          UPDATE_TYPES.has(productType))
+        ) {
+          trend.upgrades += units;
+        }
 
-            const currency = (row["Currency of Proceeds"] || "").trim();
-            trend.revenueByCurrency = trend.revenueByCurrency || {};
-            if (currency)
-              trend.revenueByCurrency[currency] =
-                (trend.revenueByCurrency[currency] || 0) + proceeds * units;
-            trend.revenue = null;
-            trend.netRevenue = trend.revenue;
-            trend.dailyUserInstalls = trend.dailyInstalls;
-            trend.netGrowth = trend.dailyInstalls - trend.dailyUninstalls;
+        const currency = (row["Currency of Proceeds"] || "").trim();
+        trend.revenueByCurrency = trend.revenueByCurrency || {};
+        if (/^[A-Z]{3}$/.test(currency))
+          trend.revenueByCurrency[currency] =
+            (trend.revenueByCurrency[currency] || 0) + proceeds * units;
+        trend.revenue = null;
+        trend.netRevenue = trend.revenue;
+        trend.dailyUserInstalls = trend.dailyInstalls;
+        trend.netGrowth = trend.dailyInstalls - trend.dailyUninstalls;
 
-            if (rowDate >= dateList[0] && rowDate <= dateList.at(-1))
-              mergedTrends.set(rowDate, trend);
-          })
-          .on("error", reject)
-          .on("end", () => resolve());
-      });
+        if (rowDate >= dateList[0] && rowDate <= dateList.at(-1))
+          mergedTrends.set(rowDate, trend);
+      }
     }
 
     const dailyTrends = Array.from(mergedTrends.values()).sort((a, b) =>

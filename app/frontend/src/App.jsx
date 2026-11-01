@@ -115,6 +115,7 @@ export default function App() {
     [aiResult, setAiResult] = useState(null),
     [refresh, setRefresh] = useState(0);
   const [rankCountry, setRankCountry] = useState("us");
+  const [reviewFilter, setReviewFilter] = useState("allReviews");
   const heading = useRef(null),
     pending = useRef(false),
     messageTimer = useRef(null);
@@ -334,7 +335,7 @@ export default function App() {
       await loadNotes();
     }, "syncStarted");
   }
-  function revenue(list) {
+  function revenueAmounts(list) {
     const { hasReports, entries } = revenueSummary(list);
     if (!hasReports) return (
       <span className="muted" title={t("noCurrencyData")}>
@@ -356,6 +357,19 @@ export default function App() {
         <div className="revenue-breakdown">{entries.slice(2).map(row)}</div>
       </details>}
     </div>;
+  }
+  function revenue(list) {
+    return <div className="revenue-groups">{["apple", "google"].map(platform => {
+      const group = list.filter(app => app.platform === platform);
+      if (!group.length) return null;
+      const values = platform === "google" ? group.map(app => ({ ...app, revenueByCurrency: app.grossRevenueByCurrency || {} })) : group;
+      return <div className="revenue-group" key={platform}>
+        <span className="revenue-basis">{t(platform === "apple" ? "appleNetRevenue" : "googleGrossRevenue")}</span>
+        {revenueAmounts(values)}
+        {platform === "google" && group.some(app => app.revenueStatus !== "available") &&
+          <span className="revenue-coverage">{t(group.some(app => app.revenueAvailable) ? "revenuePartial" : "revenueUnavailable")}</span>}
+      </div>;
+    })}</div>;
   }
   function kpis(list) {
     const available = list.filter((a) => a.installs != null),
@@ -973,18 +987,37 @@ export default function App() {
           </Panel>
         ) : asoTab === "reviews" ? (
           <Panel title={t("reviews")}>
-            {reviewList.length ? (
-              reviewList.slice(0, 30).map((r, i) => (
+            <div className="review-toolbar">
+              <Tabs items={["allReviews", "unanswered", "answered"]} value={reviewFilter} onChange={setReviewFilter} />
+              <Button icon={RefreshCw} disabled={busy} onClick={() => action(async () => {
+                const next = await api("/api/aso/reviews/refresh", { method: "POST", body: { appId: current.id } });
+                setAsoData(data => ({ ...data, reviews: next.reviews, reviewSourceStatus: next.sourceStatus }));
+              })}>{t("refreshReviews")}</Button>
+            </div>
+            <p className="content-message">{t(current.platform === "google" ? "googleReviewCoverage" : "appleReviewCoverage")}</p>
+            {asoData?.reviewSourceStatus === "unavailable" && <p className="content-message" role="status">{t("reviewSourceUnavailable")}</p>}
+            {reviewList.filter(r => reviewFilter === "allReviews" || (reviewFilter === "answered" ? !!r.replyText : !r.replyText)).length ? (
+              reviewList.filter(r => reviewFilter === "allReviews" || (reviewFilter === "answered" ? !!r.replyText : !r.replyText)).map((r, i) => (
                 <article className="review" key={r.id || i}>
                   <div>
-                    <strong>{r.userName || r.author || t("reviews")}</strong>
+                    <strong>{r.userName || r.author || t("anonymousReviewer")}</strong>
                     <span>{number(r.score || r.rating, 1)} / 5</span>
+                    {r.date && <time>{formatDate(r.date)}</time>}
                   </div>
                   <p>{r.text || r.body || r.title}</p>
+                  {r.replyText && <div className="reply-text">
+                    <strong>{t("developerReply")}</strong>
+                    <p>{r.replyText}</p>
+                    {r.replyDate && <small>{formatDate(r.replyDate)}</small>}
+                    {r.responseState === "PENDING_PUBLISH" && <small> · {t("pendingPublish")}</small>}
+                  </div>}
+                  {r.canReply && <Button disabled={busy} icon={Pencil} onClick={() => { setError(""); setModal({ type: "review", app: current, review: r }); }}>
+                    {t(r.replyText ? "editReviewReply" : "replyReview")}
+                  </Button>}
                 </article>
               ))
             ) : (
-              <p className="content-message">{t("noReviews")}</p>
+              <p className="content-message">{t(reviewList.length ? "noFilteredReviews" : "noReviews")}</p>
             )}
           </Panel>
         ) : (
@@ -1884,6 +1917,11 @@ export default function App() {
           }}
         />
       )}
+      {modal?.type === "review" && <ReviewReplyDialog app={modal.app} review={modal.review} busy={busy} action={action} error={error}
+        onClose={() => setModal(null)} onSaved={review => {
+          setAsoData(data => ({ ...data, reviews: data.reviews.map(item => item.id === review.id ? review : item) }));
+          setModal(null); notify("replyPublished");
+        }} />}
       {["note", "release"].includes(modal?.type) && (
         <Dialog
           title={t(
@@ -2089,6 +2127,49 @@ function Brand() {
       </span>
     </a>
   );
+}
+function ReviewReplyDialog({ app, review, busy, action, error, onClose, onSaved }) {
+  const { t, i18n } = useTranslation();
+  const [text, setText] = useState(review.replyText || "");
+  const [preview, setPreview] = useState(null);
+  const [consent, setConsent] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  const limit = app.platform === "google" ? 350 : 5970;
+  return <Dialog title={t("replyReview")} onClose={onClose}>
+    <p className="modal-intro">{app.name} · {app.platform === "google" ? "Google Play" : "App Store"}</p>
+    <blockquote className="review-quote">{review.text || review.body || review.title}</blockquote>
+    <FormField label={t("replyBody")}>
+      <textarea rows={5} maxLength={limit} value={text} onChange={event => { setText(event.target.value); setConfirmed(false); }} />
+    </FormField>
+    <p className="reply-count">{text.length} / {limit}</p>
+    <Button disabled={busy} icon={Sparkles} onClick={() => action(async () => {
+      const next = await api("/api/ai/preview", { method: "POST", body: {
+        appId: app.id, kind: "reviewReply", reviewId: review.id, locale: i18n.language,
+      } });
+      setPreview(next); setConsent(false);
+    })}>{t("prepareAIReply")}</Button>
+    {preview && <section className="reply-ai-preview">
+      {preview.destination && <p>{t("aiDestination", { provider: preview.destination.provider, origin: preview.destination.origin, model: preview.destination.model })}</p>}
+      <pre className="payload">{JSON.stringify(preview.payload, null, 2)}</pre>
+      <label className="consent-label"><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} />{t("aiConsent")}</label>
+      <Button disabled={busy || !consent} onClick={() => action(async () => {
+        const result = await api("/api/ai/run", { method: "POST", body: { previewId: preview.previewId, confirmed: true } });
+        const draft = result.result?.candidates?.[0];
+        if (typeof draft !== "string" || !draft.trim()) throw new Error("OPERATION_FAILED");
+        setText(draft); setConfirmed(false); setPreview(null);
+      })}>{t("generateReplyDraft")}</Button>
+    </section>}
+    <p className="privacy-note">{t("replyPublishHint")}</p>
+    {error && <p role="alert" className="content-message">{t(error, { defaultValue: t("OPERATION_FAILED") })}</p>}
+    <label className="consent-label"><input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} />{t("confirmPublicReply")}</label>
+    <div className="modal-footer">
+      <Button onClick={onClose}>{t("cancel")}</Button>
+      <Button primary disabled={busy || !confirmed || !text.trim() || text.length > limit} onClick={() => action(async () => {
+        const result = await api("/api/aso/reviews/reply", { method: "POST", body: { appId: app.id, reviewId: review.id, text, confirmed: true } });
+        onSaved(result.review);
+      })}>{t(busy ? "saving" : "publishReply")}</Button>
+    </div>
+  </Dialog>;
 }
 function AIDialog({ app, notes, range, action, busy, onClose, onResult }) {
   const { t, i18n } = useTranslation();

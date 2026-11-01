@@ -75,6 +75,9 @@ portfolio.appStats = async (app, range) => {
     revenueByCurrency: app.platform !== "apple" ? {} : app.appId === "456"
       ? Object.fromEntries(["USD", "EUR", "GBP", "JPY", "VND", "CAD", "AUD"].map(c => [c, 0]))
       : { USD: count * 20 + 0.49, EUR: 12.75, GBP: -2, JPY: 1200, VND: 250000, CAD: 6.99 },
+    grossRevenueByCurrency: app.platform === "google" ? { USD: 29.97 } : {},
+    revenueAvailable: true,
+    revenueStatus: "available",
     activeDevices: app.platform === "apple" ? null : 8400,
     lastDate: range.endDate,
     retention: null,
@@ -132,12 +135,24 @@ ai.generateJSON = async () => ({
   data: {
     summary: "Preview result using synthetic data only.",
     recommendations: ["Review listing clarity."],
-    candidates: [],
+    candidates: ["Thank you for your feedback! We're glad the app is useful."],
   },
   provider: "test",
   model: "fixture",
   usage: {},
 });
+const reviewFixtures = [
+  { id: "r1", author: "Preview user", rating: 5, text: "A clean space for daily notes.", date: "2026-10-29T12:00:00Z", replyText: "Thank you for sharing your feedback!", replyDate: "2026-10-30T12:00:00Z", canReply: true, source: "official" },
+  { id: "r2", author: "Another preview user", rating: 4, text: "Useful app. Could the timer text be a little larger?", date: "2026-10-28T12:00:00Z", replyText: null, canReply: true, source: "official" },
+];
+const managedReviews = require("../lib/storeReviews");
+managedReviews.loadReviews = async () => ({ reviews: reviewFixtures, sourceStatus: "available" });
+managedReviews.replyReview = async (app, id, text) => {
+  const review = reviewFixtures.find(review => review.id === id);
+  if (!review || text.length > 350) throw new Error("INVALID_REVIEW_REPLY");
+  review.replyText = text; review.replyDate = new Date().toISOString();
+  return review;
+};
 fs.writeFileSync(
   path.join(process.env.DATA_DIR, "releases.json"),
   JSON.stringify([

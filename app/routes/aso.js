@@ -12,6 +12,7 @@ const { getNotesFromStorage } = require("../lib/notes");
 const { generateJSON, getAIStatus } = require("../lib/ai");
 const { redact } = require("../lib/runtime");
 const router = express.Router();
+const managedReviews = require("../lib/storeReviews");
 const markets = {
   us: "en",
   vn: "vi",
@@ -33,11 +34,7 @@ async function listing(app) {
   );
 }
 async function reviews(app) {
-  return resolver.resolve("personal:reviews", { id: app.id }, () =>
-    app.platform === "google"
-      ? scraper.getPlayReviews(app.packageName, 30)
-      : scraper.getAppleReviewsRSS(app.appId || app.packageName),
-  );
+  return (await managedReviews.loadReviews(app)).reviews;
 }
 router.get("/ai/status", (req, res) => res.json(getAIStatus()));
 router.get(
@@ -47,11 +44,12 @@ router.get(
       platform = codePlatform(app);
     const [metadata, reviewList] = await Promise.all([
       listing(app),
-      reviews(app),
+      managedReviews.loadReviews(app),
     ]);
     res.json({
       listing: metadata,
-      reviews: reviewList || [],
+      reviews: reviewList.reviews || [],
+      reviewSourceStatus: reviewList.sourceStatus,
       keywords: db
         .prepare(
           "SELECT * FROM aso_keyword WHERE package_name=? AND platform=? ORDER BY tracked DESC, added_at DESC",
@@ -78,6 +76,16 @@ router.get(
     });
   }),
 );
+router.post("/aso/reviews/reply", run(async (req, res) => {
+  if (req.body.confirmed !== true) throw new Error("PREVIEW_REQUIRED");
+  const app = await ownedApp(req.body.appId);
+  res.json({ review: await managedReviews.replyReview(app, req.body.reviewId, req.body.text) });
+}));
+router.post("/aso/reviews/refresh", run(async (req, res) => {
+  const app = await ownedApp(req.body.appId);
+  resolver.clearCache("managed:reviews");
+  res.json(await managedReviews.loadReviews(app));
+}));
 router.post(
   "/aso/keywords",
   run(async (req, res) => {
@@ -267,9 +275,10 @@ router.post(
       noteIds = [],
       locale = "vi",
       range = {},
+      reviewId,
     } = req.body;
     if (
-      !["audit", "variants", "reviews", "ask", "note"].includes(kind) ||
+      !["audit", "variants", "reviews", "reviewReply", "ask", "note"].includes(kind) ||
       !["vi", "en"].includes(locale) ||
       typeof question !== "string" ||
       question.length > 1000 ||
@@ -305,11 +314,21 @@ router.post(
         rating: x.score || x.rating,
         text: String(x.text || x.body || x.title || "").slice(0, 500),
       }));
+    if (kind === "reviewReply") {
+      if (typeof reviewId !== "string") throw new Error("INVALID_REVIEW_REPLY");
+      const review = (await reviews(app)).find(review => review.id === reviewId);
+      if (!review) throw new Error("INVALID_REVIEW_REPLY");
+      payload.review = { rating: review.rating || review.score, text: String(review.text || review.body || "").slice(0, 5000) };
+      payload.replyLimit = app.platform === "google" ? 350 : 5970;
+      payload.instruction = "Put exactly one proposed developer reply in candidates. Match the review language. Do not invent fixes, features or promises. Respect replyLimit characters. This is a draft only.";
+    }
     if (includeMetrics) {
       const stats = await appStats(app, dateRange(range));
       payload.metrics = {
         installs: stats.installs,
         revenueByCurrency: stats.revenueByCurrency,
+        grossRevenueByCurrency: stats.grossRevenueByCurrency || {},
+        revenueBasis: app.platform === "google" ? "gross_buyer_payments_including_tax" : "estimated_developer_proceeds",
         range: dateRange(range),
       };
     }

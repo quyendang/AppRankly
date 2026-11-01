@@ -131,7 +131,7 @@ async function ownedApp(id) {
 }
 async function appStats(app, range) {
   return resolver.resolve(
-    "personal:stats:v2",
+    "personal:stats:v4",
     { id: app.id, ...range },
     async () => {
       const config = getBaseConfig();
@@ -139,8 +139,14 @@ async function appStats(app, range) {
         app.platform === "apple"
           ? buildAppleViewer(config, app.packageName)
           : buildGoogleViewer(config, app.packageName)
-      ).getAppStats(range.startDate, range.endDate);
+      ).getAppStats(range.startDate, range.endDate).catch(error => {
+        if (app.platform === "google" && error.message === "NO_REPORTS") return { dailyTrends: [] };
+        throw error;
+      });
+      const sales = app.platform === "google"
+        ? await require("./googleSales").getGoogleSales(config, app.packageName, range) : {};
       const trends = raw.dailyTrends || [];
+      if (!trends.length && !sales.revenueAvailable) throw new Error("NO_REPORTS");
       const revenueByCurrency = {};
       for (const day of trends)
         for (const [currency, value] of Object.entries(
@@ -166,6 +172,7 @@ async function appStats(app, range) {
           ? knownInstalls.reduce((a, b) => a + b, 0)
           : null,
         revenueByCurrency,
+        ...sales,
         activeDevices:
           app.platform === "apple"
             ? null

@@ -6,7 +6,7 @@ export function revenueSummary(apps) {
       totals.set(currency, (totals.get(currency) || 0) + value);
     }
   return {
-    hasReports: totals.size > 0,
+    hasReports: totals.size > 0 || apps.some(app => app.revenueAvailable === true),
     entries: [...totals].filter(([, value]) => value !== 0)
       .sort(([a], [b]) => a.localeCompare(b)),
   };

@@ -213,6 +213,12 @@ const { createApp } = require("../server");
       )
     ).json();
     assert.ok(note.id);
+    assert.equal((await request("/api/aso/reviews/reply", "POST", {
+      appId: fakeApp.id, reviewId: "review-not-owned", text: "Unapproved response",
+    }, cookie)).status, 400);
+    assert.equal((await request("/api/aso/reviews/reply", "POST", {
+      appId: fakeApp.id, reviewId: "review-not-owned", text: "Response", confirmed: true,
+    }, cookie)).status, 400);
     assert.equal(
       (
         await request(

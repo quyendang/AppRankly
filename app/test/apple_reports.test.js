@@ -6,7 +6,7 @@ let status = 200,
   requests = [];
 const originalAxios = require.cache[axiosPath];
 const tsv =
-  "Apple Identifier\tBegin Date\tProduct Type Identifier\tUnits\tDeveloper Proceeds\tCurrency of Proceeds\n111\t10/20/2026\t1F\t7\t0\tUSD\n222\t10/20/2026\t1\t3\t2\tEUR\n";
+  "Apple Identifier\tBegin Date\tProduct Type Identifier\tUnits\tDeveloper Proceeds\tCurrency of Proceeds\tSKU\tParent Identifier\n9001\t10/20/2026\tIAY\t2\t3.5\tUSD\tsub-monthly\tapp-alpha\n111\t10/20/2026\t1F\t7\t0\tUSD\tapp-alpha\t\n222\t10/20/2026\t1\t3\t2\tEUR\tapp-beta\t\n9001\t10/20/2026\tIAY\t-1\t3.5\tUSD\tsub-monthly\tapp-alpha\n9002\t10/20/2026\tIA1\t1\t1\tEUR\tcoins\tapp-alpha\n9003\t10/20/2026\tIAY\t1\t99\tUSD\tother-sub\tapp-other\n";
 const fakeAxios = async (options) => {
   requests.push(options);
   if (status !== 200) {
@@ -33,12 +33,21 @@ const Viewer = require("../lib/AppleAppStoreStatsViewer");
   viewer.generateToken = () => "synthetic-token";
   const first = await viewer.getAppStats("2026-10-20", "2026-10-20");
   assert.equal(first.dailyTrends[0].dailyInstalls, 7);
+  assert.deepEqual(first.dailyTrends[0].revenueByCurrency, { USD: 3.5, EUR: 1 });
   assert.equal(requests[0].params["filter[version]"], "1_0");
   viewer.appId = "222";
   viewer.numericAppId = null;
   const second = await viewer.getAppStats("2026-10-20", "2026-10-20");
   assert.equal(second.dailyTrends[0].dailyInstalls, 3);
   assert.deepEqual(second.dailyTrends[0].revenueByCurrency, { EUR: 6 });
+  // A subscription-only period still resolves the parent app SKU from ASC.
+  fakeAxios.get = async () => ({ data: { data: { attributes: { sku: "app-alpha" } } } });
+  viewer.appId = "111";
+  viewer.numericAppId = null;
+  viewer.fetchDailySalesReport = async () => tsv.split("\n").filter((line, index) => index === 0 || line.startsWith("9001\t")).join("\n");
+  const subscriptionOnly = await viewer.getAppStats("2026-10-20", "2026-10-20");
+  assert.equal(subscriptionOnly.dailyTrends[0].dailyInstalls, 0);
+  assert.deepEqual(subscriptionOnly.dailyTrends[0].revenueByCurrency, { USD: 3.5 });
   // Missing dates must not be filled with fabricated zero measurements.
   viewer.fetchDailySalesReport = async (date) =>
     date === "2026-10-20" ? tsv : null;

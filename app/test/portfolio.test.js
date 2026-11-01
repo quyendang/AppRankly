@@ -24,6 +24,7 @@ for (const [name, content] of Object.entries(fixtures))
   );
 const factory = require("../lib/viewerFactory");
 require("../lib/googleAppDiscovery").discoverGoogleApps = async () => [];
+require("../lib/googleSales").getGoogleSales = async () => ({ grossRevenueByCurrency: {}, revenueAvailable: false, revenueStatus: "unavailable" });
 let failDiscovery = false;
 factory.buildGoogleViewer = (cfg, pkg) => {
   const viewer = new (require("../lib/GooglePlayStoreStatsViewer"))({

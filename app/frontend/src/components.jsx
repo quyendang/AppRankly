@@ -369,12 +369,14 @@ export function csvDownload(apps, t) {
       t("installs"),
       t("revenue"),
       t("originCurrency"),
+      t("revenueBasis"),
     ],
   ];
   for (const app of apps) {
-    const entries = Object.entries(app.revenueByCurrency || {});
+    const entries = Object.entries((app.platform === "google" ? app.grossRevenueByCurrency : app.revenueByCurrency) || {});
+    const basis = t(app.platform === "google" ? "googleGrossRevenue" : "appleNetRevenue");
     if (!entries.length)
-      rows.push([app.name, app.platform, app.installs ?? "", "", ""]);
+      rows.push([app.name, app.platform, app.installs ?? "", "", "", basis]);
     else
       for (const [currency, value] of entries)
         rows.push([
@@ -383,6 +385,7 @@ export function csvDownload(apps, t) {
           app.installs ?? "",
           value,
           currency,
+          basis,
         ]);
   }
   download(
