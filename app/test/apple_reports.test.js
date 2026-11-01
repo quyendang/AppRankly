@@ -57,9 +57,12 @@ const Viewer = require("../lib/AppleAppStoreStatsViewer");
   other.generateToken = () => "synthetic-token";
   for (const errorStatus of [400, 401, 403, 429, 500]) {
     status = errorStatus;
+    other.vendorId = "error-vendor-" + status;
     await assert.rejects(
       other.fetchDailySalesReport("2026-10-20"),
-      /APPLE_REPORTS_UNAVAILABLE/,
+      (error) =>
+        error.message === "APPLE_REPORTS_UNAVAILABLE" &&
+        error.statusCode === errorStatus,
     );
     assert.equal(
       fs.existsSync(path.join(other.cacheDir, "sales_2026-10-20.txt")),
@@ -67,6 +70,7 @@ const Viewer = require("../lib/AppleAppStoreStatsViewer");
     );
   }
   status = 404;
+  other.vendorId = "missing-vendor";
   assert.equal(await other.fetchDailySalesReport("2026-10-20"), null);
   status = 200;
   fs.utimesSync(

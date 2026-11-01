@@ -487,11 +487,13 @@ export default function App() {
                     </button>
                     {(a.error || a.installs == null) && (
                       <small className="app-data-status">
-                        {t(
-                          a.error === "SOURCE_FAILED"
-                            ? "appSourceFailed"
-                            : "appNoReports",
-                        )}
+                        {a.sourceStatus
+                          ? t("appleReportHTTP", { status: a.sourceStatus })
+                          : t(
+                              a.error === "SOURCE_FAILED"
+                                ? "appSourceFailed"
+                                : "appNoReports",
+                            )}
                       </small>
                     )}
                   </td>

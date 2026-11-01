@@ -5,6 +5,8 @@ const csv = require("@fast-csv/parse");
 const fs = require("fs");
 const path = require("path");
 const resolver = require("./resolver");
+const reportLimit = require("./utils/concurrency").createLimiter(2);
+const reportFailures = new Map();
 
 const FIRST_INSTALL_TYPES = new Set(["1", "1E", "1F", "1T", "F1"]);
 const REDOWNLOAD_TYPES = new Set(["7", "7F", "7E", "F7"]);
@@ -179,54 +181,66 @@ class AppleAppStoreStatsViewer {
     return resolver.resolve(
       "apple:sales_report:v2",
       { vendorId: this.vendorId, dateStr },
-      async () => {
-        if (fs.existsSync(cacheFile)) {
-          const content = fs.readFileSync(cacheFile, "utf8");
-          const isMissing = content === "__EMPTY__" || content === "NO_DATA";
-          if (!isMissing) return content;
-          if (
-            !isRecentDate &&
-            !shouldBypassEmpty &&
-            Date.now() - fs.statSync(cacheFile).mtimeMs < 300000
-          )
-            return null;
-        }
-
-        const token = this.generateToken();
-        const url = "https://api.appstoreconnect.apple.com/v1/salesReports";
-        const params = {
-          "filter[vendorNumber]": this.vendorId,
-          "filter[reportType]": "SALES",
-          "filter[reportSubType]": "SUMMARY",
-          "filter[version]": "1_0",
-          "filter[frequency]": "DAILY",
-          "filter[reportDate]": dateStr,
-        };
-
-        try {
-          console.log(`[DEBUG] Fetching Apple Sales Report for ${dateStr}...`);
-          const response = await axios({
-            method: "get",
-            url,
-            params,
-            headers: { Authorization: `Bearer ${token}` },
-            responseType: "arraybuffer",
-          });
-
-          const rawTxt = zlib.gunzipSync(response.data).toString("utf8");
-          fs.writeFileSync(cacheFile, rawTxt, "utf8");
-          return rawTxt;
-        } catch (err) {
-          if (err.response && err.response.status === 404) {
-            // Report not generated yet or no sales for that date — write negative cache
-            try {
-              fs.writeFileSync(cacheFile, "__EMPTY__", "utf8");
-            } catch {}
-            return null;
+      () =>
+        reportLimit(async () => {
+          const failure = reportFailures.get(this.vendorId);
+          if (failure && failure.until > Date.now()) throw failure.error;
+          reportFailures.delete(this.vendorId);
+          if (fs.existsSync(cacheFile)) {
+            const content = fs.readFileSync(cacheFile, "utf8");
+            const isMissing = content === "__EMPTY__" || content === "NO_DATA";
+            if (!isMissing) return content;
+            if (
+              !isRecentDate &&
+              !shouldBypassEmpty &&
+              Date.now() - fs.statSync(cacheFile).mtimeMs < 300000
+            )
+              return null;
           }
-          throw new Error("APPLE_REPORTS_UNAVAILABLE");
-        }
-      },
+
+          const token = this.generateToken();
+          const url = "https://api.appstoreconnect.apple.com/v1/salesReports";
+          const params = {
+            "filter[vendorNumber]": this.vendorId,
+            "filter[reportType]": "SALES",
+            "filter[reportSubType]": "SUMMARY",
+            "filter[version]": "1_0",
+            "filter[frequency]": "DAILY",
+            "filter[reportDate]": dateStr,
+          };
+
+          try {
+            console.log(
+              `[DEBUG] Fetching Apple Sales Report for ${dateStr}...`,
+            );
+            const response = await axios({
+              method: "get",
+              url,
+              params,
+              headers: { Authorization: `Bearer ${token}` },
+              responseType: "arraybuffer",
+            });
+
+            const rawTxt = zlib.gunzipSync(response.data).toString("utf8");
+            fs.writeFileSync(cacheFile, rawTxt, "utf8");
+            return rawTxt;
+          } catch (err) {
+            if (err.response && err.response.status === 404) {
+              // Report not generated yet or no sales for that date — write negative cache
+              try {
+                fs.writeFileSync(cacheFile, "__EMPTY__", "utf8");
+              } catch {}
+              return null;
+            }
+            const error = new Error("APPLE_REPORTS_UNAVAILABLE");
+            error.statusCode = Number(err.response?.status) || null;
+            reportFailures.set(this.vendorId, {
+              error,
+              until: Date.now() + 30000,
+            });
+            throw error;
+          }
+        }),
     );
   }
 

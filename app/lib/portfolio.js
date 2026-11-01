@@ -189,6 +189,10 @@ async function portfolio(input = {}) {
           installs: null,
           revenueByCurrency: {},
           dailyTrends: [],
+          sourceStatus:
+            app.platform === "apple" && Number.isInteger(error.statusCode)
+              ? error.statusCode
+              : null,
           error:
             error.message === "NO_REPORTS" ? "NO_REPORTS" : "SOURCE_FAILED",
         };

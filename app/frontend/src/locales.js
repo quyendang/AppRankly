@@ -252,6 +252,7 @@ export const resources = {
       RANK_SOURCE_FAILED:
         "Không lấy được kết quả từ store. Giữ nguyên thứ hạng cũ; hãy thử lại sau.",
       rankNoResults: "Truy vấn không trả về kết quả",
+      appleReportHTTP: "Apple Sales Reports: HTTP {{status}}",
     },
   },
   en: {
@@ -507,6 +508,7 @@ export const resources = {
       RANK_SOURCE_FAILED:
         "Store search failed. Previous ranks are preserved; try again later.",
       rankNoResults: "Search returned no results",
+      appleReportHTTP: "Apple Sales Reports: HTTP {{status}}",
     },
   },
 };
