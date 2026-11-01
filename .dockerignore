@@ -22,3 +22,9 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 attic/
+
+designs/
+.agents/
+.codex/
+experiment/
+app/test/

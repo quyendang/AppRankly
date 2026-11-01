@@ -1,22 +1,27 @@
 services:
-  apprankly-dashboard:
-    image: hi:latest
-    container_name: AppRankly
+  apprankly:
+    build: .
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
-      - PORT=3000
-      - NODE_ENV=production
-      - CONFIG_PATH=/app/data/config/config.json
-      - DATA_DIR=/app/data/
-      - JWT_SECRET=change_this_to_a_secure_random_string
+      PORT: 3000
+      NODE_ENV: production
+      DATA_DIR: /app/data
+      APP_ORIGIN: ${APP_ORIGIN:?Set your HTTPS dashboard origin}
+      JWT_SECRET: ${JWT_SECRET:?Set a strong random session secret}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:?Set your bcrypt password hash}
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${GOOGLE_SERVICE_ACCOUNT_JSON:-}
+      GOOGLE_BUCKET_NAME: ${GOOGLE_BUCKET_NAME:-}
+      APPLE_PRIVATE_KEY: ${APPLE_PRIVATE_KEY:-}
+      APPLE_ISSUER_ID: ${APPLE_ISSUER_ID:-}
+      APPLE_KEY_ID: ${APPLE_KEY_ID:-}
+      APPLE_VENDOR_ID: ${APPLE_VENDOR_ID:-}
+      AI_PROVIDER: ${AI_PROVIDER:-openai}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     volumes:
-      # Mount host credentials & config directory (contains config.json and key files in ./config/keys/)
-      - ./config:/app/data/config
-      # Persistent app data storage (auth credentials, releases, statistics cache)
-      - apprankly_data:/app/data/
+      - apprankly_data:/app/data
     restart: unless-stopped
-
 volumes:
   apprankly_data:
-

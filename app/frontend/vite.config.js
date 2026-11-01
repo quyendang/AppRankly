@@ -18,18 +18,8 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (id.includes('chart.js') || id.includes('react-chartjs-2')) {
-              return 'vendor-charts';
-            }
-            if (id.includes('lucide-react')) {
-              return 'vendor-icons';
-            }
-            if (id.includes('react') || id.includes('scheduler') || id.includes('react-router')) {
-              return 'vendor-react';
-            }
-            return 'vendor-misc';
-          }
+          if (!id.includes('node_modules')) return;
+          return id.includes('chart.js') || id.includes('react-chartjs-2') ? 'charts' : 'vendor';
         },
       },
     },
@@ -37,7 +27,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: `http://localhost:${process.env.VITE_API_PORT || process.env.PORT || 3001}`,
+        target: `http://localhost:${process.env.VITE_API_PORT || process.env.PORT || 3000}`,
         changeOrigin: true,
       },
     },

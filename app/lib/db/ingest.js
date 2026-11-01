@@ -1,11 +1,12 @@
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
-const { parseString } = require('@fast-csv/parse');
-const { db } = require('./index');
+const fs = require("fs");
+const path = require("path");
+const crypto = require("crypto");
+const { parseString } = require("@fast-csv/parse");
+const { db } = require("./index");
 
 function parseNumeric(val) {
-  if (val === '' || val === 'NA' || val === null || val === undefined) return null;
+  if (val === "" || val === "NA" || val === null || val === undefined)
+    return null;
   const num = Number(val);
   return isNaN(num) ? null : num;
 }
@@ -13,23 +14,30 @@ function parseNumeric(val) {
 function readFileContent(fileName) {
   const buffer = fs.readFileSync(fileName);
   if (buffer[0] === 0xff && buffer[1] === 0xfe) {
-    return buffer.toString('utf16le');
+    return buffer.toString("utf16le");
   }
-  return buffer.toString('utf8');
+  return buffer.toString("utf8");
 }
 
 function getChecksum(filePath) {
   const fileBuffer = fs.readFileSync(filePath);
-  const hashSum = crypto.createHash('sha256');
+  const hashSum = crypto.createHash("sha256");
   hashSum.update(fileBuffer);
-  return hashSum.digest('hex');
+  return hashSum.digest("hex");
 }
 
-async function getOrCreateApp(packageName, platform = 'google') {
-  let app = db.prepare('SELECT id FROM app WHERE package_name = ? AND platform = ?').get(packageName, platform);
+async function getOrCreateApp(packageName, platform = "google") {
+  let app = db
+    .prepare("SELECT id FROM app WHERE package_name = ? AND platform = ?")
+    .get(packageName, platform);
   if (!app) {
-    db.prepare('INSERT INTO app (package_name, platform) VALUES (?, ?)').run(packageName, platform);
-    app = db.prepare('SELECT id FROM app WHERE package_name = ? AND platform = ?').get(packageName, platform);
+    db.prepare("INSERT INTO app (package_name, platform) VALUES (?, ?)").run(
+      packageName,
+      platform,
+    );
+    app = db
+      .prepare("SELECT id FROM app WHERE package_name = ? AND platform = ?")
+      .get(packageName, platform);
   }
   return app.id;
 }
@@ -43,18 +51,24 @@ async function updateAppDates(appId) {
   `);
 }
 
-async function ingestGoogleOverview(filePath, fileMonth, appId, fileStat, checksum) {
+async function ingestGoogleOverview(
+  filePath,
+  fileMonth,
+  appId,
+  fileStat,
+  checksum,
+) {
   const content = readFileContent(filePath);
-  
+
   const records = await new Promise((resolve, reject) => {
     const results = [];
     parseString(content, { headers: true, trim: true })
-      .on('error', error => reject(error))
-      .on('data', row => results.push(row))
-      .on('end', () => resolve(results));
+      .on("error", (error) => reject(error))
+      .on("data", (row) => results.push(row))
+      .on("end", () => resolve(results));
   });
 
-  db.exec('BEGIN IMMEDIATE');
+  db.exec("BEGIN IMMEDIATE");
   try {
     const sourceStmt = db.prepare(`
       INSERT INTO source_file (path, kind, app_id, period, size_bytes, mtime_ms, checksum, row_count, status)
@@ -68,17 +82,29 @@ async function ingestGoogleOverview(filePath, fileMonth, appId, fileStat, checks
         ingested_at = datetime('now')
       RETURNING id
     `);
-    const sourceId = sourceStmt.get(filePath, appId, fileMonth, fileStat.size, fileStat.mtimeMs, checksum, records.length).id;
+    const sourceId = sourceStmt.get(
+      filePath,
+      appId,
+      fileMonth,
+      fileStat.size,
+      fileStat.mtimeMs,
+      checksum,
+      records.length,
+    ).id;
 
-    const start = `${fileMonth.substring(0,4)}-${fileMonth.substring(4,6)}-01`;
-    const end = `${fileMonth.substring(0,4)}-${fileMonth.substring(4,6)}-31`;
-    
-    db.prepare('DELETE FROM fact_daily WHERE app_id = ? AND date BETWEEN ? AND ?').run(appId, start, end);
-    db.prepare(`
+    const start = `${fileMonth.substring(0, 4)}-${fileMonth.substring(4, 6)}-01`;
+    const end = `${fileMonth.substring(0, 4)}-${fileMonth.substring(4, 6)}-31`;
+
+    db.prepare(
+      "DELETE FROM fact_daily WHERE app_id = ? AND date BETWEEN ? AND ?",
+    ).run(appId, start, end);
+    db.prepare(
+      `
       DELETE FROM agg_cache 
       WHERE (',' || app_scope || ',') LIKE ('%,' || ? || ',%') 
         AND covers_start <= ? AND covers_end >= ?
-    `).run(appId, end, start);
+    `,
+    ).run(appId, end, start);
 
     const insertFact = db.prepare(`
       INSERT INTO fact_daily (
@@ -89,41 +115,45 @@ async function ingestGoogleOverview(filePath, fileMonth, appId, fileStat, checks
     `);
 
     for (const row of records) {
-      if (!row['Date']) continue;
+      if (!row["Date"]) continue;
       insertFact.run(
         appId,
-        row['Date'],
-        parseNumeric(row['Daily Device Installs']) || 0,
-        parseNumeric(row['Daily Device Uninstalls']) || 0,
-        parseNumeric(row['Daily Device Upgrades']) || 0,
-        parseNumeric(row['Total User Installs']) || 0,
-        parseNumeric(row['Daily User Installs']) || 0,
-        parseNumeric(row['Daily User Uninstalls']) || 0,
-        parseNumeric(row['Active Device Installs']) || 0,
-        parseNumeric(row['Install events']) || 0,
-        parseNumeric(row['Update events']) || 0,
-        parseNumeric(row['Uninstall events']) || 0,
-        sourceId
+        row["Date"],
+        parseNumeric(row["Daily Device Installs"]) || 0,
+        parseNumeric(row["Daily Device Uninstalls"]) || 0,
+        parseNumeric(row["Daily Device Upgrades"]) || 0,
+        parseNumeric(row["Total User Installs"]) || 0,
+        parseNumeric(row["Daily User Installs"]) || 0,
+        parseNumeric(row["Daily User Uninstalls"]) || 0,
+        parseNumeric(row["Active Device Installs"]) || 0,
+        parseNumeric(row["Install events"]) || 0,
+        parseNumeric(row["Update events"]) || 0,
+        parseNumeric(row["Uninstall events"]) || 0,
+        sourceId,
       );
     }
-    db.exec('COMMIT');
+    db.exec("COMMIT");
   } catch (err) {
-    db.exec('ROLLBACK');
+    db.exec("ROLLBACK");
     throw err;
   }
 }
 
 async function backfill(targetApp = null, since = null) {
-  console.log(`Starting backfill... Target app: ${targetApp || 'all'}, since: ${since || 'beginning'}`);
-  const dataDir = path.join(__dirname, '..', '..', '..', 'data', 'download_stats');
+  console.log(
+    `Starting backfill... Target app: ${targetApp || "all"}, since: ${since || "beginning"}`,
+  );
+  const dataDir = path.join(require("../runtime").DATA_DIR, "download_stats");
   if (!fs.existsSync(dataDir)) {
     console.log(`Data directory not found: ${dataDir}`);
     return;
   }
 
-  const apps = fs.readdirSync(dataDir).filter(f => fs.statSync(path.join(dataDir, f)).isDirectory());
+  const apps = fs
+    .readdirSync(dataDir)
+    .filter((f) => fs.statSync(path.join(dataDir, f)).isDirectory());
   for (const app of apps) {
-    if (app === 'apple') continue;
+    if (app === "apple") continue;
     if (targetApp && app !== targetApp) continue;
 
     console.log(`Processing app: ${app}`);
@@ -132,23 +162,33 @@ async function backfill(targetApp = null, since = null) {
     const files = fs.readdirSync(appDir);
 
     for (const file of files) {
-      if (file.startsWith('overview_') && file.endsWith('.csv')) {
+      if (file.startsWith("overview_") && file.endsWith(".csv")) {
         const fileMonth = file.match(/_(\d{6})\.csv/)[1];
-        if (since && fileMonth < since.replace('-', '')) continue;
-        
+        if (since && fileMonth < since.replace("-", "")) continue;
+
         const filePath = path.join(appDir, file);
         const stat = fs.statSync(filePath);
-        
-        const existing = db.prepare('SELECT size_bytes, mtime_ms, checksum FROM source_file WHERE path = ?').get(filePath);
-        if (existing && existing.size_bytes === stat.size && existing.mtime_ms === stat.mtimeMs) {
+
+        const existing = db
+          .prepare(
+            "SELECT size_bytes, mtime_ms, checksum FROM source_file WHERE path = ?",
+          )
+          .get(filePath);
+        if (
+          existing &&
+          existing.size_bytes === stat.size &&
+          existing.mtime_ms === stat.mtimeMs
+        ) {
           continue; // File hasn't changed
         }
-        
+
         const checksum = getChecksum(filePath);
         if (existing && existing.checksum === checksum) {
-           // update mtime/size but no need to re-parse
-           db.prepare('UPDATE source_file SET size_bytes = ?, mtime_ms = ? WHERE path = ?').run(stat.size, stat.mtimeMs, filePath);
-           continue;
+          // update mtime/size but no need to re-parse
+          db.prepare(
+            "UPDATE source_file SET size_bytes = ?, mtime_ms = ? WHERE path = ?",
+          ).run(stat.size, stat.mtimeMs, filePath);
+          continue;
         }
 
         console.log(`Ingesting ${file}...`);
@@ -160,7 +200,7 @@ async function backfill(targetApp = null, since = null) {
 }
 
 async function status() {
-  console.log('Database Status:');
+  console.log("Database Status:");
   const stmt = db.prepare(`
     SELECT a.package_name, 
            COUNT(f.date) as days_covered, 
@@ -176,11 +216,13 @@ async function status() {
 
 async function clearCache(targetApp = null) {
   if (targetApp) {
-    db.exec(`DELETE FROM agg_cache WHERE app_scope LIKE '%${targetApp}%'`);
+    db.prepare("DELETE FROM agg_cache WHERE app_scope LIKE ?").run(
+      "%" + targetApp + "%",
+    );
     console.log(`Cleared cache for app matching: ${targetApp}`);
   } else {
-    db.exec('DELETE FROM agg_cache');
-    console.log('Cleared all agg_cache');
+    db.exec("DELETE FROM agg_cache");
+    console.log("Cleared all agg_cache");
   }
 }
 
@@ -191,5 +233,5 @@ module.exports = {
   ingestGoogleOverview,
   getOrCreateApp,
   updateAppDates,
-  getChecksum
+  getChecksum,
 };

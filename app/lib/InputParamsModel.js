@@ -1,6 +1,5 @@
 class InputParamsModel {
-  constructor({ keyFilePath, packageName, projectID, bucketName }) {
-    this.keyFilePath = keyFilePath;
+  constructor({ packageName, projectID, bucketName }) {
     this.packageName = packageName;
     this.projectID = projectID;
     this.bucketName = bucketName;

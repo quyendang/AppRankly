@@ -1,0 +1,46 @@
+{
+  "type": "design",
+  "designSystems": [],
+  "primaryDesignSystem": null,
+  "assets": {
+    "Prototype comparison": {
+      "versions": [
+        {
+          "path": "index.html",
+          "createdAt": "2026-11-01T04:04:51.644Z",
+          "status": "needs-review"
+        }
+      ]
+    },
+    "A — Pulse": {
+      "versions": [
+        {
+          "path": "pulse.html",
+          "createdAt": "2026-11-01T04:04:51.687Z",
+          "status": "needs-review"
+        }
+      ]
+    },
+    "B — Spectrum": {
+      "versions": [
+        {
+          "path": "spectrum.html",
+          "createdAt": "2026-11-01T04:04:51.722Z",
+          "status": "approved",
+          "subtitle": "Approved warm Spectrum; stronger, larger typography"
+        }
+      ]
+    },
+    "C — Focus": {
+      "versions": [
+        {
+          "path": "focus.html",
+          "createdAt": "2026-11-01T04:04:51.759Z",
+          "status": "needs-review"
+        }
+      ]
+    }
+  },
+  "createdAt": "2026-11-01T04:04:51.648Z",
+  "updatedAt": "2026-11-01T04:32:54.665Z"
+}

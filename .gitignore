@@ -56,3 +56,7 @@ app/static_assets/smollm2_q4.tar.gz
 .resolve_cache/
 app/data/.resolve_cache/
 
+
+!railway.json
+app/public/licenses/
+!.env.example

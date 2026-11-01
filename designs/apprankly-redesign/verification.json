@@ -1,0 +1,161 @@
+{
+  "stage": "prototype-only; production untouched; user approval pending",
+  "browser": "Codex in-app browser",
+  "layout_checks": {
+    "vi_light": {
+      "concepts": 3,
+      "screens": 5,
+      "widths": [
+        1440,
+        1280,
+        768,
+        390
+      ],
+      "cases": 60,
+      "horizontal_overflow_failures": 0
+    },
+    "en_dark": {
+      "concepts": 3,
+      "screens": 5,
+      "widths": [
+        1440,
+        390
+      ],
+      "cases": 30,
+      "horizontal_overflow_failures": 0
+    }
+  },
+  "interactions_passed": [
+    "platform filter",
+    "date range changes",
+    "search and clear filters",
+    "Vietnamese/English switch and reload persistence",
+    "light/dark switch and persistence",
+    "notes create/edit/delete and reload persistence",
+    "release creation",
+    "keyword creation",
+    "sample data reset",
+    "Spectrum drawer and Escape dismissal",
+    "Focus app switching preserves range and selected metric",
+    "missing Google revenue renders unavailable",
+    "AI preview excludes private data by default",
+    "AI analysis requires explicit consent",
+    "changing AI payload revokes consent",
+    "loading/empty/error/stale preview states",
+    "retry recovers after asynchronous sync",
+    "mobile navigation",
+    "CSV file download"
+  ],
+  "static_checks": "node designs/apprankly-redesign/verify.mjs passed:245 bilingual keys, fixture integrity, no production imports, network APIs, external font URLs or gradients",
+  "detector": {
+    "material_findings": 0,
+    "warnings": [
+      "Plus Jakarta Sans flagged twice as overused; retained because explicitly specified by the approved user brief."
+    ]
+  },
+  "limitations": [
+    "Prototype interactions use fictional fixtures and browser-local storage only.",
+    "Production backend vulnerabilities are not fixed by this stage.",
+    "Railway deployment, real store connections and paid AI calls have not been attempted.",
+    "No claim of full automated accessibility certification; keyboard/focus/reduced-motion patterns and responsive layouts were checked."
+  ],
+  "screenshots": [
+    "ai-preview-desktop.jpg",
+    "comparison-desktop.jpg",
+    "comparison-mobile.jpg",
+    "focus-appDetail-1440.jpg",
+    "focus-appDetail-390.jpg",
+    "focus-aso-1440.jpg",
+    "focus-aso-390.jpg",
+    "focus-dark-1440.jpg",
+    "focus-dark-390.jpg",
+    "focus-journal-1440.jpg",
+    "focus-journal-390.jpg",
+    "focus-portfolio-1440.jpg",
+    "focus-portfolio-390.jpg",
+    "focus-settings-1440.jpg",
+    "focus-settings-390.jpg",
+    "focus-stale.jpg",
+    "pulse-appDetail-1440.jpg",
+    "pulse-appDetail-390.jpg",
+    "pulse-aso-1440.jpg",
+    "pulse-aso-390.jpg",
+    "pulse-dark-1440.jpg",
+    "pulse-dark-390.jpg",
+    "pulse-journal-1440.jpg",
+    "pulse-journal-390.jpg",
+    "pulse-portfolio-1440.jpg",
+    "pulse-portfolio-390.jpg",
+    "pulse-settings-1440.jpg",
+    "pulse-settings-390.jpg",
+    "spectrum-appDetail-1440.jpg",
+    "spectrum-appDetail-390.jpg",
+    "spectrum-aso-1440.jpg",
+    "spectrum-aso-390.jpg",
+    "spectrum-dark-1440.jpg",
+    "spectrum-dark-390.jpg",
+    "spectrum-drawer.jpg",
+    "spectrum-journal-1440.jpg",
+    "spectrum-journal-390.jpg",
+    "spectrum-portfolio-1440.jpg",
+    "spectrum-portfolio-390.jpg",
+    "spectrum-settings-1440.jpg",
+    "spectrum-settings-390.jpg"
+  ],
+  "focused_regression_after_review": {
+    "cases": 24,
+    "screens": [
+      "portfolio",
+      "appDetail"
+    ],
+    "widths": [
+      1440,
+      1280,
+      768,
+      390
+    ],
+    "horizontal_overflow_failures": 0
+  },
+  "review": {
+    "disposition": "ship",
+    "scope": "Verdict pass on the three listed fixes only; ready for user direction selection, not production.",
+    "resolved": [
+      "Readable mobile chart geometry and reduced date ticks",
+      "Keyboard focus retained after menu/navigation/app selection",
+      "Unsupported90-day preview removed;7/30 days retained"
+    ],
+    "evidence": "Independent reviewer inspected updated captures and source; browser interaction tests performed by main agent."
+  },
+  "screenshot_dimensions_note": "Filename widths refer to CSS viewport overrides; IAB JPEG captures exclude browser scrollbars and can be slightly smaller.",
+  "selected_direction": "Spectrum",
+  "spectrum_accent_revision": {
+    "scope": "Warm accents only; original neutral light/dark surfaces, typography, app marks and layout retained.",
+    "colors": [
+      "#B84F2B",
+      "#926018",
+      "#8F422E"
+    ],
+    "light_dark_button_and_secondary_contrast": [
+      5.01,
+      4.82,
+      8.3,
+      6.92
+    ],
+    "layout_checks": 10,
+    "horizontal_overflow_failures": 0,
+    "production_changes": false
+  },
+  "spectrum_typography_revision": {
+    "changes": [
+      "Be Vietnam Pro body weight500 and tracking-0.012em",
+      "Controls/table headings weight600",
+      "Table copy13px; labels11–12px; responsive mobile sizes",
+      "Same approved layout, warm accents and font families"
+    ],
+    "vi_light_layout_checks": 20,
+    "en_dark_layout_checks": 10,
+    "horizontal_overflow_failures": 0,
+    "mobile_navigation_scroll_width_matches_client_width": true,
+    "production_changes": false
+  }
+}

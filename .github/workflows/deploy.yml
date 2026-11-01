@@ -1,4 +1,4 @@
-name: CI/CD - Deploy Pages and Docker
+name: Build personal AppRankly image
 
 on:
   push:
@@ -12,46 +12,23 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   packages: write
 
 jobs:
-  gh-pages:
+  checks:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: '**/package-lock.json'
-
-      - name: Install dependencies
-        run: |
-          cd app && npm ci
-          cd frontend && npm ci
-
-      - name: Build demo frontend
-        run: |
-          cd app/frontend && npm run build
-          cd ..
-          # Create dummy config for build process if secrets are not available
-          if [ ! -f ../config/config.json ]; then
-            mkdir -p ../config
-            echo '[]' > ../config/config.json
-          fi
-          node generate_static_data.js --demo --no-pass
-
-      - name: Deploy to GitHub Pages
-        uses: JamesIves/github-pages-deploy-action@v4
-        with:
-          folder: docs
-          branch: gh-pages
-
+          node-version: 22
+      - run: npm ci --prefix app --ignore-scripts
+      - run: npm ci --prefix app/frontend --ignore-scripts
+      - run: npm run build --prefix app/frontend
+      - run: npm test --prefix app
   docker:
+    needs: checks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

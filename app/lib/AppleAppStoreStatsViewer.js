@@ -318,11 +318,11 @@ class AppleAppStoreStatsViewer {
       mergedTrends.set(d, {
         date: d,
         dailyInstalls: 0,
-        dailyUninstalls: 0,
+        dailyUninstalls: null,
         dailyUserInstalls: 0,
-        dailyUserUninstalls: 0,
+        dailyUserUninstalls: null,
         netGrowth: 0,
-        activeDevices: 0,
+        activeDevices: null,
         upgrades: 0,
         revenue: 0,
         netRevenue: 0,
@@ -354,11 +354,11 @@ class AppleAppStoreStatsViewer {
             const trend = mergedTrends.get(rowDate) || {
               date: rowDate,
               dailyInstalls: 0,
-              dailyUninstalls: 0,
+              dailyUninstalls: null,
               dailyUserInstalls: 0,
-              dailyUserUninstalls: 0,
+              dailyUserUninstalls: null,
               netGrowth: 0,
-              activeDevices: 0,
+              activeDevices: null,
               upgrades: 0,
               revenue: 0,
               netRevenue: 0,
@@ -378,7 +378,10 @@ class AppleAppStoreStatsViewer {
               trend.upgrades += units;
             }
 
-            trend.revenue += proceeds * units;
+            const currency = (row['Currency of Proceeds'] || '').trim();
+            trend.revenueByCurrency = trend.revenueByCurrency || {};
+            if (currency) trend.revenueByCurrency[currency] = (trend.revenueByCurrency[currency] || 0) + proceeds * units;
+            trend.revenue = null;
             trend.netRevenue = trend.revenue;
             trend.dailyUserInstalls = trend.dailyInstalls;
             trend.netGrowth = trend.dailyInstalls - trend.dailyUninstalls;
@@ -458,7 +461,7 @@ class AppleAppStoreStatsViewer {
             const productType = (row['Product Type Identifier'] || '').trim();
 
             if (!statsMap.has(label)) {
-              statsMap.set(label, { label, activeDevices: 0, totalInstalls: 0, dailyUserInstalls: 0, dailyUserUninstalls: 0, netUserGrowth: 0, retentionRate: 0 });
+              statsMap.set(label, { label, activeDevices: null, totalInstalls: 0, dailyUserInstalls: 0, dailyUserUninstalls: null, netUserGrowth: 0, retentionRate: null });
             }
 
             const current = statsMap.get(label);
@@ -473,8 +476,8 @@ class AppleAppStoreStatsViewer {
 
     const results = Array.from(statsMap.values()).map(item => {
       item.netUserGrowth = item.dailyUserInstalls - item.dailyUserUninstalls;
-      item.activeDevices = item.totalInstalls;
-      item.retentionRate = item.totalInstalls > 0 ? 100 : 0;
+      item.activeDevices = null;
+      item.retentionRate = null;
       return item;
     });
 

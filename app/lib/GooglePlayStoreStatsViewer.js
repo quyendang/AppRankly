@@ -1,18 +1,15 @@
 const fs = require("fs");
 const path = require("path");
-const util = require("util");
 
 const InputParamsModel = require("./InputParamsModel");
 const Dimensions = require("./Dimensions");
 const resolver = require("./resolver");
 const { PackageUtils } = require("./PackageUtils");
 
-const readFilePromise = util.promisify(fs.readFile);
 
 class GooglePlayStoreStatsViewer {
-  constructor({ keyFilePath, keyJson, packageName, projectID, bucketName, dataDir }) {
+  constructor({ keyJson, packageName, projectID, bucketName, dataDir }) {
     this.inputParamsModel = new InputParamsModel({
-      keyFilePath,
       packageName,
       projectID,
       bucketName
@@ -31,13 +28,8 @@ class GooglePlayStoreStatsViewer {
     let credentials;
     if (this.keyJson) {
       credentials = typeof this.keyJson === "string" ? JSON.parse(this.keyJson.replace(/^\uFEFF/, "").trim()) : this.keyJson;
-    } else if (this.inputParamsModel.keyFilePath) {
-      let fileContent = await readFilePromise(this.inputParamsModel.keyFilePath, "utf8");
-      // Remove UTF-8 BOM if present and trim whitespace/trailing characters
-      fileContent = fileContent.replace(/^\uFEFF/, "").trim();
-      credentials = JSON.parse(fileContent);
     } else {
-      throw new Error("Either keyFilePath or keyJson must be provided for authentication.");
+      throw new Error("GOOGLE_NOT_CONFIGURED");
     }
 
     if (credentials && credentials.quota_project_id) {

@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const cache = require('./cache');
 const { db } = require('./db/index');
 
-const dataDir = process.env.DATA_DIR || path.join(process.cwd(), 'data');
+const dataDir = require('./runtime').DATA_DIR;
 const _inflight = new Map();
 
 const metrics = {

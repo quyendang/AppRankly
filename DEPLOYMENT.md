@@ -1,0 +1,181 @@
+# Deploying AppRankly on Railway
+
+This guide is for a personal, single-owner instance with fewer than 20 apps. Run one service and one replica, with SQLite on one persistent volume. No PostgreSQL or Redis service is needed.
+
+## 1. Prepare the repository and authentication
+
+Select this GitHub repository in Railway and use the **repository root** as the service root. Railway builds the included `Dockerfile`; do not override its start command or run migrations as a pre-deploy command. Volumes are mounted when the container starts, so initialization and migration happen at startup.
+
+Install the backend dependencies locally to generate a bcrypt hash:
+
+```sh
+npm ci --prefix app --ignore-scripts
+openssl rand -hex 32
+```
+
+Use the random output as `JWT_SECRET`. Generate a bcrypt hash of a password containing 12–256 characters without putting the password in shell history. In Bash:
+
+```sh
+read -r -s -p 'Admin password: ' apprankly_password
+printf '\n' >&2
+printf '%s' "$apprankly_password" | node app/cli.js hash-password
+unset apprankly_password
+```
+
+In Zsh (the default macOS shell), use:
+
+```sh
+read -r -s 'apprankly_password?Admin password: '
+printf '\n' >&2
+printf '%s' "$apprankly_password" | node app/cli.js hash-password
+unset apprankly_password
+```
+
+Copy only the resulting bcrypt hash into `ADMIN_PASSWORD_HASH`. Keep the actual password in your password manager. Treat the hash as sensitive configuration. Do not enter real keys or passwords into GitHub issues, commit messages, notes, screenshots, or AI prompts.
+
+## 2. Configure the service and persistent volume
+
+1. Create a Railway service from the repository. Configure the variables below before starting it.
+2. Attach **one volume** and set its mount path to **`/app/data`**.
+3. Keep **one replica** and disable **Serverless/application sleep** so scheduled synchronization continues to run.
+4. Generate a Railway public HTTPS domain or configure your custom domain. Copy its exact origin into `APP_ORIGIN`, for example `https://your-service.up.railway.app`, without a trailing slash or path. Redeploy if this changes.
+5. Keep the default Docker entrypoint. It creates the data directory, corrects ownership when started as root, and then runs Node as user `node`. Do not set a Railway user override that prevents this volume initialization.
+
+`railway.json` requires `/app/data`, configures `/readyz`, uses a 120-second readiness timeout, disables sleep, sets one replica, and allows 20 seconds between SIGTERM and SIGKILL. The application's own shutdown timeout is 15 seconds. A volume-backed redeploy may cause a short interruption; do not promise zero downtime.
+
+## 3. Set Railway Variables
+
+Paste values directly into the service's **Variables** panel. Do not create `VITE_*` equivalents: those would be exposed to browser builds. The [.env.example](.env.example) file documents names and local defaults, and contains no usable credentials.
+
+### Required authentication and runtime variables
+
+| Variable | Value / behavior |
+| --- | --- |
+| `NODE_ENV` | `production` on Railway; Docker sets it by default. Enables Secure cookies and production CSP. |
+| `DATA_DIR` | `/app/data`; Docker sets it by default. Keep this aligned with the volume mount. |
+| `APP_ORIGIN` | Exact public HTTPS origin; no trailing slash, path, query, or fragment. Required in production. |
+| `ADMIN_PASSWORD_HASH` | Your bcrypt hash, generated above. The application will not start without a valid hash. |
+| `JWT_SECRET` | Your random secret, at least 32 characters. Sample/insecure defaults are rejected. |
+| `PORT` | Supplied by Railway. Local default: `3000`. Do not hardcode a different Railway listening port. |
+| `DB_PATH` | Optional absolute path for an existing SQLite file **inside the mounted volume**. Default: `$DATA_DIR/database.sqlite`. |
+
+### Google Play reports — optional
+
+| Variable | Value / behavior |
+| --- | --- |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | Complete service-account JSON, pasted as a single environment value. Only service-account credentials with an RSA private key are accepted. Alternate credential endpoints and external-account configuration are not forwarded to the SDK. |
+| `GOOGLE_BUCKET_NAME` | Name of the Google Cloud Storage bucket containing your Play Console reports; use the bucket name, without `gs://` or a URL. Required when the Google credential variable is set. |
+
+Grant the service account only the report/bucket permissions needed for your own apps. The application uses the Google Storage SDK with the read-only storage scope. A service-account JSON file alone does not grant access: your Google/Play configuration must authorize it.
+
+Do not mount the original JSON file into the notes directory, add it to the repository, or save it in settings. Leave **both** variables unset if you do not use Google Play.
+
+### App Store Connect — optional
+
+| Variable | Value / behavior |
+| --- | --- |
+| `APPLE_PRIVATE_KEY` | Complete PEM contents of the App Store Connect `.p8` key. Actual newlines and literal `\n` separators are accepted. Use the contents, not a filesystem path. |
+| `APPLE_ISSUER_ID` | App Store Connect issuer ID. |
+| `APPLE_KEY_ID` | API key ID corresponding to the private key. |
+| `APPLE_VENDOR_ID` | Vendor number used to request Sales Reports. |
+
+Set all four Apple variables together, or leave all four unset. Startup rejects partial configuration or an invalid EC private key. Configure the key's permissions for the app listing and Sales Reports you need. Unsupported Apple metrics remain unavailable; installs are not substituted for active devices or measured retention.
+
+### AI — optional
+
+| Variable | Value / behavior |
+| --- | --- |
+| `AI_PROVIDER` | `openai` (default), `anthropic`, or `gemini`. Select a provider whose key you configure. |
+| `OPENAI_API_KEY` | OpenAI API key; used only when OpenAI is selected. |
+| `OPENAI_MODEL` | Default: `gpt-5-nano`. Override with a compatible model available to your account. |
+| `ANTHROPIC_API_KEY` | Anthropic API key. |
+| `ANTHROPIC_MODEL` | Default: `claude-sonnet-4-5`. Override with a compatible model available to your account. |
+| `GEMINI_API_KEY` | Gemini API key. |
+| `GEMINI_MODEL` | Default: `gemini-2.5-flash`. Override with a compatible model available to your account. |
+
+These are code defaults, not a guarantee of model availability. Calls use the configured provider's official endpoint. Changing a variable requires redeployment. There is no background paid AI job: the owner must request a preview and explicitly confirm it. Analytics and notes are excluded by default. A confirmed request may incur provider charges.
+
+### Notifications — optional and disabled initially
+
+| Variable | Value / behavior |
+| --- | --- |
+| `NTFY_TOPIC` | Topic on `https://ntfy.sh`; 8–100 letters, digits, underscores, or hyphens. Use an unguessable topic and consider its access settings. |
+| `DISCORD_WEBHOOK_URL` | HTTPS webhook on `discord.com/api/webhooks/...`. |
+| `SLACK_WEBHOOK_URL` | HTTPS webhook on `hooks.slack.com/services/...`. |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token. Requires `TELEGRAM_CHAT_ID`. |
+| `TELEGRAM_CHAT_ID` | Destination chat ID for the configured Telegram bot. |
+
+Redirects and unsupported webhook hosts are rejected. After adding variables, explicitly enable notifications in Settings and send a test. Destinations receive notification content and may receive private app performance information. Leave notifications off if you do not want that transmission.
+
+## 4. Deploy and validate
+
+Deploy after setting the required variables and attaching the volume. Check the Railway deployment status and logs, then verify the public service:
+
+```sh
+curl --fail https://your-service.up.railway.app/healthz
+curl --fail https://your-service.up.railway.app/readyz
+```
+
+`/healthz` checks the process. `/readyz` checks SQLite and the ability to create/delete a probe file in `DATA_DIR`; it does not require Google or Apple to be online. Both endpoints are public and expose only a small status response.
+
+1. Open the HTTPS dashboard. Confirm unauthenticated API requests return `401`.
+2. Log in with your owner password. Verify the empty dashboard before configuring real keys.
+3. Add store variables, redeploy, then use Settings → Test connection and run a manual sync.
+4. Inspect the portfolio, one app's report, ASO, a saved note, a release, and a CSV export. Verify original currency labels and unavailable metrics.
+5. Restart the service and confirm the note/release and settings remain. Repeat after a redeploy.
+6. Enable and test notifications only if desired. AI can be verified first by previewing the payload without sending it.
+
+Only call deployment successful after Railway reports success **and** the public service passes these checks. Local build/tests do not establish that.
+
+## Synchronization and shutdown
+
+The default schedule is once per hour, using `Asia/Ho_Chi_Minh` and the full day. Settings store the schedule, lookback window, and non-sensitive preferences under `DATA_DIR`. At most two app statistics jobs run concurrently. Manual sync respects the same overlap lock as scheduled sync.
+
+On SIGTERM, the process stops scheduling new jobs, closes the HTTP listener, waits for the active synchronization job within the shutdown deadline, and closes SQLite. Very long work may be interrupted at the deadline; verify the next sync after redeployment.
+
+## Backups and restore
+
+Enable daily volume backups in Railway. Back up the entire data directory, including SQLite and its WAL/SHM files if present, notes, `releases.json`, settings, downloaded reports, and caches. Prefer a Railway volume snapshot or stop the service before making a filesystem-level copy; copying only a live `database.sqlite` file can miss committed WAL data.
+
+Test restoration into a **separate volume/service** before relying on the backup:
+
+1. Restore the snapshot and mount it at `/app/data`.
+2. Configure authentication and store variables separately; they are not stored in the application data backup.
+3. Start with notifications disabled and avoid triggering AI requests while validating the restore.
+4. Check readiness, notes/releases counts, settings, and database integrity. Confirm a subsequent restart preserves the restored records.
+
+Do not overwrite the only working volume while testing a restore. Railway Variables and account access need their own recovery process.
+
+## Migrating an existing installation
+
+1. Back up the old data and stop the old instance before switching writes to the new one.
+2. Restore the existing SQLite database, notes, `releases.json`, caches, and downloaded reports into the new data directory. Set `DB_PATH` if the database has a different filename. Keep all persisted files inside the volume.
+3. Move Google, Apple, AI, and notification secrets manually into Railway Variables. Legacy raw config files and AI config files are **not imported automatically**. Reapply non-sensitive preferences in Settings.
+4. Startup migrations preserve existing tables. Legacy team-user rows remain for data preservation, but only the environment-configured owner can log in.
+5. Verify restored notes and releases before removing old files. After confirming migration, remove credentials from legacy config files and obsolete backups according to your retention policy.
+6. If a key was committed to Git, synchronized to an untrusted repository, or otherwise disclosed, revoke/rotate it at its issuer. Deleting it in a new commit does not remove it from Git history.
+
+Git synchronization, team administration, public setup, raw config APIs, public demo generation, and AI-generated SQL execution are intentionally unavailable in this personal fork.
+
+## Troubleshooting
+
+| Symptom | Check |
+| --- | --- |
+| Startup rejects authentication | Generate a valid bcrypt hash and a random JWT secret; confirm the Variables values were pasted exactly. There is no public setup bypass. |
+| `SET_HTTPS_APP_ORIGIN` | Use the exact HTTPS origin without a trailing slash or path. |
+| `403 INVALID_ORIGIN` | Open the configured domain; update `APP_ORIGIN` after a domain change and redeploy. Keep frontend/API on the same origin. |
+| Readiness fails | Confirm the `/app/data` volume is attached, writable, and not full; check the SQLite path and migration logs. Store outages are not a readiness dependency. |
+| No apps or store connection failure | Check the complete credential group, report permissions, bucket/vendor values, and availability of reports. SDK details and secrets are deliberately omitted from API errors. |
+| Login cookie not retained | Use HTTPS in production and access the configured origin. The cookie is HttpOnly, Secure in production, and SameSite Strict. |
+| Scheduled sync does not run | Disable service sleep, keep one replica, and check the saved interval/time zone and active hours. |
+| AI unavailable | Set the selected provider's key and a compatible model, redeploy, and create a fresh preview. Preview IDs expire after ten minutes and can be used only once. |
+| Data disappears after restart | Verify `DATA_DIR` and `DB_PATH` point inside the attached persistent volume, not the container's ephemeral filesystem. |
+
+## References and verification limits
+
+- [Railway volumes](https://docs.railway.com/volumes)
+- [Railway healthchecks](https://docs.railway.com/deployments/healthchecks)
+- [Railway configuration as code](https://docs.railway.com/config-as-code/reference)
+- [Local verification record](designs/apprankly-redesign/PRODUCTION-VERIFICATION.md)
+
+The repository has been tested locally with synthetic credentials. Docker execution, real store/AI access, external notifications, and Railway volume backup/restore/deployment are not established by those tests. Do not treat the presence of this guide as proof of a live deployment.

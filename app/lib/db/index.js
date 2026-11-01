@@ -8,7 +8,7 @@ try {
   console.warn('[DB] node:sqlite module not available in this Node.js version (< 22.5). SQLite DB feature disabled.');
 }
 
-const dbPath = process.env.DB_PATH || path.join(__dirname, '..', '..', 'data', 'database.sqlite');
+const dbPath = process.env.DB_PATH || path.join(require('../runtime').DATA_DIR, 'database.sqlite');
 
 let db = null;
 if (DatabaseSync) {
@@ -29,7 +29,7 @@ if (DatabaseSync) {
     `);
   } catch (err) {
     console.error(`Failed to open SQLite database at ${dbPath}:`, err);
-    db = null;
+    throw new Error('DATABASE_UNAVAILABLE');
   }
 }
 
@@ -82,7 +82,7 @@ if (db) {
   try {
     migrate();
   } catch (err) {
-    console.error('Failed auto-running SQLite migrations on startup:', err);
+    throw new Error('DATABASE_MIGRATION_FAILED');
   }
 }
 

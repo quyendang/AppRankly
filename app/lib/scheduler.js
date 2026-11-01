@@ -1,12 +1,24 @@
-const fs = require('fs');
-const path = require('path');
-const { sendNtfyNotification, sendWebhookNotification, broadcastAlert } = require('./notifier');
-const { calculateAppHealthScore } = require('./healthScore');
+const fs = require("fs");
+const path = require("path");
+const {
+  sendNtfyNotification,
+  sendWebhookNotification,
+  broadcastAlert,
+} = require("./notifier");
+const { calculateAppHealthScore } = require("./healthScore");
 
 let schedulerIntervalHandle = null;
+let initialTimer = null;
 let lastSchedulerRun = null;
-let lastSchedulerStatus = { status: 'idle', lastRun: null, appsChecked: 0, notificationsSent: 0 };
+let lastSchedulerStatus = {
+  status: "idle",
+  lastRun: null,
+  appsChecked: 0,
+  notificationsSent: 0,
+};
 let isCheckRunning = false;
+let stopping = false;
+const idleWaiters = [];
 
 /**
  * Gets lookback start and end dates (YYYY-MM-DD) based on range in days.
@@ -16,10 +28,10 @@ function getDateRange(rangeDays = 30) {
   const start = new Date();
   start.setDate(end.getDate() - rangeDays);
 
-  const formatDate = (d) => d.toISOString().split('T')[0];
+  const formatDate = (d) => d.toISOString().split("T")[0];
   return {
     startDate: formatDate(start),
-    endDate: formatDate(end)
+    endDate: formatDate(end),
   };
 }
 
@@ -27,13 +39,16 @@ function getDateRange(rangeDays = 30) {
  * Reads the last known stats baseline file safely.
  */
 function getLastKnownStats(dataDir) {
-  const filePath = path.join(dataDir, 'last_known_stats.json');
+  const filePath = path.join(dataDir, "last_known_stats.json");
   if (!fs.existsSync(filePath)) return {};
   try {
-    const raw = fs.readFileSync(filePath, 'utf8');
+    const raw = fs.readFileSync(filePath, "utf8");
     return JSON.parse(raw);
   } catch (err) {
-    console.error('[Scheduler] Error reading last_known_stats.json:', err.message);
+    console.error(
+      "[Scheduler] Error reading last_known_stats.json:",
+      err.message,
+    );
     return {};
   }
 }
@@ -42,40 +57,49 @@ function getLastKnownStats(dataDir) {
  * Saves updated last known stats baseline to disk safely.
  */
 function saveLastKnownStats(dataDir, statsMap) {
-  const filePath = path.join(dataDir, 'last_known_stats.json');
-  const tempPath = path.join(dataDir, 'last_known_stats.json.tmp');
+  const filePath = path.join(dataDir, "last_known_stats.json");
+  const tempPath = path.join(dataDir, "last_known_stats.json.tmp");
   try {
-    fs.writeFileSync(tempPath, JSON.stringify(statsMap, null, 2), 'utf8');
+    fs.writeFileSync(tempPath, JSON.stringify(statsMap, null, 2), "utf8");
     fs.renameSync(tempPath, filePath);
   } catch (err) {
-    console.error('[Scheduler] Error writing last_known_stats.json:', err.message);
+    console.error(
+      "[Scheduler] Error writing last_known_stats.json:",
+      err.message,
+    );
   }
 }
 
 /**
  * B5 Auto-Detect New Version Releases
  */
-function autoDetectRelease(dataDir, pkgId, platform, version, recentChanges, date) {
+function autoDetectRelease(
+  dataDir,
+  pkgId,
+  platform,
+  version,
+  recentChanges,
+  date,
+) {
   if (!version) return;
-  const releasesFile = path.join(dataDir, 'releases.json');
-  let releases = [];
-  if (fs.existsSync(releasesFile)) {
-    try {
-      releases = JSON.parse(fs.readFileSync(releasesFile, 'utf8'));
-    } catch (e) {}
-  }
-
-  const exists = releases.some(r => r.version === version && (r.packageName === pkgId || r.platform === platform));
+  const { getReleasesFromFile, saveReleasesToFile } = require("./releases");
+  const releases = getReleasesFromFile();
+  const exists = releases.some(
+    (r) =>
+      r.version === version &&
+      r.packageName === pkgId &&
+      r.platform === platform,
+  );
   if (!exists) {
     releases.push({
       version,
       platform,
       packageName: pkgId,
-      releaseDate: date || new Date().toISOString().split('T')[0],
+      releaseDate: date || new Date().toISOString().split("T")[0],
       notes: recentChanges || `Auto-detected release v${version}`,
-      source: 'auto'
+      source: "auto",
     });
-    fs.writeFileSync(releasesFile, JSON.stringify(releases, null, 2), 'utf8');
+    saveReleasesToFile(releases);
     console.log(`[Scheduler] Auto-detected release v${version} for ${pkgId}`);
   }
 }
@@ -83,70 +107,113 @@ function autoDetectRelease(dataDir, pkgId, platform, version, recentChanges, dat
 /**
  * Main function to check for stats updates and send notifications.
  */
-async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer, buildAppleViewer, fetchPackagesByPlatform }, options = {}) {
-  if (isCheckRunning && !options.force) {
-    console.log('[Scheduler] Check already in progress, skipping concurrent run.');
-    return { status: 'skipped', reason: 'Check already in progress' };
+async function checkAndNotifyStats(
+  {
+    getBaseConfig,
+    DATA_DIR,
+    buildGoogleViewer,
+    buildAppleViewer,
+    fetchPackagesByPlatform,
+  },
+  options = {},
+) {
+  if (stopping || isCheckRunning) {
+    console.log(
+      "[Scheduler] Check already in progress, skipping concurrent run.",
+    );
+    return { status: "skipped", reason: "Check already in progress" };
   }
 
   const baseConfig = getBaseConfig();
   if (!baseConfig) {
-    console.log('[Scheduler] Skipping stats check: Base configuration not available.');
-    return { success: false, reason: 'No configuration' };
+    console.log(
+      "[Scheduler] Skipping stats check: Base configuration not available.",
+    );
+    return { success: false, reason: "No configuration" };
   }
 
   isCheckRunning = true;
 
   try {
-    const hoursInterval = baseConfig.refreshIntervalHours || parseInt(process.env.STATS_REFRESH_HOURS, 10) || 1;
-    const rangeDays = baseConfig.statsCheckRangeDays || parseInt(process.env.STATS_CHECK_RANGE_DAYS, 10) || 30;
-    const ntfyTopic = (baseConfig.ntfyTopic !== undefined ? baseConfig.ntfyTopic : process.env.NTFY_TOPIC) || '';
-    const webhookUrl = baseConfig.webhookUrl || process.env.WEBHOOK_URL || '';
-    const startHour = baseConfig.activeStartHour !== undefined ? Number(baseConfig.activeStartHour) : (process.env.STATS_START_HOUR ? parseInt(process.env.STATS_START_HOUR, 10) : 9);
-    const endHour = baseConfig.activeEndHour !== undefined ? Number(baseConfig.activeEndHour) : (process.env.STATS_END_HOUR ? parseInt(process.env.STATS_END_HOUR, 10) : 20);
+    const hoursInterval =
+      baseConfig.refreshIntervalHours ||
+      parseInt(process.env.STATS_REFRESH_HOURS, 10) ||
+      1;
+    const rangeDays =
+      baseConfig.statsCheckRangeDays ||
+      parseInt(process.env.STATS_CHECK_RANGE_DAYS, 10) ||
+      30;
+    const ntfyTopic =
+      (baseConfig.ntfyTopic !== undefined
+        ? baseConfig.ntfyTopic
+        : process.env.NTFY_TOPIC) || "";
+    const webhookUrl = baseConfig.webhookUrl || process.env.WEBHOOK_URL || "";
+    const startHour =
+      baseConfig.activeStartHour !== undefined
+        ? Number(baseConfig.activeStartHour)
+        : process.env.STATS_START_HOUR
+          ? parseInt(process.env.STATS_START_HOUR, 10)
+          : 9;
+    const endHour =
+      baseConfig.activeEndHour !== undefined
+        ? Number(baseConfig.activeEndHour)
+        : process.env.STATS_END_HOUR
+          ? parseInt(process.env.STATS_END_HOUR, 10)
+          : 20;
 
     // Compute current hour considering configured timezone if available
     let currentHour = new Date().getHours();
     if (baseConfig.timezone) {
       try {
-        const formattedHour = new Date().toLocaleTimeString('en-US', { timeZone: baseConfig.timezone, hour12: false, hour: 'numeric' });
+        const formattedHour = new Date().toLocaleTimeString("en-US", {
+          timeZone: baseConfig.timezone,
+          hour12: false,
+          hour: "numeric",
+        });
         currentHour = parseInt(formattedHour, 10);
       } catch (e) {
-        console.warn(`[Scheduler] Invalid timezone config (${baseConfig.timezone}), falling back to system time.`);
+        console.warn(
+          `[Scheduler] Invalid timezone config (${baseConfig.timezone}), falling back to system time.`,
+        );
       }
     }
 
-    const isWithinActiveHours = (startHour <= endHour)
-      ? (currentHour >= startHour && currentHour <= endHour)
-      : (currentHour >= startHour || currentHour <= endHour);
+    const isWithinActiveHours =
+      startHour <= endHour
+        ? currentHour >= startHour && currentHour <= endHour
+        : currentHour >= startHour || currentHour <= endHour;
 
     if (!isWithinActiveHours && !options.force) {
-      console.log(`[Scheduler] Skipping stats check: Current hour (${currentHour}:00) is outside active window (${startHour}:00 - ${endHour}:00).`);
+      console.log(
+        `[Scheduler] Skipping stats check: Current hour (${currentHour}:00) is outside active window (${startHour}:00 - ${endHour}:00).`,
+      );
       lastSchedulerRun = new Date();
       lastSchedulerStatus = {
-        status: 'skipped',
+        status: "skipped",
         reason: `Outside active window (${startHour}:00 - ${endHour}:00)`,
         currentHour,
         activeStartHour: startHour,
         activeEndHour: endHour,
-        lastRun: lastSchedulerRun.toISOString()
+        lastRun: lastSchedulerRun.toISOString(),
       };
       return lastSchedulerStatus;
     }
 
     const { startDate, endDate } = getDateRange(rangeDays);
-    console.log(`[Scheduler] Checking store stats update (Hour: ${currentHour}:00, Range: ${startDate} to ${endDate}, Lookback: ${rangeDays} days, Active: ${startHour}:00-${endHour}:00, Topic: ${ntfyTopic})...`);
+    console.log(
+      `[Scheduler] Checking store stats update (Hour: ${currentHour}:00, Range: ${startDate} to ${endDate}, Lookback: ${rangeDays} days, Active: ${startHour}:00-${endHour}:00, Topic: ${ntfyTopic})...`,
+    );
 
     let packages = [];
     try {
-      packages = await fetchPackagesByPlatform('all', baseConfig);
+      packages = await fetchPackagesByPlatform("all", baseConfig);
     } catch (err) {
-      console.error('[Scheduler] Error listing packages:', err.message);
+      console.error("[Scheduler] Error listing packages:", err.message);
       return { success: false, error: err.message };
     }
 
     if (!packages || packages.length === 0) {
-      console.log('[Scheduler] No packages found to check.');
+      console.log("[Scheduler] No packages found to check.");
       return { success: true, appsChecked: 0, notificationsSent: 0 };
     }
 
@@ -165,63 +232,100 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
       if (!pkgId) return null;
 
       const appKey = `${platform}:${pkgId}`;
-      const displayName = baseConfig.appMetadata?.[pkgId]?.displayName || pkg.name || pkgId;
+      const displayName =
+        baseConfig.appMetadata?.[pkgId]?.displayName || pkg.name || pkgId;
 
       try {
-        const viewer = platform === 'apple'
-          ? buildAppleViewer(baseConfig, pkgId)
-          : buildGoogleViewer(baseConfig, pkgId);
+        const viewer =
+          platform === "apple"
+            ? buildAppleViewer(baseConfig, pkgId)
+            : buildGoogleViewer(baseConfig, pkgId);
 
-        const stats = await viewer.getAppStats(startDate, endDate, { force: Boolean(options.force), forceRefresh: Boolean(options.force) });
+        const stats = await viewer.getAppStats(startDate, endDate, {
+          force: Boolean(options.force),
+          forceRefresh: Boolean(options.force),
+        });
         const trends = stats?.dailyTrends || [];
 
         if (!trends || trends.length === 0) {
-          console.log(`[Scheduler] No trend data returned for ${displayName} (${platform})`);
+          console.log(
+            `[Scheduler] No trend data returned for ${displayName} (${platform})`,
+          );
           return null;
         }
 
-        const validTrends = trends.filter(t => t.date && (t.dailyInstalls > 0 || t.dailyUserInstalls > 0 || t.netGrowth !== 0 || t.upgrades > 0));
-        const latestTrend = validTrends.length > 0
-          ? validTrends.reduce((max, t) => (t.date > max.date ? t : max), validTrends[0])
-          : trends[trends.length - 1];
+        const validTrends = trends.filter(
+          (t) =>
+            t.date &&
+            (t.dailyInstalls > 0 ||
+              t.dailyUserInstalls > 0 ||
+              t.netGrowth !== 0 ||
+              t.upgrades > 0),
+        );
+        const latestTrend =
+          validTrends.length > 0
+            ? validTrends.reduce(
+                (max, t) => (t.date > max.date ? t : max),
+                validTrends[0],
+              )
+            : trends[trends.length - 1];
 
         if (!latestTrend || !latestTrend.date) return null;
 
-        const currentDailyInstalls = Number(latestTrend.dailyUserInstalls || latestTrend.dailyInstalls || 0);
-        const currentDailyUninstalls = Number(latestTrend.dailyUserUninstalls || latestTrend.dailyUninstalls || 0);
-        const totalInstalls = stats.overview?.totalInstalls || latestTrend.totalInstalls || 'N/A';
+        const currentDailyInstalls = Number(
+          latestTrend.dailyUserInstalls || latestTrend.dailyInstalls || 0,
+        );
+        const currentDailyUninstalls = Number(
+          latestTrend.dailyUserUninstalls || latestTrend.dailyUninstalls || 0,
+        );
+        const totalInstalls =
+          stats.overview?.totalInstalls || latestTrend.totalInstalls || "N/A";
         const prevRecord = lastKnownStats[appKey];
 
         let isNewData = false;
 
         if (!prevRecord) {
-          console.log(`[Scheduler] Baseline initialized for ${displayName} (${platform}). Latest date: ${latestTrend.date}`);
+          console.log(
+            `[Scheduler] Baseline initialized for ${displayName} (${platform}). Latest date: ${latestTrend.date}`,
+          );
         } else if (latestTrend.date > prevRecord.lastDate) {
           isNewData = true;
-        } else if (latestTrend.date === prevRecord.lastDate && currentDailyInstalls > (prevRecord.dailyInstalls || 0)) {
+        } else if (
+          latestTrend.date === prevRecord.lastDate &&
+          currentDailyInstalls > (prevRecord.dailyInstalls || 0)
+        ) {
           isNewData = true;
         }
 
         // Check Churn Anomaly Alert (immediate urgent alert)
         if (stats.retentionBenchmarks?.churnAnomalies?.length > 0) {
-          const highAnom = stats.retentionBenchmarks.churnAnomalies.find(a => a.severity === 'high' && a.date === latestTrend.date);
-          if (highAnom && (!prevRecord || prevRecord.lastAnomalyDate !== latestTrend.date)) {
+          const highAnom = stats.retentionBenchmarks.churnAnomalies.find(
+            (a) => a.severity === "high" && a.date === latestTrend.date,
+          );
+          if (
+            highAnom &&
+            (!prevRecord || prevRecord.lastAnomalyDate !== latestTrend.date)
+          ) {
             broadcastAlert({
               title: `⚠️ Churn Anomaly: ${displayName}`,
               message: `High uninstall spike detected on ${latestTrend.date}: ${highAnom.uninstalls} uninstalls (z=${highAnom.zScore}).`,
-              priority: 'urgent',
-              tags: 'warning,warning',
+              priority: "urgent",
+              tags: "warning,warning",
               topic: ntfyTopic,
               webhookUrl,
-              slackWebhookUrl: baseConfig.slackWebhookUrl || process.env.SLACK_WEBHOOK_URL,
-              telegram: baseConfig.telegram
-            }).catch(e => console.error('[Scheduler] Anomaly alert error:', e.message));
+              slackWebhookUrl:
+                baseConfig.slackWebhookUrl || process.env.SLACK_WEBHOOK_URL,
+              telegram: baseConfig.telegram,
+            }).catch((e) =>
+              console.error("[Scheduler] Anomaly alert error:", e.message),
+            );
           }
         }
 
         // Calculate App Health Score & Smart Alerts
         const metadata = baseConfig.appMetadata?.[pkgId] || {};
-        const { score: healthScore, alerts: smartAlerts } = calculateAppHealthScore(stats, metadata);
+        const { score: healthScore, alerts: smartAlerts } =
+          calculateAppHealthScore(stats, metadata);
 
         // Automated Negative Review Webhook Dispatch (v1.6.0)
         let negativeReviewsAlerted = [];
@@ -230,13 +334,15 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
             pkgId,
             platform,
             displayName,
-            baseConfig
+            baseConfig,
           });
           if (negativeReviewsAlerted.length > 0) {
-            console.log(`[Scheduler] Dispatched urgent alert for ${negativeReviewsAlerted.length} negative review(s) on ${displayName}`);
+            console.log(
+              `[Scheduler] Dispatched urgent alert for ${negativeReviewsAlerted.length} negative review(s) on ${displayName}`,
+            );
           }
         } catch (e) {
-          console.warn('[Scheduler] Review check error:', e.message);
+          console.warn("[Scheduler] Review check error:", e.message);
         }
 
         return {
@@ -248,13 +354,19 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
           uninstalls: currentDailyUninstalls,
           totalInstalls,
           isNewData,
-          lastAnomalyDate: stats.retentionBenchmarks?.churnAnomalies?.find(a => a.severity === 'high')?.date || null,
+          lastAnomalyDate:
+            stats.retentionBenchmarks?.churnAnomalies?.find(
+              (a) => a.severity === "high",
+            )?.date || null,
           healthScore,
           smartAlerts,
-          negativeReviewsAlerted
+          negativeReviewsAlerted,
         };
       } catch (err) {
-        console.error(`[Scheduler] Error checking stats for ${displayName} (${platform}):`, err.message);
+        console.error(
+          `[Scheduler] Error checking stats for ${displayName} (${platform}):`,
+          err.message,
+        );
         return null;
       }
     });
@@ -262,7 +374,7 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
     const results = await Promise.allSettled(fetchPromises);
 
     for (const res of results) {
-      if (res.status === 'fulfilled' && res.value) {
+      if (res.status === "fulfilled" && res.value) {
         appsChecked++;
         const item = res.value;
 
@@ -279,23 +391,32 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
           dailyUninstalls: item.uninstalls,
           totalInstalls: item.totalInstalls,
           lastAnomalyDate: item.lastAnomalyDate,
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date().toISOString(),
         };
       }
     }
 
     // Send single consolidated notification after checking all apps per period
     // Filter out apps with no install/uninstall changes and no alerts
-    const appsWithChanges = updatedApps.filter(a => a.installs !== 0 || a.uninstalls !== 0 || (a.smartAlerts && a.smartAlerts.length > 0));
+    const appsWithChanges = updatedApps.filter(
+      (a) =>
+        a.installs !== 0 ||
+        a.uninstalls !== 0 ||
+        (a.smartAlerts && a.smartAlerts.length > 0),
+    );
 
     if (appsWithChanges.length > 0) {
-      console.log(`[Scheduler] Discovered new stats changes for ${appsWithChanges.length} app(s). Broadcasting consolidated notification...`);
-      const appleApps = appsWithChanges.filter(a => a.platform === 'APPLE');
-      const androidApps = appsWithChanges.filter(a => a.platform === 'GOOGLE' || a.platform === 'ANDROID');
+      console.log(
+        `[Scheduler] Discovered new stats changes for ${appsWithChanges.length} app(s). Broadcasting consolidated notification...`,
+      );
+      const appleApps = appsWithChanges.filter((a) => a.platform === "APPLE");
+      const androidApps = appsWithChanges.filter(
+        (a) => a.platform === "GOOGLE" || a.platform === "ANDROID",
+      );
 
       let combinedInstalls = 0;
       let combinedUninstalls = 0;
-      appsWithChanges.forEach(a => {
+      appsWithChanges.forEach((a) => {
         combinedInstalls += a.installs;
         combinedUninstalls += a.uninstalls;
       });
@@ -303,57 +424,72 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
       const formatApp = (app) => {
         const statParts = [];
         if (app.installs !== 0) statParts.push(`+${app.installs} installs`);
-        if (app.uninstalls !== 0) statParts.push(`-${app.uninstalls} uninstalls`);
-        if (statParts.length === 0) statParts.push('No net change');
+        if (app.uninstalls !== 0)
+          statParts.push(`-${app.uninstalls} uninstalls`);
+        if (statParts.length === 0) statParts.push("No net change");
 
-        let line = `* ${app.displayName}: ${statParts.join(', ')}`;
+        let line = `* ${app.displayName}: ${statParts.join(", ")}`;
         if (app.smartAlerts && app.smartAlerts.length > 0) {
-          line += ` (Alert: ${app.smartAlerts.join('; ')})`;
+          line += ` (Alert: ${app.smartAlerts.join("; ")})`;
         }
         return line;
       };
 
       const parts = [];
       if (appleApps.length > 0) {
-        parts.push(`[Apple]\n${appleApps.map(formatApp).join('\n')}`);
+        parts.push(`[Apple]\n${appleApps.map(formatApp).join("\n")}`);
       }
       if (androidApps.length > 0) {
-        parts.push(`[Android]\n${androidApps.map(formatApp).join('\n')}`);
+        parts.push(`[Android]\n${androidApps.map(formatApp).join("\n")}`);
       }
 
-      const title = appsWithChanges.length === 1
-        ? `App Health & Stats: ${appsWithChanges[0].displayName}`
-        : `App Health & Stats (${appsWithChanges.length} Apps)`;
+      const title =
+        appsWithChanges.length === 1
+          ? `App Health & Stats: ${appsWithChanges[0].displayName}`
+          : `App Health & Stats (${appsWithChanges.length} Apps)`;
 
-      const message = `${parts.join('\n\n')}\n\nCombined Total: +${combinedInstalls} installs, -${combinedUninstalls} uninstalls across ${appsWithChanges.length} app(s)`;
+      const message = `${parts.join("\n\n")}\n\nCombined Total: +${combinedInstalls} installs, -${combinedUninstalls} uninstalls across ${appsWithChanges.length} app(s)`;
 
       const res = await broadcastAlert({
         title,
         message,
-        priority: 'high',
-        tags: 'chart_with_upwards_trend,package',
+        priority: "high",
+        tags: "chart_with_upwards_trend,package",
         topic: ntfyTopic,
         dataDir: DATA_DIR,
         webhookUrl,
-        slackWebhookUrl: baseConfig.slackWebhookUrl || process.env.SLACK_WEBHOOK_URL,
-        telegram: baseConfig.telegram
+        slackWebhookUrl:
+          baseConfig.slackWebhookUrl || process.env.SLACK_WEBHOOK_URL,
+        telegram: baseConfig.telegram,
       });
 
-      if (res.ntfyResult?.success || res.webhookResult?.success || res.slackResult?.success || res.telegramResult?.success) {
+      if (
+        res.ntfyResult?.success ||
+        res.webhookResult?.success ||
+        res.slackResult?.success ||
+        res.telegramResult?.success
+      ) {
         notificationsSent = 1;
         for (const app of appsWithChanges) {
-          details.push({ app: app.displayName, platform: app.platform, date: app.date, status: 'Notified' });
+          details.push({
+            app: app.displayName,
+            platform: app.platform,
+            date: app.date,
+            status: "Notified",
+          });
         }
       }
     } else if (updatedApps.length > 0) {
-      console.log(`[Scheduler] ${updatedApps.length} app(s) updated baseline, but 0 apps had non-zero install/uninstall changes. Skipping notification.`);
+      console.log(
+        `[Scheduler] ${updatedApps.length} app(s) updated baseline, but 0 apps had non-zero install/uninstall changes. Skipping notification.`,
+      );
     }
 
     saveLastKnownStats(DATA_DIR, lastKnownStats);
 
     lastSchedulerRun = new Date();
     lastSchedulerStatus = {
-      status: 'completed',
+      status: "completed",
       lastRun: lastSchedulerRun.toISOString(),
       appsChecked,
       notificationsSent,
@@ -362,13 +498,16 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
       activeStartHour: startHour,
       activeEndHour: endHour,
       currentHour,
-      ntfyTopic
+      ntfyTopic,
     };
 
-    console.log(`[Scheduler] Stats check finished. Checked: ${appsChecked} apps, Notifications sent: ${notificationsSent}`);
+    console.log(
+      `[Scheduler] Stats check finished. Checked: ${appsChecked} apps, Notifications sent: ${notificationsSent}`,
+    );
     return lastSchedulerStatus;
   } finally {
     isCheckRunning = false;
+    idleWaiters.splice(0).forEach((resolve) => resolve());
   }
 }
 
@@ -376,26 +515,32 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
  * Starts periodic scheduler background timer.
  */
 function startPeriodicScheduler(helpers) {
+  clearTimeout(initialTimer);
   if (schedulerIntervalHandle) {
     clearInterval(schedulerIntervalHandle);
     schedulerIntervalHandle = null;
   }
 
   const baseConfig = helpers.getBaseConfig();
-  const hoursInterval = baseConfig?.refreshIntervalHours || parseInt(process.env.STATS_REFRESH_HOURS, 10) || 1;
+  const hoursInterval =
+    baseConfig?.refreshIntervalHours ||
+    parseInt(process.env.STATS_REFRESH_HOURS, 10) ||
+    1;
   const intervalMs = Math.max(1, hoursInterval) * 60 * 60 * 1000;
 
-  console.log(`[Scheduler] Starting periodic store stats refresh every ${hoursInterval} hour(s)...`);
+  console.log(
+    `[Scheduler] Starting periodic store stats refresh every ${hoursInterval} hour(s)...`,
+  );
 
-  setTimeout(() => {
-    checkAndNotifyStats(helpers).catch(err => {
-      console.error('[Scheduler] Initial run error:', err.message);
+  initialTimer = setTimeout(() => {
+    checkAndNotifyStats(helpers).catch((err) => {
+      console.error("[Scheduler] Initial run error:", err.message);
     });
   }, 20000);
 
   schedulerIntervalHandle = setInterval(() => {
-    checkAndNotifyStats(helpers).catch(err => {
-      console.error('[Scheduler] Interval run error:', err.message);
+    checkAndNotifyStats(helpers).catch((err) => {
+      console.error("[Scheduler] Interval run error:", err.message);
     });
   }, intervalMs);
 }
@@ -407,60 +552,105 @@ function getSchedulerStatus() {
 /**
  * Scans recent store reviews and dispatches urgent multi-channel webhook alerts for negative (1-2 star) reviews.
  */
-async function checkNegativeReviewAlerts({ pkgId, platform, displayName, baseConfig }) {
-  const { db } = require('./db');
+async function checkNegativeReviewAlerts({
+  pkgId,
+  platform,
+  displayName,
+  baseConfig,
+}) {
+  const { db } = require("./db");
   if (!db) return [];
-  const scraper = require('./aso/scraper');
+  const scraper = require("./aso/scraper");
 
   try {
-    const isApple = platform.toLowerCase() === 'apple' || platform.toLowerCase() === 'ios';
+    const isApple =
+      platform.toLowerCase() === "apple" || platform.toLowerCase() === "ios";
     const reviews = isApple
       ? await scraper.getAppleReviewsRSS(pkgId)
       : await scraper.getPlayReviews(pkgId, 25);
 
     if (!Array.isArray(reviews) || reviews.length === 0) return [];
 
-    const negativeReviews = reviews.filter(r => r && r.rating && r.rating <= 2);
+    const negativeReviews = reviews.filter(
+      (r) => r && r.rating && r.rating <= 2,
+    );
     const newlyAlerted = [];
 
     for (const rev of negativeReviews) {
-      const revId = String(rev.id || `${pkgId}_${rev.author}_${rev.reviewDate || Date.now()}`);
-      const alreadyAlerted = db.prepare('SELECT review_id FROM negative_review_alerts WHERE review_id = ?').get(revId);
+      const revId = String(
+        rev.id || `${pkgId}_${rev.author}_${rev.reviewDate || Date.now()}`,
+      );
+      const alreadyAlerted = db
+        .prepare(
+          "SELECT review_id FROM negative_review_alerts WHERE review_id = ?",
+        )
+        .get(revId);
 
       if (!alreadyAlerted) {
         const title = `🚨 Negative Review Alert (${rev.rating}★): ${displayName}`;
-        const bodySnippet = rev.body ? (rev.body.length > 280 ? rev.body.substring(0, 277) + '...' : rev.body) : '';
-        const message = `"${rev.title ? rev.title + ' — ' : ''}${bodySnippet}"\n\nAuthor: ${rev.author || 'Anonymous'} (v${rev.version || 'unknown'})\nStore: ${platform.toUpperCase()}`;
+        const bodySnippet = rev.body
+          ? rev.body.length > 280
+            ? rev.body.substring(0, 277) + "..."
+            : rev.body
+          : "";
+        const message = `"${rev.title ? rev.title + " — " : ""}${bodySnippet}"\n\nAuthor: ${rev.author || "Anonymous"} (v${rev.version || "unknown"})\nStore: ${platform.toUpperCase()}`;
 
         await broadcastAlert({
           title,
           message,
-          priority: 'urgent',
-          tags: 'warning,rotating_light',
+          priority: "urgent",
+          tags: "warning,rotating_light",
           topic: baseConfig.ntfyTopic || process.env.NTFY_TOPIC,
           webhookUrl: baseConfig.webhookUrl || process.env.WEBHOOK_URL,
-          slackWebhookUrl: baseConfig.slackWebhookUrl || process.env.SLACK_WEBHOOK_URL,
-          telegram: baseConfig.telegram
-        }).catch(e => console.error('[ReviewAlert] Broadcast failed:', e.message));
+          slackWebhookUrl:
+            baseConfig.slackWebhookUrl || process.env.SLACK_WEBHOOK_URL,
+          telegram: baseConfig.telegram,
+        }).catch((e) =>
+          console.error("[ReviewAlert] Broadcast failed:", e.message),
+        );
 
-        db.prepare(`
+        db.prepare(
+          `
           INSERT INTO negative_review_alerts (review_id, package_name, platform, rating, author, title, body, alerted_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-        `).run(revId, pkgId, platform, rev.rating, rev.author || 'Anonymous', rev.title || '', rev.body || '');
+        `,
+        ).run(
+          revId,
+          pkgId,
+          platform,
+          rev.rating,
+          rev.author || "Anonymous",
+          rev.title || "",
+          rev.body || "",
+        );
 
         newlyAlerted.push(revId);
       }
     }
     return newlyAlerted;
   } catch (err) {
-    console.warn(`[ReviewAlert] Review check error for ${displayName}:`, err.message);
+    console.warn(
+      `[ReviewAlert] Review check error for ${displayName}:`,
+      err.message,
+    );
     return [];
   }
 }
 
+function stopPeriodicScheduler() {
+  stopping = true;
+  clearTimeout(initialTimer);
+  clearInterval(schedulerIntervalHandle);
+  schedulerIntervalHandle = null;
+  return isCheckRunning
+    ? new Promise((resolve) => idleWaiters.push(resolve))
+    : Promise.resolve();
+}
+
 module.exports = {
+  stopPeriodicScheduler,
   checkAndNotifyStats,
   startPeriodicScheduler,
   getSchedulerStatus,
-  checkNegativeReviewAlerts
+  checkNegativeReviewAlerts,
 };
