@@ -390,7 +390,7 @@ function createApp() {
       error:
         status === 413
           ? "REQUEST_TOO_LARGE"
-          : ["AI_NOT_CONFIGURED", "RANK_SOURCE_FAILED", "REVIEW_REPLY_FAILED", "REVIEWS_PERMISSION_REQUIRED"].includes(code)
+          : ["AI_NOT_CONFIGURED", "AI_INVALID_RESPONSE", "AI_EMPTY_RESPONSE", "AI_OUTPUT_TRUNCATED", "RANK_SOURCE_FAILED", "REVIEW_REPLY_FAILED", "REVIEWS_PERMISSION_REQUIRED"].includes(code)
             ? code
             : invalid
               ? code

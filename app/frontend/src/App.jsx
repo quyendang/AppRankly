@@ -2150,7 +2150,7 @@ function ReviewReplyDialog({ app, review, busy, action, error, onClose, onSaved 
         } });
         const result = await api("/api/ai/run", { method: "POST", body: { previewId: preview.previewId, confirmed: true } });
         const draft = result.result?.candidates?.[0];
-        if (typeof draft !== "string" || !draft.trim() || draft.length > limit) throw new Error("INVALID_REVIEW_REPLY");
+        if (typeof draft !== "string" || !draft.trim() || draft.length > limit) throw new Error("AI_INVALID_RESPONSE");
         setText(draft); setConfirmed(false);
       } finally { setGenerating(false); }
     })}>{t(generating ? "generatingAIResponse" : "generateAIResponse")}</Button>

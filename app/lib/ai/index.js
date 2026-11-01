@@ -1,6 +1,17 @@
 const Anthropic = require("@anthropic-ai/sdk");
 const OpenAI = require("openai");
 const { GoogleGenAI } = require("@google/genai");
+function structuredSystem(system, schema) {
+  return system + "\n\nReturn only a valid JSON value matching this schema. Do not wrap it in Markdown or add commentary:\n" + JSON.stringify(schema);
+}
+function parseResponse(text, truncated) {
+  if (truncated) throw new Error("AI_OUTPUT_TRUNCATED");
+  if (typeof text !== "string" || !text.trim()) throw new Error("AI_EMPTY_RESPONSE");
+  const clean = text.replace(/^\uFEFF/, "").trim();
+  const fenced = clean.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  try { return JSON.parse(fenced ? fenced[1] : clean); }
+  catch { throw new Error("AI_INVALID_RESPONSE"); }
+}
 function baseURL(variable, fallback) {
   const value = process.env[variable]?.trim() || fallback;
   try {
@@ -86,14 +97,14 @@ async function anthropicGenerate({
   const resp = await client.messages.create({
     model,
     max_tokens: maxTokens,
-    system,
+    system: structuredSystem(system, schema),
     output_config: { format: { type: "json_schema", schema } },
     messages: [{ role: "user", content: prompt }],
   });
 
-  const text = resp.content.find((b) => b.type === "text")?.text || "{}";
+  const text = resp.content.filter((b) => b.type === "text").map(b => b.text).join("");
   return {
-    data: JSON.parse(text),
+    data: parseResponse(text, resp.stop_reason === "max_tokens"),
     usage: {
       inputTokens: resp.usage?.input_tokens || 0,
       outputTokens: resp.usage?.output_tokens || 0,
@@ -129,7 +140,7 @@ async function openaiGenerate({
   const params = {
     model,
     messages: [
-      { role: "system", content: system },
+      { role: "system", content: structuredSystem(system, schema) },
       { role: "user", content: prompt },
     ],
   };
@@ -154,16 +165,13 @@ async function openaiGenerate({
   } else {
     // Fallback for older models that support JSON Mode but not json_schema
     params.response_format = { type: "json_object" };
-    params.messages[0].content +=
-      "\n\nIMPORTANT: You must return valid JSON that follows this schema: " +
-      JSON.stringify(schema);
   }
 
   const resp = await openai.chat.completions.create(params);
 
-  const text = resp.choices[0]?.message?.content || "{}";
+  const text = resp.choices[0]?.message?.content;
   return {
-    data: JSON.parse(text),
+    data: parseResponse(text, resp.choices[0]?.finish_reason === "length"),
     usage: {
       inputTokens: resp.usage?.prompt_tokens || 0,
       outputTokens: resp.usage?.completion_tokens || 0,
@@ -181,15 +189,15 @@ async function geminiGenerate({ system, prompt, schema, apiKey, model }) {
     model,
     contents: prompt,
     config: {
-      systemInstruction: system,
+      systemInstruction: structuredSystem(system, schema),
       responseMimeType: "application/json",
       responseSchema: schema,
     },
   });
 
-  const text = response.text || "{}";
+  const text = response.text;
   return {
-    data: JSON.parse(text),
+    data: parseResponse(text, response.candidates?.[0]?.finishReason === "MAX_TOKENS"),
     usage: {
       inputTokens: response.usageMetadata?.promptTokenCount || 0,
       outputTokens: response.usageMetadata?.candidatesTokenCount || 0,

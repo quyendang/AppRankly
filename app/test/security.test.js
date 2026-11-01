@@ -48,6 +48,7 @@ ai.generateJSON = async (input) => {
   calls++;
   lastPayload = input.prompt;
   lastSystem = input.system;
+  if (replyDraft === "__AI_INVALID_RESPONSE__") throw new Error("AI_INVALID_RESPONSE");
   return {
     data: { summary: "Safe result", recommendations: [], candidates: JSON.parse(input.prompt).kind === "reviewReply" ? [replyDraft] : [] },
     provider: "openai",
@@ -339,7 +340,14 @@ const { createApp } = require("../server");
     }, cookie)).json();
     assert.equal((await request("/api/ai/run", "POST", {
       previewId: invalidPreview.previewId, confirmed: true,
-    }, cookie)).status, 400);
+    }, cookie)).status, 502);
+    replyDraft = "__AI_INVALID_RESPONSE__";
+    const badFormatPreview = await (await request("/api/ai/preview", "POST", {
+      appId: fakeApp.id, kind: "reviewReply", reviewId: "review-fr", locale: "vi",
+    }, cookie)).json();
+    const badFormat = await request("/api/ai/run", "POST", { previewId: badFormatPreview.previewId, confirmed: true }, cookie);
+    assert.equal(badFormat.status, 502);
+    assert.deepEqual(await badFormat.json(), { error: "AI_INVALID_RESPONSE" });
     replyDraft = "Merci !";
     assert.equal(
       (await request("/api/notes/" + note.id, "DELETE", null, cookie)).status,

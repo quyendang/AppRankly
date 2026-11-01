@@ -249,6 +249,7 @@ Production now rejects relative `DATA_DIR` values with an explicit setup error b
 | Login cookie not retained | Use HTTPS in production and access the configured origin. The cookie is HttpOnly, Secure in production, and SameSite Strict. |
 | Scheduled sync does not run | Disable service sleep, keep one replica, and check the saved interval/time zone and active hours. |
 | AI unavailable | Set the selected provider's key and a compatible model, redeploy, and create a fresh preview. Preview IDs expire after ten minutes and can be used only once. |
+| AI returns an invalid/empty/truncated response | The server returns a specific AI error rather than blaming user input. Proxy requests include the JSON schema in the system prompt as well as the provider's structured-output option; a whole Markdown JSON fence is accepted, but arbitrary prose or incomplete JSON is rejected. Review drafts allow up to 8,192 completion tokens to accommodate reasoning models while still enforcing the store character limit. No automatic paid retry or provider fallback occurs. |
 | Data disappears after restart | Verify `DATA_DIR` and `DB_PATH` point inside the attached persistent volume, not the container's ephemeral filesystem. |
 
 ## References and verification limits

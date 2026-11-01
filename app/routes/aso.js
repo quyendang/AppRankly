@@ -391,12 +391,12 @@ router.post(
         required: ["summary", "recommendations", "candidates"],
         additionalProperties: false,
       },
-      maxTokens: 2500,
+      maxTokens: entry.payload.kind === "reviewReply" ? 8192 : 2500,
     });
     const payload = entry.payload;
     if (payload.kind === "reviewReply" && (result.data?.candidates?.length !== 1 ||
         typeof result.data.candidates[0] !== "string" || !result.data.candidates[0].trim() ||
-        result.data.candidates[0].length > payload.replyLimit)) throw new Error("INVALID_REVIEW_REPLY");
+        result.data.candidates[0].length > payload.replyLimit)) throw new Error("AI_INVALID_RESPONSE");
     db.prepare(
       `INSERT INTO aso_ai_run(package_name,platform,kind,provider,model,input_hash,prompt_version,input_tokens,output_tokens,payload) VALUES(?,?,?,?,?,?,1,?,?,?)`,
     ).run(

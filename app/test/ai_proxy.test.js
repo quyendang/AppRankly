@@ -17,6 +17,7 @@ const { loadAIConfig, getAIStatus, generateJSON } = require("../lib/ai");
   );
   const requests = [];
   let responseStatus = 200;
+  let responseText, finishReason = "stop";
   const output = {
     summary: "Synthetic response",
     recommendations: [],
@@ -47,8 +48,8 @@ const { loadAIConfig, getAIStatus, generateJSON } = require("../lib/ai");
           type: "message",
           role: "assistant",
           model: body.model,
-          content: [{ type: "text", text: JSON.stringify(output) }],
-          stop_reason: "end_turn",
+          content: [{ type: "text", text: responseText ?? JSON.stringify(output) }],
+          stop_reason: finishReason === "length" ? "max_tokens" : "end_turn",
           usage: { input_tokens: 2, output_tokens: 3 },
         }
       : {
@@ -58,8 +59,8 @@ const { loadAIConfig, getAIStatus, generateJSON } = require("../lib/ai");
           choices: [
             {
               index: 0,
-              message: { role: "assistant", content: JSON.stringify(output) },
-              finish_reason: "stop",
+              message: { role: "assistant", content: responseText ?? JSON.stringify(output) },
+              finish_reason: finishReason,
             },
           ],
           usage: { prompt_tokens: 2, completion_tokens: 3 },
@@ -186,6 +187,20 @@ const { loadAIConfig, getAIStatus, generateJSON } = require("../lib/ai");
     assert.ok(!status.includes("synthetic-openai-proxy-key"));
     assert.ok(!status.includes("/gateway"));
     for (const provider of ["openai", "anthropic"]) {
+      responseStatus = 200;
+      responseText = "```json\n" + JSON.stringify(output) + "\n```";
+      assert.deepEqual((await generateJSON({ ...input, provider })).data, output);
+      const sentSystem = provider === "openai" ? requests.at(-1).body.messages[0].content : requests.at(-1).body.system;
+      assert.match(sentSystem, /Return only a valid JSON/);
+      responseText = "";
+      await assert.rejects(generateJSON({ ...input, provider }), /AI_EMPTY_RESPONSE/);
+      responseText = "Unexpected text containing synthetic-secret-do-not-log";
+      await assert.rejects(generateJSON({ ...input, provider }), error => error.message === "AI_INVALID_RESPONSE");
+      responseText = JSON.stringify(output);
+      finishReason = "length";
+      await assert.rejects(generateJSON({ ...input, provider }), /AI_OUTPUT_TRUNCATED/);
+      finishReason = "stop";
+      responseText = undefined;
       responseStatus = 302;
       let before = requests.length;
       await assert.rejects(generateJSON({ ...input, provider }));
