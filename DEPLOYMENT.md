@@ -4,7 +4,7 @@ This guide is for a personal, single-owner instance with fewer than 20 apps. Run
 
 ## 1. Prepare the repository and authentication
 
-Select this GitHub repository in Railway and use the **repository root** as the service root. Railway builds the included `Dockerfile`; do not override its start command or run migrations as a pre-deploy command. Volumes are mounted when the container starts, so initialization and migration happen at startup.
+Select this GitHub repository in Railway and use the **repository root** as the service root. Railway builds the included `Dockerfile`; keep the configured `/usr/local/bin/apprankly-entrypoint` start command. Do not run migrations as a pre-deploy command. Volumes are mounted when the container starts, so initialization and migration happen at startup.
 
 Install the backend dependencies locally to generate a bcrypt hash:
 
@@ -39,7 +39,7 @@ Copy only the resulting bcrypt hash into `ADMIN_PASSWORD_HASH`. Keep the actual 
 2. Attach **one volume** and set its mount path to **`/app/data`**.
 3. Keep **one replica** and disable **Serverless/application sleep** so scheduled synchronization continues to run.
 4. Generate a Railway public HTTPS domain or configure your custom domain. Copy its exact origin into `APP_ORIGIN`, for example `https://your-service.up.railway.app`, without a trailing slash or path. Redeploy if this changes.
-5. Keep the default Docker entrypoint. It creates the data directory, corrects ownership when started as root, and then runs Node as user `node`. Do not set a Railway user override that prevents this volume initialization.
+5. Keep `/usr/local/bin/apprankly-entrypoint` as the start command. It creates the data directory, corrects ownership when started as root, and then runs Node as user `node`. Do not set a Railway user override that prevents this volume initialization.
 
 `railway.json` requires `/app/data`, configures `/readyz`, uses a 120-second readiness timeout, disables sleep, sets one replica, and allows 20 seconds between SIGTERM and SIGKILL. The application's own shutdown timeout is 15 seconds. A volume-backed redeploy may cause a short interruption; do not promise zero downtime.
 
@@ -222,6 +222,22 @@ Do not overwrite the only working volume while testing a restore. Railway Variab
 Git synchronization, team administration, public setup, raw config APIs, public demo generation, and AI-generated SQL execution are intentionally unavailable in this personal fork.
 
 ## Troubleshooting
+
+### `EACCES: permission denied, mkdir '/app/app/data'`
+
+A relative local value such as `DATA_DIR=./app/data` resolves under the container working directory `/app`, producing `/app/app/data`. This is different from the persistent volume at `/app/data`. An overridden start command can also bypass the volume ownership initialization.
+
+In the **AppRankly service**:
+
+1. Set `DATA_DIR=/app/data` and `NODE_ENV=production` in Variables. Do not copy the local `.env` defaults unchanged into Railway.
+2. Confirm the existing volume's mount path is `/app/data`. Do not delete/recreate the volume to solve this error.
+3. If `DB_PATH` is set, ensure it is an absolute path inside that volume (normally `/app/data/database.sqlite`); otherwise leave it unset.
+4. Use the latest `railway.json`, which explicitly starts `/usr/local/bin/apprankly-entrypoint`. Remove any old `node server.js` / `npm start` override. This wrapper initializes ownership and then drops to user `node`.
+5. Remove a conflicting non-root `RAILWAY_RUN_UID` override, or set `RAILWAY_RUN_UID=0` for the wrapper's initialization; Node itself is still launched as user `node` by the wrapper.
+6. Redeploy, check for `AppRankly ready`, and verify `/readyz` returns HTTP 200.
+
+Production now rejects relative `DATA_DIR` values with an explicit setup error before attempting to create a directory. An `EACCES` startup crash means the app never reached its HTTP listener; changing `APP_ORIGIN` or store API keys will not repair this filesystem failure.
+
 
 | Symptom | Check |
 | --- | --- |

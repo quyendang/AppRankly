@@ -1,5 +1,14 @@
 const fs = require("node:fs");
 const path = require("node:path");
+if (
+  process.env.NODE_ENV === "production" &&
+  process.env.DATA_DIR &&
+  !path.isAbsolute(process.env.DATA_DIR)
+) {
+  throw new Error(
+    "DATA_DIR_MUST_BE_ABSOLUTE: set DATA_DIR=/app/data on Railway",
+  );
+}
 const DATA_DIR = path.resolve(
   process.env.DATA_DIR || path.join(__dirname, "..", "data"),
 );

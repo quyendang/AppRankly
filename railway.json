@@ -13,6 +13,7 @@
     "restartPolicyMaxRetries": 10,
     "drainingSeconds": 20,
     "overlapSeconds": 0,
-    "requiredMountPath": "/app/data"
+    "requiredMountPath": "/app/data",
+    "startCommand": "/usr/local/bin/apprankly-entrypoint"
   }
 }
