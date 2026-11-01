@@ -18,7 +18,7 @@ try {
     const env = { ...process.env };
     for (const key of Object.keys(env))
       if (
-        /^(GOOGLE_|APPLE_|OPENAI_|ANTHROPIC_|GEMINI_|NTFY_|DISCORD_|SLACK_|TELEGRAM_|AI_PROVIDER|ADMIN_PASSWORD_HASH|JWT_SECRET|APP_ORIGIN)/.test(
+        /^(GOOGLE_|APPLE_|OPENAI_|ANTHROPIC_|GEMINI_|NTFY_|DISCORD_|SLACK_|TELEGRAM_|AI_PROVIDER|AI_ALLOW_RAILWAY_INTERNAL_HTTP|ADMIN_PASSWORD_HASH|JWT_SECRET|APP_ORIGIN)/.test(
           key,
         )
       )

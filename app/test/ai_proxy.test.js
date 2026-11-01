@@ -4,6 +4,7 @@ const { loadAIConfig, getAIStatus, generateJSON } = require("../lib/ai");
   const nativeFetch = global.fetch;
   const envKeys = [
     "AI_PROVIDER",
+    "AI_ALLOW_RAILWAY_INTERNAL_HTTP",
     "OPENAI_API_KEY",
     "OPENAI_MODEL",
     "OPENAI_BASE_URL",
@@ -92,6 +93,34 @@ const { loadAIConfig, getAIStatus, generateJSON } = require("../lib/ai");
       }
       delete process.env[key];
     }
+    for (const key of ["OPENAI_BASE_URL", "ANTHROPIC_BASE_URL"]) {
+      process.env[key] = "http://cli-proxy-api.railway.internal:8317/v1";
+      assert.throws(loadAIConfig, new RegExp("INVALID_" + key));
+      process.env.AI_ALLOW_RAILWAY_INTERNAL_HTTP = "true";
+      assert.equal(
+        loadAIConfig().providers[
+          key === "OPENAI_BASE_URL" ? "openai" : "anthropic"
+        ].baseURL,
+        process.env[key],
+      );
+      for (const host of [
+        "proxy.example",
+        "127.0.0.1",
+        "localhost",
+        "railway.internal",
+        "cli-proxy-api.railway.internal.evil.example",
+        "cli-proxy-api.railway.internal@evil.example",
+        "foo.bar.railway.internal",
+      ]) {
+        process.env[key] = "http://" + host + ":8317";
+        assert.throws(loadAIConfig, new RegExp("INVALID_" + key));
+      }
+      process.env[key] =
+        "http://user:password@cli-proxy-api.railway.internal:8317";
+      assert.throws(loadAIConfig, new RegExp("INVALID_" + key));
+      delete process.env[key];
+      delete process.env.AI_ALLOW_RAILWAY_INTERNAL_HTTP;
+    }
     process.env.OPENAI_API_KEY = "synthetic-openai-proxy-key";
     process.env.ANTHROPIC_API_KEY = "synthetic-anthropic-proxy-key";
     process.env.OPENAI_BASE_URL = " https://openai.proxy.invalid/gateway/v1/ ";
@@ -136,6 +165,22 @@ const { loadAIConfig, getAIStatus, generateJSON } = require("../lib/ai");
     assert.ok(anthropicRequest.headers.get("anthropic-version"));
     assert.equal(anthropicRequest.body.model, "claude-custom");
     assert.equal(anthropicRequest.redirect, "error");
+    process.env.AI_ALLOW_RAILWAY_INTERNAL_HTTP = "true";
+    process.env.OPENAI_BASE_URL =
+      "http://cli-proxy-api.railway.internal:8317/v1";
+    await generateJSON({ ...input, provider: "openai" });
+    assert.equal(
+      requests.at(-1).url,
+      "http://cli-proxy-api.railway.internal:8317/v1/chat/completions",
+    );
+    assert.equal(requests.at(-1).redirect, "error");
+    process.env.ANTHROPIC_BASE_URL='http://cli-proxy-api.railway.internal:8317';
+    await generateJSON({...input,provider:'anthropic'});
+    assert.equal(requests.at(-1).url,'http://cli-proxy-api.railway.internal:8317/v1/messages');
+    assert.equal(requests.at(-1).redirect,'error');
+    process.env.ANTHROPIC_BASE_URL='https://anthropic.proxy.invalid/gateway';
+    process.env.OPENAI_BASE_URL = "https://openai.proxy.invalid/gateway/v1";
+    delete process.env.AI_ALLOW_RAILWAY_INTERNAL_HTTP;
     const status = JSON.stringify(getAIStatus());
     assert.ok(status.includes("https://openai.proxy.invalid"));
     assert.ok(!status.includes("synthetic-openai-proxy-key"));

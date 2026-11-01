@@ -5,8 +5,14 @@ function baseURL(variable, fallback) {
   const value = process.env[variable]?.trim() || fallback;
   try {
     const url = new URL(value);
+    const railwayHTTP =
+      url.protocol === "http:" &&
+      process.env.AI_ALLOW_RAILWAY_INTERNAL_HTTP === "true" &&
+      /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.railway\.internal$/.test(
+        url.hostname,
+      );
     if (
-      url.protocol !== "https:" ||
+      (url.protocol !== "https:" && !railwayHTTP) ||
       url.username ||
       url.password ||
       url.search ||

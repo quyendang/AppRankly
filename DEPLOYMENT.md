@@ -119,13 +119,45 @@ ANTHROPIC_API_KEY=<key-issued-by-your-proxy>
 
 These are illustrative values, not working credentials. Paths/prefixes are preserved: an Anthropic base of `https://your-proxy.example/anthropic` produces `/anthropic/v1/messages`. Do not include the final `/chat/completions` or `/messages` path in the base URL. For Anthropic, do not append `/v1` unless your proxy explicitly requires that prefix in addition to the SDK's `/v1/messages` route.
 
-Both variables require HTTPS and reject embedded username/password, query strings, and fragments. Empty values restore official defaults. Invalid URLs cause startup to fail. HTTP endpoints, including localhost HTTP, are not supported. API requests cannot override these URLs; only the server operator can change them. Gemini continues to use its official endpoint.
+Both variables require HTTPS by default and reject embedded username/password, query strings, and fragments. Empty values restore official defaults. Invalid URLs cause startup to fail. Public HTTP and localhost HTTP are not supported. Railway private HTTP requires the explicit option described below. API requests cannot override these URLs; only the server operator can change them. Gemini continues to use its official endpoint.
 
 OpenAI requests use bearer authorization and Chat Completions, with `json_schema` for recognized modern OpenAI model IDs and `json_object` for other IDs. Anthropic requests use `x-api-key`, `anthropic-version`, Messages, and `output_config` with a JSON schema. The proxy/model must support these request fields and return the corresponding provider response format. A service that only offers the OpenAI Responses API, plain text completion, or unsupported structured-output fields is not automatically compatible. Check the proxy's documented model IDs and API compatibility.
 
 OpenAI/Anthropic requests reject redirects, use a 60-second SDK timeout, and disable automatic retries and provider fallback. An error is returned for an unsuccessful request; the app does not silently resend it to an official endpoint or another provider.
 
 **The selected AI API key and the approved prompt are sent to the configured proxy.** Use a proxy-issued key rather than forwarding an official provider key unless you intend to give that proxy access to it. The preview displays the destination origin and model before confirmation; paths are not exposed there. Google Play/App Store credentials remain outside AI payloads. Analytics and notes are still excluded unless explicitly selected and approved. Review the proxy's retention and access policies before sending private data.
+
+#### CLIProxyAPI in the same Railway project/environment
+
+Railway private service traffic uses HTTP inside an encrypted WireGuard network. Both services must be in the same **project and environment**. See [Railway private networking](https://docs.railway.com/networking/private-networking/how-it-works).
+
+For a service named `cli-proxy-api` listening on **8317**, configure these Variables on **AppRankly**:
+
+```dotenv
+AI_PROVIDER=openai
+AI_ALLOW_RAILWAY_INTERNAL_HTTP=true
+OPENAI_BASE_URL=http://cli-proxy-api.railway.internal:8317/v1
+OPENAI_API_KEY=<CLIProxyAPI-client-API-key>
+OPENAI_MODEL=<exact-model-id-exposed-by-CLIProxyAPI>
+```
+
+For the Anthropic Messages format instead:
+
+```dotenv
+AI_PROVIDER=anthropic
+AI_ALLOW_RAILWAY_INTERNAL_HTTP=true
+ANTHROPIC_BASE_URL=http://cli-proxy-api.railway.internal:8317
+ANTHROPIC_API_KEY=<CLIProxyAPI-client-API-key>
+ANTHROPIC_MODEL=<exact-Claude-model-id-exposed-by-CLIProxyAPI>
+```
+
+Replace `8317` with the proxy's actual **listening port**, if different; it is not necessarily AppRankly's `$PORT`. CLIProxyAPI's example configuration uses 8317. Ensure the proxy listener accepts connections from other services (all interfaces, including IPv6 where needed), rather than localhost only. Set the corresponding listener options for the version of CLIProxyAPI you deploy. [CLIProxyAPI configuration reference](https://github.com/router-for-me/CLIProxyAPI/blob/main/config.example.yaml).
+
+Use a **client API key authorized to call CLIProxyAPI**, not its management/admin key or a Google/Apple credential. Keep upstream provider authentication in CLIProxyAPI. Use a model ID returned by the proxy's `/v1/models` endpoint; do not assume AppRankly's default model exists there. The proxy and model must still support the structured request fields documented above.
+
+`AI_ALLOW_RAILWAY_INTERNAL_HTTP` defaults to false. When exactly `true`, it permits HTTP only for a hostname shaped like `service-name.railway.internal`. It does not allow public hosts, localhost, IP literals, nested subdomains, or redirects. AppRankly does not verify project membership via the Railway API; network/environment isolation remains Railway's responsibility. Keep public proxies on HTTPS.
+
+Redeploy AppRankly after updating Variables. Review the destination shown in the AI preview, then run a small request. A `.railway.internal` address is reachable inside Railway's environment, not directly from your MacBook browser. This configuration does not change `APP_ORIGIN`: keep that set to AppRankly's public HTTPS origin.
 
 ### Notifications — optional and disabled initially
 
