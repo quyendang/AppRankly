@@ -1,16 +1,41 @@
 const Anthropic = require("@anthropic-ai/sdk");
 const OpenAI = require("openai");
 const { GoogleGenAI } = require("@google/genai");
+function baseURL(variable, fallback) {
+  const value = process.env[variable]?.trim() || fallback;
+  try {
+    const url = new URL(value);
+    if (
+      url.protocol !== "https:" ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash
+    )
+      throw new Error();
+    return url.href.replace(/\/+$/, "");
+  } catch {
+    throw new Error("INVALID_" + variable);
+  }
+}
+async function providerFetch(url, options) {
+  const response = await fetch(url, { ...options, redirect: "error" });
+  if (response.status >= 300 && response.status < 400)
+    throw new Error("AI_REDIRECT_REJECTED");
+  return response;
+}
 function loadAIConfig() {
   return {
     defaultProvider: process.env.AI_PROVIDER || "openai",
     providers: {
       openai: {
         apiKey: process.env.OPENAI_API_KEY || "",
+        baseURL: baseURL("OPENAI_BASE_URL", "https://api.openai.com/v1"),
         model: process.env.OPENAI_MODEL || "gpt-5-nano",
       },
       anthropic: {
         apiKey: process.env.ANTHROPIC_API_KEY || "",
+        baseURL: baseURL("ANTHROPIC_BASE_URL", "https://api.anthropic.com"),
         model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5",
       },
       gemini: {
@@ -27,6 +52,9 @@ function getAIStatus() {
     id,
     available: Boolean(providers[id].apiKey),
     model: providers[id].model,
+    endpointOrigin: new URL(
+      providers[id].baseURL || "https://generativelanguage.googleapis.com",
+    ).origin,
     configured: Boolean(providers[id].apiKey),
   }));
 
@@ -38,12 +66,16 @@ async function anthropicGenerate({
   prompt,
   schema,
   apiKey,
+  baseURL,
   model,
   maxTokens = 8192,
 }) {
   const client = new Anthropic({
     apiKey,
-    baseURL: "https://api.anthropic.com",
+    baseURL,
+    fetch: providerFetch,
+    maxRetries: 0,
+    timeout: 60000,
   });
   const resp = await client.messages.create({
     model,
@@ -68,10 +100,17 @@ async function openaiGenerate({
   prompt,
   schema,
   apiKey,
+  baseURL,
   model,
   maxTokens = 8192,
 }) {
-  const openai = new OpenAI({ apiKey, baseURL: "https://api.openai.com/v1" });
+  const openai = new OpenAI({
+    apiKey,
+    baseURL,
+    fetch: providerFetch,
+    maxRetries: 0,
+    timeout: 60000,
+  });
 
   // Model capabilities check
   const isModern =
@@ -176,6 +215,7 @@ async function generateJSON({
       prompt,
       schema,
       apiKey,
+      baseURL: pConfig.baseURL,
       model: activeModel,
       maxTokens,
     });
@@ -185,6 +225,7 @@ async function generateJSON({
       prompt,
       schema,
       apiKey,
+      baseURL: pConfig.baseURL,
       model: activeModel,
       maxTokens,
     });

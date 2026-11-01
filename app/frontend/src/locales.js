@@ -234,6 +234,7 @@ export const resources = {
         "Chưa cấu hình AI. Thêm API key tại Railway Variables rồi triển khai lại.",
       searchJournal: "Tìm ghi chú hoặc bản phát hành…",
       editRelease: "Sửa bản phát hành",
+      aiDestination: "Đích nhận: {{provider}} · {{origin}} · Model: {{model}}",
     },
   },
   en: {
@@ -470,6 +471,8 @@ export const resources = {
         "AI is not configured. Add its API key in Railway Variables and redeploy.",
       searchJournal: "Search notes or releases…",
       editRelease: "Edit release",
+      aiDestination:
+        "Destination: {{provider}} · {{origin}} · Model: {{model}}",
     },
   },
 };

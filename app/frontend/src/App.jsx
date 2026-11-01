@@ -2080,6 +2080,15 @@ function AIDialog({ app, notes, range, action, busy, onClose, onResult }) {
       </Button>
       {preview && (
         <>
+          {preview.destination && (
+            <p className="privacy-note">
+              {t("aiDestination", {
+                provider: preview.destination.provider,
+                origin: preview.destination.origin,
+                model: preview.destination.model,
+              })}
+            </p>
+          )}
           <pre className="payload">
             {JSON.stringify(preview.payload, null, 2)}
           </pre>

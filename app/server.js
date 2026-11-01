@@ -28,6 +28,7 @@ const helpers = { getBaseConfig: config.getBaseConfig, DATA_DIR, ...viewers };
 function createApp() {
   auth.validateAuth();
   config.validateCredentials();
+  require("./lib/ai").loadAIConfig();
   if (!db) throw new Error("DATABASE_REQUIRED");
   const app = express();
   app.disable("x-powered-by");

@@ -258,12 +258,10 @@ router.post(
         .all(app.packageName, codePlatform(app)),
     };
     if (kind === "reviews")
-      payload.reviews = (await reviews(app))
-        .slice(0, 20)
-        .map((x) => ({
-          rating: x.score || x.rating,
-          text: String(x.text || x.body || x.title || "").slice(0, 500),
-        }));
+      payload.reviews = (await reviews(app)).slice(0, 20).map((x) => ({
+        rating: x.score || x.rating,
+        text: String(x.text || x.body || x.title || "").slice(0, 500),
+      }));
     if (includeMetrics) {
       const stats = await appStats(app, dateRange(range));
       payload.metrics = {
@@ -291,7 +289,18 @@ router.post(
       payload: safePayload,
       expires: Date.now() + 600000,
     });
+    const status = getAIStatus();
+    const destination = status.providers.find(
+      (provider) => provider.id === status.defaultProvider,
+    );
     res.json({
+      destination: destination
+        ? {
+            provider: destination.id,
+            origin: destination.endpointOrigin,
+            model: destination.model,
+          }
+        : null,
       previewId,
       payload: safePayload,
       expiresAt: new Date(Date.now() + 600000).toISOString(),

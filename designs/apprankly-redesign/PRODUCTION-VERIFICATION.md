@@ -12,3 +12,7 @@ Verified:
 - Screenshots: production-spectrum-1440.jpg, production-spectrum-390.jpg, production-spectrum-dark-390.jpg, production-spectrum-drawer.jpg.
 
 Not verified: real store permissions/data, real AI calls, outbound notifications, Docker build/runtime (Docker unavailable locally), real Railway volume backup/restore/redeploy. No real credentials used and no Railway resources/deployment created. Live public-store integration test is opt-in via LIVE_STORE_TESTS=1. These checks do not constitute a guarantee against every credential leak.
+
+## Custom AI proxy follow-up
+
+OpenAI/Anthropic custom HTTPS base URLs are now server-only environment configuration. SDK-level mocked request tests verify custom path prefixes, provider-specific authentication, model IDs, URL rejection, no redirects/retries/fallback, and no key in status/body. API tests verify preview destination origin and reject client-side destination overrides. Full Node 22 backend tests and frontend build passed. Browser preview showed the synthetic `https://proxy.example` destination and model before consent, with no console errors and no external AI calls. Screenshot: `screenshots/production-proxy-preview.jpg`. Real proxy compatibility and deployment have not been tested.

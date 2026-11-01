@@ -50,6 +50,7 @@ ai.generateJSON = async (input) => {
     usage: { inputTokens: 1, outputTokens: 1 },
   };
 };
+process.env.OPENAI_BASE_URL = "https://proxy.synthetic.invalid/private-route";
 const { createApp } = require("../server");
 (async () => {
   let server;
@@ -221,11 +222,19 @@ const { createApp } = require("../server");
       await request(
         "/api/ai/preview",
         "POST",
-        { appId: fakeApp.id, kind: "audit" },
+        {
+          appId: fakeApp.id,
+          kind: "audit",
+          baseURL: "https://untrusted.invalid",
+        },
         cookie,
       )
     ).json();
     assert.ok(first.previewId);
+    assert.equal(first.destination.origin, "https://proxy.synthetic.invalid");
+    assert.equal(first.destination.provider, "openai");
+    assert.ok(!JSON.stringify(first).includes("/private-route"));
+    assert.ok(!JSON.stringify(first).includes("https://untrusted.invalid"));
     assert.ok(!first.payload.metrics && !first.payload.notes);
     assert.ok(!JSON.stringify(first).includes(process.env.OPENAI_API_KEY));
     assert.equal(calls, 0);
@@ -364,14 +373,18 @@ const { createApp } = require("../server");
       redact("failure " + process.env.OPENAI_API_KEY),
       "failure [REDACTED]",
     );
-    if(fs.existsSync(path.join(__dirname,"../public/assets"))) for (const file of fs
-      .readdirSync(path.join(__dirname, "../public/assets"))
-      .filter((file) => /\.(js|css)$/.test(file)))
-      assert.ok(
-        !fs
-          .readFileSync(path.join(__dirname, "../public/assets", file), "utf8")
-          .includes(process.env.OPENAI_API_KEY),
-      );
+    if (fs.existsSync(path.join(__dirname, "../public/assets")))
+      for (const file of fs
+        .readdirSync(path.join(__dirname, "../public/assets"))
+        .filter((file) => /\.(js|css)$/.test(file)))
+        assert.ok(
+          !fs
+            .readFileSync(
+              path.join(__dirname, "../public/assets", file),
+              "utf8",
+            )
+            .includes(process.env.OPENAI_API_KEY),
+        );
     const logout = await request("/api/auth/logout", "POST", {}, cookie);
     assert.equal(logout.status, 200);
     assert.match(logout.headers.get("set-cookie"), /Expires=Thu, 01 Jan 1970/i);

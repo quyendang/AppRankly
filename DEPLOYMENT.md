@@ -86,14 +86,46 @@ Set all four Apple variables together, or leave all four unset. Startup rejects 
 | Variable | Value / behavior |
 | --- | --- |
 | `AI_PROVIDER` | `openai` (default), `anthropic`, or `gemini`. Select a provider whose key you configure. |
-| `OPENAI_API_KEY` | OpenAI API key; used only when OpenAI is selected. |
+| `OPENAI_API_KEY` | OpenAI key, or the key issued by your OpenAI-compatible proxy; used only when OpenAI is selected. |
+| `OPENAI_BASE_URL` | Optional HTTPS API root; default `https://api.openai.com/v1`. The SDK appends `/chat/completions`. |
 | `OPENAI_MODEL` | Default: `gpt-5-nano`. Override with a compatible model available to your account. |
-| `ANTHROPIC_API_KEY` | Anthropic API key. |
+| `ANTHROPIC_API_KEY` | Anthropic key, or the key issued by your Anthropic-compatible proxy. |
+| `ANTHROPIC_BASE_URL` | Optional HTTPS API root; default `https://api.anthropic.com`. The SDK appends `/v1/messages`. |
 | `ANTHROPIC_MODEL` | Default: `claude-sonnet-4-5`. Override with a compatible model available to your account. |
 | `GEMINI_API_KEY` | Gemini API key. |
 | `GEMINI_MODEL` | Default: `gemini-2.5-flash`. Override with a compatible model available to your account. |
 
-These are code defaults, not a guarantee of model availability. Calls use the configured provider's official endpoint. Changing a variable requires redeployment. There is no background paid AI job: the owner must request a preview and explicitly confirm it. Analytics and notes are excluded by default. A confirmed request may incur provider charges.
+These are code defaults, not a guarantee of model availability. Calls use official endpoints unless you explicitly configure an OpenAI/Anthropic proxy below. Changing a variable requires redeployment. There is no background paid AI job: the owner must request a preview and explicitly confirm it. Analytics and notes are excluded by default. A confirmed request may incur provider charges.
+
+#### Custom OpenAI / Anthropic proxy endpoints
+
+Set these in Railway Variables, then redeploy. OpenAI-compatible example:
+
+```dotenv
+AI_PROVIDER=openai
+OPENAI_BASE_URL=https://your-proxy.example/v1
+OPENAI_MODEL=your-proxy-model-id
+OPENAI_API_KEY=<key-issued-by-your-proxy>
+```
+
+Anthropic-compatible example:
+
+```dotenv
+AI_PROVIDER=anthropic
+ANTHROPIC_BASE_URL=https://your-proxy.example
+ANTHROPIC_MODEL=your-proxy-model-id
+ANTHROPIC_API_KEY=<key-issued-by-your-proxy>
+```
+
+These are illustrative values, not working credentials. Paths/prefixes are preserved: an Anthropic base of `https://your-proxy.example/anthropic` produces `/anthropic/v1/messages`. Do not include the final `/chat/completions` or `/messages` path in the base URL. For Anthropic, do not append `/v1` unless your proxy explicitly requires that prefix in addition to the SDK's `/v1/messages` route.
+
+Both variables require HTTPS and reject embedded username/password, query strings, and fragments. Empty values restore official defaults. Invalid URLs cause startup to fail. HTTP endpoints, including localhost HTTP, are not supported. API requests cannot override these URLs; only the server operator can change them. Gemini continues to use its official endpoint.
+
+OpenAI requests use bearer authorization and Chat Completions, with `json_schema` for recognized modern OpenAI model IDs and `json_object` for other IDs. Anthropic requests use `x-api-key`, `anthropic-version`, Messages, and `output_config` with a JSON schema. The proxy/model must support these request fields and return the corresponding provider response format. A service that only offers the OpenAI Responses API, plain text completion, or unsupported structured-output fields is not automatically compatible. Check the proxy's documented model IDs and API compatibility.
+
+OpenAI/Anthropic requests reject redirects, use a 60-second SDK timeout, and disable automatic retries and provider fallback. An error is returned for an unsuccessful request; the app does not silently resend it to an official endpoint or another provider.
+
+**The selected AI API key and the approved prompt are sent to the configured proxy.** Use a proxy-issued key rather than forwarding an official provider key unless you intend to give that proxy access to it. The preview displays the destination origin and model before confirmation; paths are not exposed there. Google Play/App Store credentials remain outside AI payloads. Analytics and notes are still excluded unless explicitly selected and approved. Review the proxy's retention and access policies before sending private data.
 
 ### Notifications — optional and disabled initially
 

@@ -48,6 +48,7 @@ For frontend development, run `npm run dev --prefix app/frontend` in another ter
 - Database migrations run at startup and preserve legacy tables. Back up existing data before upgrading; see [migration instructions](DEPLOYMENT.md#migrating-an-existing-installation).
 - Sessions last 12 hours in an HttpOnly cookie. Production adds Secure; SameSite is Strict. Changing the password hash or JWT secret invalidates existing sessions.
 - Team APIs, public setup, raw configuration APIs, Git synchronization, public demo generation, and AI-generated SQL execution have been removed.
+- OpenAI- and Anthropic-compatible proxies are supported through server-only `OPENAI_BASE_URL` / `ANTHROPIC_BASE_URL`; see the [proxy configuration guide](DEPLOYMENT.md#custom-openai--anthropic-proxy-endpoints). The configured destination receives the selected AI key and approved payload.
 - AI does not run automatically in the background. Private analytics and notes are excluded unless you select them and approve the preview.
 - Revenue stays grouped by its original currency. Missing or unsupported measurements are shown as unavailable rather than fabricated zeros.
 
