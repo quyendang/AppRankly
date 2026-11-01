@@ -11,15 +11,16 @@ const sum = (list) => list.reduce((a, b) => a + b, 0);
 const money = (v) => (Math.round(v * 100) / 100).toLocaleString("en-US");
 const strings = {
   vi: { daily: "Bản tin hằng ngày", weekly: "Bản tin hằng tuần", installs: "lượt cài", revenue: "doanh thu",
-    alerts: "Cảnh báo", reviews: "Đánh giá mới", unanswered: "chưa trả lời", ranks: "Từ khóa đổi hạng",
+    idle: (n) => `${n} app không có hoạt động`, alerts: "Cảnh báo", reviews: "Đánh giá mới", unanswered: "chưa trả lời", ranks: "Từ khóa đổi hạng",
     none: "Chưa có dữ liệu", up: "tăng", down: "giảm", vs: "so với", nodata: "không có báo cáo",
     rankLine: (t, c, a, b) => `${t} (${c.toUpperCase()}): ${a} → ${b}`, out: ">100" },
   en: { daily: "Daily digest", weekly: "Weekly digest", installs: "installs", revenue: "revenue",
-    alerts: "Alerts", reviews: "New reviews", unanswered: "unanswered", ranks: "Keyword movers",
+    idle: (n) => `${n} apps with no activity`, alerts: "Alerts", reviews: "New reviews", unanswered: "unanswered", ranks: "Keyword movers",
     none: "No data yet", up: "up", down: "down", vs: "vs", nodata: "no report",
     rankLine: (t, c, a, b) => `${t} (${c.toUpperCase()}): ${a} → ${b}`, out: ">100" },
 };
 const str = (locale) => strings[locale] || strings.vi;
+const label = (app) => `${app.name} (${app.platform === "apple" ? "iOS" : "Android"})`;
 
 // Latest value against the mean of the previous 7 values; null when too little signal.
 function detectSeriesAnomaly(values, { threshold = 30, minBaseline = 10 } = {}) {
@@ -36,7 +37,7 @@ function appAnomalies(app, trends, threshold) {
   if (!days.length) return [];
   const date = days.at(-1).date, found = [];
   const push = (kind, hit, extra = {}) =>
-    hit && found.push({ appId: app.id, name: app.name, platform: app.platform, kind, date,
+    hit && found.push({ appId: app.id, name: label(app), platform: app.platform, kind, date,
       direction: hit.change > 0 ? "up" : "down", change: hit.change, latest: hit.latest, avg: hit.avg,
       key: [app.id, kind, extra.currency || "", date].join("|"), ...extra });
   push("installs", detectSeriesAnomaly(days.map((d) => d.installs), { threshold, minBaseline: 10 }));
@@ -54,7 +55,9 @@ function rankMoves(rows, minMove = 10) {
     groups.get(key).push(r);
   }
   const moves = [];
-  for (const [, [cur, prev]] of groups) {
+  for (const [, rows] of groups) {
+    // Compare with the last check from an earlier day so manual + automatic checks on one day do not look like a move.
+    const cur = rows[0], prev = rows.find((r) => r.checked_at.slice(0, 10) < cur.checked_at.slice(0, 10));
     if (!prev || (cur.rank == null && prev.rank == null)) continue;
     const move = (prev.rank ?? 101) - (cur.rank ?? 101);
     if (Math.abs(move) >= minMove)
@@ -94,7 +97,7 @@ async function collectAnomalies() {
       list.push(...appAnomalies(app, (await statsFor(app, 16)).dailyTrends, threshold));
     } catch { /* app without reports yet */ }
     for (const m of appRankMoves(app))
-      list.push({ appId: app.id, name: app.name, platform: app.platform, kind: "rank", date: m.date,
+      list.push({ appId: app.id, name: label(app), platform: app.platform, kind: "rank", date: m.date,
         direction: m.move > 0 ? "up" : "down", change: m.move, term: m.term, country: m.country, from: m.from, to: m.to,
         key: [app.id, "rank", m.keywordId, m.country, m.date].join("|") });
   }
@@ -126,18 +129,21 @@ async function buildDigest(period = "daily") {
   const settings = getSettings(), s = str(settings.digestLocale), n = period === "weekly" ? 7 : 1;
   const rates = (await require("./exchangeRates").getExchangeRates().catch(() => null))?.rates;
   const { apps } = await listApps(), lines = [], anomalies = [];
+  let idle = 0;
   let totalInstalls = 0, hasInstalls = false;
   for (const app of apps) {
     let stats;
-    try { stats = await statsFor(app, 2 * n + 1); } catch { lines.push(`• ${app.name}: ${s.nodata}`); continue; }
+    try { stats = await statsFor(app, 2 * n + 1); } catch { lines.push(`• ${label(app)}: ${s.nodata}`); continue; }
     const days = stats.dailyTrends;
     const cur = days.slice(-n), prev = days.slice(-2 * n, -n);
     const installs = sum(cur.map((d) => d.installs || 0)), before = sum(prev.map((d) => d.installs || 0));
     const rev = sumCurrencies(cur), usd = usdTotal(rev, rates);
     const revText = usd != null ? `${money(usd)} USD` : Object.entries(rev).map(([c, v]) => `${money(v)} ${c}`).join(" · ") || "0";
     totalInstalls += installs; hasInstalls = true;
-    lines.push(`• ${app.name}: ${money(installs)} ${s.installs}${pct(installs, before)} · ${s.revenue} ${revText}`);
-    anomalies.push(...appAnomalies(app, days, settings.anomalyThreshold));
+    const found = appAnomalies(app, days, settings.anomalyThreshold);
+    anomalies.push(...found);
+    if (!installs && !before && !Object.values(rev).some(Boolean) && !found.length) { idle++; continue; }
+    lines.push(`• ${label(app)}: ${money(installs)} ${s.installs}${pct(installs, before)} · ${s.revenue} ${revText}`);
   }
   const since = new Date(Date.now() - n * DAY).toISOString();
   const archive = db.prepare("SELECT payload FROM review_archive").all().map((r) => JSON.parse(r.payload));
@@ -146,10 +152,11 @@ async function buildDigest(period = "daily") {
   const avg = fresh.length ? sum(fresh.map((r) => r.rating || 0)) / fresh.length : null;
   const moves = apps.flatMap((app) => appRankMoves(app).map((m) => ({ app, m })))
     .sort((a, b) => Math.abs(b.m.move) - Math.abs(a.m.move)).slice(0, 5);
+  if (idle) lines.push(`• ${s.idle(idle)}`);
   const parts = [lines.join("\n") || s.none];
   if (anomalies.length) parts.push(`${s.alerts}:\n` + anomalies.map((a) => describe(a, settings.digestLocale)).join("\n"));
   parts.push(`${s.reviews}: ${fresh.length}${avg != null ? ` (${avg.toFixed(1)}★)` : ""} · ${open} ${s.unanswered}`);
-  if (moves.length) parts.push(`${s.ranks}:\n` + moves.map(({ app, m }) => describe({ ...m, kind: "rank", name: app.name, direction: m.move > 0 ? "up" : "down" }, settings.digestLocale)).join("\n"));
+  if (moves.length) parts.push(`${s.ranks}:\n` + moves.map(({ app, m }) => describe({ ...m, kind: "rank", name: label(app), direction: m.move > 0 ? "up" : "down" }, settings.digestLocale)).join("\n"));
   return { period, title: `AppRankly · ${s[period]} · ${isoDay(Date.now() - DAY)}`, message: parts.join("\n\n"), totalInstalls: hasInstalls ? totalInstalls : null };
 }
 

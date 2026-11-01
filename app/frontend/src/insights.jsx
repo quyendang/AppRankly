@@ -4,7 +4,7 @@ import { Line } from "react-chartjs-2";
 import { Trash2, Plus, Send } from "lucide-react";
 import { Button, Dialog, FormField, Panel, api, eventPlugin } from "./components.jsx";
 
-const flag = (code) => String.fromCodePoint(...[...code.toUpperCase()].map((c) => 127397 + c.charCodeAt(0)));
+const flag = (code) => /^(ZZ|XX)$/i.test(code) ? "🌐" : String.fromCodePoint(...[...code.toUpperCase()].map((c) => 127397 + c.charCodeAt(0)));
 const toUsd = (byCurrency, exchange) => {
   let total = 0;
   const missing = [];
@@ -155,6 +155,7 @@ export function CountryTable({ app, range, exchange, number }) {
   if (state.error || !state.rows?.length) return <Panel title={t("countryRevenueTitle")}><p className="content-message">{t("countryRevenueEmpty")}</p></Panel>;
   const names = new Intl.DisplayNames([i18n.language], { type: "region" });
   const rows = state.rows.map((r) => ({ ...r, usd: toUsd(r.revenueByCurrency, exchange) }))
+    .filter((r) => r.installs > 0 || r.usd.total || r.usd.missing.length)
     .sort((a, b) => b.usd.total - a.usd.total || b.installs - a.installs).slice(0, 20);
   const totalInstalls = rows.reduce((s, r) => s + r.installs, 0);
   const best = Math.max(0, ...rows.filter((r) => r.installs > 0).map((r) => r.usd.total / r.installs));
