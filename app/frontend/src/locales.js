@@ -321,6 +321,9 @@ export const resources = {
       createCampaign: "Tạo liên kết",
       linkCreated: "Đã tạo liên kết chiến dịch.",
       loadingPortfolio: "Đang tải dữ liệu ứng dụng…",
+      loadingStage1: "Đang lấy dữ liệu App Store…",
+      loadingStage2: "Đang lấy dữ liệu Google Play…",
+      loadingSlow: "Máy chủ đang đồng bộ, có thể lâu hơn bình thường…",
       noActualData: "Chưa có báo cáo trong khoảng thời gian này.",
       noGoogleRevenueReal:
         "Tổng USD chỉ để tham khảo: Apple là tiền nhận dự kiến; Google là doanh số gồm thuế, chưa trừ phí.",
@@ -680,6 +683,9 @@ export const resources = {
       createCampaign: "Create link",
       linkCreated: "Campaign link created.",
       loadingPortfolio: "Loading app data…",
+      loadingStage1: "Fetching App Store data…",
+      loadingStage2: "Fetching Google Play data…",
+      loadingSlow: "Server is syncing, this may take longer than usual…",
       noActualData: "No reports for this date range yet.",
       noGoogleRevenueReal:
         "The USD total is a reference estimate: Apple proceeds and Google buyer payments including taxes, before fees.",

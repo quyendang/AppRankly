@@ -1085,6 +1085,19 @@ tbody tr:last-child td {
   border-radius: 12px;
   background: var(--line);
 }
+.skeleton-kpis div,
+.skeleton-chart,
+.skeleton-table div {
+  background: linear-gradient(90deg, var(--line) 25%, color-mix(in srgb, var(--line) 50%, transparent) 50%, var(--line) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+@keyframes shimmer {
+  to { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-kpis div, .skeleton-chart, .skeleton-table div, .spin { animation: none; }
+}
 .skeleton-kpis div {
   height: 115px;
 }

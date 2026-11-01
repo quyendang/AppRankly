@@ -27,6 +27,7 @@ import {
   Send,
 } from "lucide-react";
 import {
+  LoadingState,
   Avatar,
   Button,
   Change,
@@ -1670,9 +1671,7 @@ export default function App() {
           <div className="page-content">
             {page === "portfolio" ? (
               loading ? (
-                <p className="content-message" role="status">
-                  {t("loadingPortfolio")}
-                </p>
+                <LoadingState t={t} />
               ) : !apps.length ? (
                 <Empty
                   title="firstConnection"

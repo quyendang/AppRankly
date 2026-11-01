@@ -462,3 +462,28 @@ export function download(name, text, type = "application/json") {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+const STAGES = ["loadingStage1", "loadingStage2"];
+export function LoadingState({ t }) {
+  const [sec, setSec] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setSec((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const msg = sec >= 8 ? "loadingSlow" : STAGES[Math.floor(sec / 3) % 2];
+  return (
+    <div className="skeleton-area" role="status" aria-live="polite">
+      <p className="loading-label">
+        <RefreshCw className="icon spin" />
+        <span>{t(msg)}</span>
+      </p>
+      <div className="skeleton-kpis">
+        <div /><div /><div />
+      </div>
+      <div className="skeleton-chart" />
+      <div className="skeleton-table">
+        <div /><div /><div /><div />
+      </div>
+    </div>
+  );
+}
