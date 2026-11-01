@@ -35,6 +35,7 @@ const scraper = require("../lib/aso/scraper");
 scraper.getAppleLookup = async () => ({
   title: "Public listing",
   description: "Public description",
+  icon: "https://is1-ssl.mzstatic.com/synthetic.png",
 });
 scraper.getAppleReviewsRSS = async () => [];
 const ai = require("../lib/ai");
@@ -108,6 +109,7 @@ const { createApp } = require("../server");
       "/api/notes",
       "/api/projects",
       "/api/config",
+      "/api/apps/icon/apple%3Aexample.app",
     ])
       assert.equal((await request(url)).status, 401);
     assert.equal(
@@ -141,6 +143,7 @@ const { createApp } = require("../server");
     );
     for (const url of [
       "/api/config",
+      "/api/apps/icon/apple%3Aexample.app",
       "/api/team/members",
       "/api/notes/setup-git",
       "/api/ai/ask-sql",
@@ -169,6 +172,24 @@ const { createApp } = require("../server");
       ).status,
       200,
     );
+    const iconModule = require("../lib/appIcon"),
+      originalFetchIcon = iconModule.fetchIcon;
+    iconModule.fetchIcon = async (url) => {
+      assert.equal(url, "https://is1-ssl.mzstatic.com/synthetic.png");
+      return { type: "image/png", data: Buffer.from("synthetic image") };
+    };
+    const iconResponse = await request(
+      "/api/apps/icon/" + encodeURIComponent(fakeApp.id),
+      "GET",
+      null,
+      cookie,
+    );
+    assert.equal(iconResponse.status, 200);
+    assert.match(iconResponse.headers.get("content-type"), /image\/png/);
+    assert.ok(
+      !(await iconResponse.text()).includes(process.env.OPENAI_API_KEY),
+    );
+    iconModule.fetchIcon = originalFetchIcon;
     const integrations = await (
       await request("/api/integrations", "GET", null, cookie)
     ).text();
@@ -368,6 +389,96 @@ const { createApp } = require("../server");
       )
     ).json();
     assert.equal(aso.aiResult.summary, "Safe result");
+    assert.equal(
+      (
+        await request(
+          "/api/apps/google",
+          "POST",
+          { packageName: "../../private" },
+          cookie,
+        )
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await request(
+          "/api/apps/google",
+          "POST",
+          { packageName: "example.new" },
+          cookie,
+        )
+      ).status,
+      201,
+    );
+    assert.ok(
+      require("../lib/config")
+        .getSettings()
+        .googlePackages.includes("example.new"),
+    );
+    await request(
+      "/api/aso/keywords",
+      "POST",
+      { appId: fakeApp.id, term: "synthetic keyword" },
+      cookie,
+    );
+    let checkedCountry;
+    require("../lib/aso/scraper").getAppleSearch = async (
+      term,
+      country,
+      limit,
+      options,
+    ) => {
+      checkedCountry = country;
+      assert.equal(options.strict, true);
+      return [
+        { id: 999, bundleId: "example.other" },
+        { id: "123", bundleId: "example.app" },
+      ];
+    };
+    const ranks = await (
+      await request(
+        "/api/aso/ranks",
+        "POST",
+        { appId: fakeApp.id, country: "vn" },
+        cookie,
+      )
+    ).json();
+    assert.equal(ranks.ranks[0].rank, 2);
+    assert.equal(checkedCountry, "vn");
+    assert.equal(ranks.language, "vi");
+    assert.equal(ranks.source, "public_store_search");
+    const count = require("../lib/db")
+      .db.prepare("SELECT COUNT(*) AS n FROM aso_rank_history")
+      .get().n;
+    require("../lib/aso/scraper").getAppleSearch = async () => {
+      throw new Error("RANK_SOURCE_FAILED");
+    };
+    const failure = await request(
+      "/api/aso/ranks",
+      "POST",
+      { appId: fakeApp.id, country: "vn" },
+      cookie,
+    );
+    assert.equal(failure.status, 502);
+    assert.equal((await failure.json()).error, "RANK_SOURCE_FAILED");
+    assert.equal(
+      require("../lib/db")
+        .db.prepare("SELECT COUNT(*) AS n FROM aso_rank_history")
+        .get().n,
+      count,
+    );
+    assert.equal(
+      (
+        await request(
+          "/api/aso/ranks",
+          "POST",
+          { appId: fakeApp.id, country: "../../invalid" },
+          cookie,
+        )
+      ).status,
+      400,
+    );
     const { redact } = require("../lib/runtime");
     assert.equal(
       redact("failure " + process.env.OPENAI_API_KEY),

@@ -259,3 +259,17 @@ Production now rejects relative `DATA_DIR` values with an explicit setup error b
 - [Local verification record](designs/apprankly-redesign/PRODUCTION-VERIFICATION.md)
 
 The repository has been tested locally with synthetic credentials. Docker execution, real store/AI access, external notifications, and Railway volume backup/restore/deployment are not established by those tests. Do not treat the presence of this guide as proof of a live deployment.
+
+## App discovery, icons, reports, and keyword ranks
+
+Google Play apps are discovered from filenames in your Play Console report bucket. A newly live app may not have a report file yet. In **Settings → Add Google Play app**, enter its package name (for example `com.example.app`). This preserves it in `googlePackages`, fetches public listing metadata, and includes it in scheduled sync; it does not create analytics data. Google account permissions and report publication still determine which measurements are available. [Google report exports](https://support.google.com/googleplay/android-developer/answer/6135870?hl=en-EN).
+
+App icons are fetched by the server from allowlisted Google/Apple image hosts and served through an authenticated same-origin route. No store credential is sent to the image host. Invalid/unsupported images fall back to an initial. Public listing names/ratings/icons use cached metadata, so they may not update instantly.
+
+Apple Sales Reports requests include the required `filter[version]=1_0`. Missing report days remain missing, and authentication/vendor/report errors are surfaced as source failures instead of zero installs. Reports are matched using each app's numeric Apple Identifier, not the title or SKU. Old empty cache entries expire and manual synchronization retries them. No app report history is inferred using a binary search over dates, because daily report availability is not monotonic.
+
+In **ASO Studio → Keywords**, the country/language selector controls each new public-store search. The default is **US / English**, independent of the interface language. Supported pairs are US/en, VN/vi, GB/en, JP/ja, KR/ko, DE/de and FR/fr. Previous ranks are displayed for the selected country only, with their check date. Historical records from earlier versions were US/en.
+
+A keyword rank is the app's position in the returned **public search results**, requesting up to 100 results. It is not an AI estimate, an official Play Console/App Analytics measurement, or a guarantee of what every user sees. Google may not strictly honor the country parameter, and server IP, language, personalization and store behavior can affect results. If the app is absent, the UI states the actual number of returned results searched; no rank is invented. If any keyword search fails, the batch is not written and previous ranks are preserved.
+
+The localhost preview server and design prototypes use synthetic data. Do not compare those numbers with a deployed account's real reports.

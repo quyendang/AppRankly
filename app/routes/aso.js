@@ -12,6 +12,15 @@ const { getNotesFromStorage } = require("../lib/notes");
 const { generateJSON, getAIStatus } = require("../lib/ai");
 const { redact } = require("../lib/runtime");
 const router = express.Router();
+const markets = {
+  us: "en",
+  vn: "vi",
+  gb: "en",
+  jp: "ja",
+  kr: "ko",
+  de: "de",
+  fr: "fr",
+};
 const run = (fn) => (req, res, next) =>
   Promise.resolve(fn(req, res)).catch(next);
 const previews = new Map();
@@ -50,7 +59,7 @@ router.get(
         .all(app.packageName, platform),
       ranks: db
         .prepare(
-          "SELECT * FROM aso_rank_history WHERE package_name=? AND platform=? ORDER BY checked_at DESC LIMIT 200",
+          "SELECT r.* FROM aso_rank_history r WHERE r.package_name=? AND r.platform=? AND r.checked_at=(SELECT MAX(h.checked_at) FROM aso_rank_history h WHERE h.keyword_id=r.keyword_id AND h.store=r.store AND h.country=r.country) ORDER BY r.checked_at DESC",
         )
         .all(app.packageName, platform),
       competitors: db
@@ -93,6 +102,9 @@ router.post(
   run(async (req, res) => {
     const app = await ownedApp(req.body.appId),
       platform = codePlatform(app);
+    const country = req.body.country || "us",
+      language = markets[country];
+    if (!language) throw new Error("INVALID_MARKET");
     const keywords = db
       .prepare(
         "SELECT * FROM aso_keyword WHERE package_name=? AND platform=? AND tracked=1 LIMIT 20",
@@ -102,20 +114,51 @@ router.post(
     for (const kw of keywords) {
       const hits =
         app.platform === "google"
-          ? await scraper.getPlaySearch(kw.term, 100, "us", "en")
-          : await scraper.getAppleSearch(kw.term, "us", 100);
+          ? await scraper.getPlaySearch(kw.term, 100, country, language, {
+              strict: true,
+            })
+          : await scraper.getAppleSearch(kw.term, country, 100, {
+              strict: true,
+            });
       const idx = hits.findIndex(
         (x) =>
           (x.appId || x.bundleId) === app.packageName ||
-          String(x.id) === String(app.appId),
+          (app.appId != null && String(x.id) === String(app.appId)),
       );
       const rank = idx < 0 ? null : idx + 1;
-      db.prepare(
-        `INSERT INTO aso_rank_history(keyword_id,package_name,platform,store,country,rank,top_n,checked_at) VALUES(?,?,?,?,'us',?,100,datetime('now'))`,
-      ).run(kw.id, app.packageName, platform, platform, rank);
-      ranks.push({ term: kw.term, rank });
+      ranks.push({
+        keywordId: kw.id,
+        term: kw.term,
+        rank,
+        country,
+        language,
+        topN: hits.length,
+      });
     }
-    res.json({ ranks });
+    db.exec("BEGIN");
+    try {
+      const insert = db.prepare(
+        `INSERT INTO aso_rank_history(keyword_id,package_name,platform,store,country,rank,top_n,checked_at,language) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(keyword_id,store,country,checked_at) DO UPDATE SET rank=excluded.rank,top_n=excluded.top_n,language=excluded.language`,
+      );
+      const checkedAt = new Date().toISOString();
+      for (const rank of ranks)
+        insert.run(
+          rank.keywordId,
+          app.packageName,
+          platform,
+          platform,
+          country,
+          rank.rank,
+          rank.topN,
+          checkedAt,
+          language,
+        );
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
+    res.json({ ranks, country, language, source: "public_store_search" });
   }),
 );
 router.get(

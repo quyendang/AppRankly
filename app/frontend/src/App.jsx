@@ -113,6 +113,7 @@ export default function App() {
     [drawer, setDrawer] = useState(null),
     [aiResult, setAiResult] = useState(null),
     [refresh, setRefresh] = useState(0);
+  const [rankCountry, setRankCountry] = useState("us");
   const heading = useRef(null),
     pending = useRef(false),
     messageTimer = useRef(null);
@@ -484,6 +485,15 @@ export default function App() {
                     >
                       <Avatar app={a} />
                     </button>
+                    {(a.error || a.installs == null) && (
+                      <small className="app-data-status">
+                        {t(
+                          a.error === "SOURCE_FAILED"
+                            ? "appSourceFailed"
+                            : "appNoReports",
+                        )}
+                      </small>
+                    )}
                   </td>
                   <td className="spark-column">
                     <Sparkline
@@ -788,7 +798,7 @@ export default function App() {
                   action(async () => {
                     await api("/api/aso/ranks", {
                       method: "POST",
-                      body: { appId: current.id },
+                      body: { appId: current.id, country: rankCountry },
                     });
                     await loadASO();
                   })
@@ -798,6 +808,35 @@ export default function App() {
               </Button>
             }
           >
+            <div className="rank-context">
+              <FormField label={t("rankMarket")}>
+                <select
+                  value={rankCountry}
+                  onChange={(e) => setRankCountry(e.target.value)}
+                >
+                  {["us", "vn", "gb", "jp", "kr", "de", "fr"].map((code) => (
+                    <option key={code} value={code}>
+                      {new Intl.DisplayNames([i18n.language], {
+                        type: "region",
+                      }).of(code.toUpperCase())}{" "}
+                      ·{" "}
+                      {
+                        {
+                          us: "en",
+                          vn: "vi",
+                          gb: "en",
+                          jp: "ja",
+                          kr: "ko",
+                          de: "de",
+                          fr: "fr",
+                        }[code]
+                      }
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+              <p className="fine-print">{t("rankSourceHelp")}</p>
+            </div>
             <form
               className="inline-form"
               onSubmit={(e) => {
@@ -837,12 +876,19 @@ export default function App() {
                 <tbody>
                   {keywords.map((k) => {
                     const rank = asoData.ranks.find(
-                      (r) => r.keyword_id === k.id,
+                      (r) => r.keyword_id === k.id && r.country === rankCountry,
                     );
                     return (
                       <tr key={k.id}>
                         <td>{k.term}</td>
-                        <td>{rank?.rank ?? "—"}</td>
+                        <td>
+                          {rank?.rank ??
+                            (rank
+                              ? rank.top_n
+                                ? t("rankNotFound", { count: rank.top_n })
+                                : t("rankNoResults")
+                              : "—")}
+                        </td>
                         <td>{rank ? formatDate(rank.checked_at) : "—"}</td>
                         <td>
                           <button
@@ -1236,6 +1282,65 @@ export default function App() {
               OPENAI_API_KEY / ANTHROPIC_API_KEY / GEMINI_API_KEY
             </code>
           </details>
+          <div className="rank-context">
+            <h3>{t("addGoogleApp")}</h3>
+            <p className="fine-print">{t("newAppHelp")}</p>
+            <form
+              className="inline-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const packageName = new FormData(e.currentTarget)
+                  .get("packageName")
+                  .trim();
+                action(async () => {
+                  await api("/api/apps/google", {
+                    method: "POST",
+                    body: { packageName },
+                  });
+                  setSettings(await api("/api/settings"));
+                  setRefresh((v) => v + 1);
+                }, "appAdded");
+              }}
+            >
+              <input
+                name="packageName"
+                required
+                maxLength={200}
+                placeholder="com.example.app"
+                aria-label={t("packageName")}
+              />
+              <Button type="submit" primary disabled={busy}>
+                {t("add")}
+              </Button>
+            </form>
+            {settings?.googlePackages?.map((id) => (
+              <div key={id} className="manual-package">
+                <code>{id}</code>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label={t("removeTrackedApp") + " " + id}
+                  onClick={() =>
+                    action(async () => {
+                      setSettings(
+                        await api("/api/settings", {
+                          method: "PUT",
+                          body: {
+                            googlePackages: settings.googlePackages.filter(
+                              (item) => item !== id,
+                            ),
+                          },
+                        }),
+                      );
+                      setRefresh((v) => v + 1);
+                    }, "settingsSaved")
+                  }
+                >
+                  <Trash2 className="icon" />
+                </button>
+              </div>
+            ))}
+          </div>
         </Panel>
         <Panel
           title={t("preferences")}

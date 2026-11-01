@@ -235,6 +235,23 @@ export const resources = {
       searchJournal: "Tìm ghi chú hoặc bản phát hành…",
       editRelease: "Sửa bản phát hành",
       aiDestination: "Đích nhận: {{provider}} · {{origin}} · Model: {{model}}",
+      addGoogleApp: "Thêm app Google Play",
+      packageName: "Package name",
+      newAppHelp:
+        "App mới có thể chưa có file báo cáo. Thêm package name để theo dõi ngay; số liệu chỉ hiện khi Google cung cấp báo cáo, không tự tạo số 0.",
+      appAdded: "Đã thêm app vào danh sách theo dõi.",
+      removeTrackedApp: "Bỏ package thêm thủ công",
+      rankMarket: "Quốc gia / ngôn ngữ tìm kiếm",
+      rankSourceHelp:
+        "Vị trí trong kết quả tìm kiếm công khai tại thời điểm kiểm tra, yêu cầu tối đa 100 kết quả. Không phải dữ liệu AI hoặc bảng xếp hạng từ Play Console. Kết quả Google có thể chịu ảnh hưởng vị trí IP máy chủ và cách store xử lý quốc gia.",
+      rankNotFound: "Không thấy trong {{count}} kết quả",
+      appNoReports: "Chưa có báo cáo trong kỳ",
+      appSourceFailed: "Không tải được báo cáo",
+      INVALID_PACKAGE: "Nhập package name hợp lệ, ví dụ com.example.app.",
+      INVALID_MARKET: "Quốc gia tìm kiếm chưa được hỗ trợ.",
+      RANK_SOURCE_FAILED:
+        "Không lấy được kết quả từ store. Giữ nguyên thứ hạng cũ; hãy thử lại sau.",
+      rankNoResults: "Truy vấn không trả về kết quả",
     },
   },
   en: {
@@ -473,6 +490,23 @@ export const resources = {
       editRelease: "Edit release",
       aiDestination:
         "Destination: {{provider}} · {{origin}} · Model: {{model}}",
+      addGoogleApp: "Add Google Play app",
+      packageName: "Package name",
+      newAppHelp:
+        "New apps may not have report files yet. Add a package name to track it now; metrics appear only when Google supplies reports, with no invented zeros.",
+      appAdded: "App added to your tracked packages.",
+      removeTrackedApp: "Remove manually added package",
+      rankMarket: "Search country / language",
+      rankSourceHelp:
+        "Position in public search results at check time, requesting up to 100 results. This is not AI data or a Play Console ranking report. Google results may depend on server IP location and how the store applies the country setting.",
+      rankNotFound: "Not found in {{count}} results",
+      appNoReports: "No reports in this period",
+      appSourceFailed: "Could not load reports",
+      INVALID_PACKAGE: "Enter a valid package name, e.g. com.example.app.",
+      INVALID_MARKET: "Unsupported search country.",
+      RANK_SOURCE_FAILED:
+        "Store search failed. Previous ranks are preserved; try again later.",
+      rankNoResults: "Search returned no results",
     },
   },
 };

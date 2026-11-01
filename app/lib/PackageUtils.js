@@ -5,13 +5,14 @@ const { Storage } = require("@google-cloud/storage");
 const resolver = require("./resolver");
 const { db } = require("./db/index");
 
-const parseNumeric = data => {
-  if (data === undefined || data === null || data === '' || data === 'NA') return null;
+const parseNumeric = (data) => {
+  if (data === undefined || data === null || data === "" || data === "NA")
+    return null;
   const num = Number(data);
   return isNaN(num) ? null : num;
 };
 
-const getParsedInt = data => {
+const getParsedInt = (data) => {
   if (!data) return 0;
   try {
     data = data.toString().replace(/[^0-9]/g, "");
@@ -32,27 +33,45 @@ class PackageUtils {
    * @returns {Object} Column index mapping
    */
   getHeaderIndexes(row) {
-    const normalized = row.map(c => {
-      let str = (c || '').toString().toLowerCase().trim();
-      if (str.startsWith('\uFEFF')) str = str.substring(1);
+    const normalized = row.map((c) => {
+      let str = (c || "").toString().toLowerCase().trim();
+      if (str.startsWith("\uFEFF")) str = str.substring(1);
       return str;
     });
-    const labelCols = ['country', 'country / region', 'device', 'os version', 'android os version', 'app version', 'carrier', 'language'];
+    const labelCols = [
+      "country",
+      "country / region",
+      "device",
+      "os version",
+      "android os version",
+      "app version",
+      "carrier",
+      "language",
+    ];
     return {
-      date: normalized.findIndex(c => c === 'date'),
-      label: normalized.findIndex(c => labelCols.includes(c)) !== -1
-        ? normalized.findIndex(c => labelCols.includes(c))
-        : 2,
-      activeDevices: normalized.findIndex(c => c === 'active device installs'),
-      totalInstalls: normalized.findIndex(c => c === 'total user installs'),
-      dailyInstalls: normalized.findIndex(c => c === 'daily user installs'),
-      dailyUninstalls: normalized.findIndex(c => c === 'daily user uninstalls'),
-      dailyDeviceInstalls: normalized.findIndex(c => c === 'daily device installs'),
-      dailyDeviceUninstalls: normalized.findIndex(c => c === 'daily device uninstalls'),
-      installEvents: normalized.findIndex(c => c === 'install events'),
-      uninstallEvents: normalized.findIndex(c => c === 'uninstall events'),
-      updateEvents: normalized.findIndex(c => c === 'update events'),
-      upgrades: normalized.findIndex(c => c === 'daily device upgrades')
+      date: normalized.findIndex((c) => c === "date"),
+      label:
+        normalized.findIndex((c) => labelCols.includes(c)) !== -1
+          ? normalized.findIndex((c) => labelCols.includes(c))
+          : 2,
+      activeDevices: normalized.findIndex(
+        (c) => c === "active device installs",
+      ),
+      totalInstalls: normalized.findIndex((c) => c === "total user installs"),
+      dailyInstalls: normalized.findIndex((c) => c === "daily user installs"),
+      dailyUninstalls: normalized.findIndex(
+        (c) => c === "daily user uninstalls",
+      ),
+      dailyDeviceInstalls: normalized.findIndex(
+        (c) => c === "daily device installs",
+      ),
+      dailyDeviceUninstalls: normalized.findIndex(
+        (c) => c === "daily device uninstalls",
+      ),
+      installEvents: normalized.findIndex((c) => c === "install events"),
+      uninstallEvents: normalized.findIndex((c) => c === "uninstall events"),
+      updateEvents: normalized.findIndex((c) => c === "update events"),
+      upgrades: normalized.findIndex((c) => c === "daily device upgrades"),
     };
   }
 
@@ -62,20 +81,34 @@ class PackageUtils {
    * @returns {Object} Column index mapping
    */
   getRatingHeaderIndexes(row) {
-    const normalized = row.map(c => {
+    const normalized = row.map((c) => {
       let str = (c || "").toString().toLowerCase().trim();
-      if (str.startsWith('\ufeff')) str = str.substring(1);
+      if (str.startsWith("\ufeff")) str = str.substring(1);
       return str;
     });
     return {
-      date: normalized.findIndex(c => c === 'date'),
-      dailyAvgRating: normalized.findIndex(c => c === 'daily average rating' || c === 'daily_average_rating'),
-      totalAvgRating: normalized.findIndex(c => c === 'total average rating' || c === 'total_average_rating'),
-      star1: normalized.findIndex(c => c === '1-star ratings' || c === 'star_rating_1' || c === '1*'),
-      star2: normalized.findIndex(c => c === '2-star ratings' || c === 'star_rating_2' || c === '2*'),
-      star3: normalized.findIndex(c => c === '3-star ratings' || c === 'star_rating_3' || c === '3*'),
-      star4: normalized.findIndex(c => c === '4-star ratings' || c === 'star_rating_4' || c === '4*'),
-      star5: normalized.findIndex(c => c === '5-star ratings' || c === 'star_rating_5' || c === '5*'),
+      date: normalized.findIndex((c) => c === "date"),
+      dailyAvgRating: normalized.findIndex(
+        (c) => c === "daily average rating" || c === "daily_average_rating",
+      ),
+      totalAvgRating: normalized.findIndex(
+        (c) => c === "total average rating" || c === "total_average_rating",
+      ),
+      star1: normalized.findIndex(
+        (c) => c === "1-star ratings" || c === "star_rating_1" || c === "1*",
+      ),
+      star2: normalized.findIndex(
+        (c) => c === "2-star ratings" || c === "star_rating_2" || c === "2*",
+      ),
+      star3: normalized.findIndex(
+        (c) => c === "3-star ratings" || c === "star_rating_3" || c === "3*",
+      ),
+      star4: normalized.findIndex(
+        (c) => c === "4-star ratings" || c === "star_rating_4" || c === "4*",
+      ),
+      star5: normalized.findIndex(
+        (c) => c === "5-star ratings" || c === "star_rating_5" || c === "5*",
+      ),
     };
   }
 
@@ -85,15 +118,25 @@ class PackageUtils {
    * @returns {Object} Column index mapping
    */
   getVitalsHeaderIndexes(row) {
-    const normalized = row.map(c => {
+    const normalized = row.map((c) => {
       let str = (c || "").toString().toLowerCase().trim();
-      if (str.startsWith('\ufeff')) str = str.substring(1);
+      if (str.startsWith("\ufeff")) str = str.substring(1);
       return str;
     });
     return {
-      date: normalized.findIndex(c => c === 'date'),
-      crashRate: normalized.findIndex(c => c === 'daily crash rate' || c === 'crash_rate' || c === 'distinct_cluster_crash_rate'),
-      anrRate: normalized.findIndex(c => c === 'daily anr rate' || c === 'anr_rate' || c === 'distinct_cluster_anr_rate'),
+      date: normalized.findIndex((c) => c === "date"),
+      crashRate: normalized.findIndex(
+        (c) =>
+          c === "daily crash rate" ||
+          c === "crash_rate" ||
+          c === "distinct_cluster_crash_rate",
+      ),
+      anrRate: normalized.findIndex(
+        (c) =>
+          c === "daily anr rate" ||
+          c === "anr_rate" ||
+          c === "distinct_cluster_anr_rate",
+      ),
     };
   }
 
@@ -105,9 +148,9 @@ class PackageUtils {
   readFileContent(fileName) {
     const buffer = fs.readFileSync(fileName);
     if (buffer[0] === 0xff && buffer[1] === 0xfe) {
-      return buffer.toString('utf16le');
+      return buffer.toString("utf16le");
     }
-    return buffer.toString('utf8');
+    return buffer.toString("utf8");
   }
 
   /**
@@ -118,14 +161,19 @@ class PackageUtils {
     this.authenticatedStorageObj = new Storage({
       scopes: "https://www.googleapis.com/auth/devstorage.read_only",
       credentials,
-      projectId: projectID
+      projectId: projectID,
     });
   }
 
   /**
    * Queries matching files in bucket for specified package and type.
    */
-  async getCorrectFiles({ storage, bucketName, packageName, type = "installs" }) {
+  async getCorrectFiles({
+    storage,
+    bucketName,
+    packageName,
+    type = "installs",
+  }) {
     let prefix = `stats/${type}/${type}_${packageName}_`;
     if (type === "vitals_crashes") {
       prefix = `stats/vitals/crashes/crashes_${packageName}_`;
@@ -133,10 +181,14 @@ class PackageUtils {
       prefix = `stats/vitals/anrs/anrs_${packageName}_`;
     }
 
-    const fileList = await resolver.resolve('gcs:filelist', { bucket: bucketName, prefix }, async () => {
-      const [files] = await storage.bucket(bucketName).getFiles({ prefix });
-      return files.map(f => ({ name: f.name }));
-    });
+    const fileList = await resolver.resolve(
+      "gcs:filelist",
+      { bucket: bucketName, prefix },
+      async () => {
+        const [files] = await storage.bucket(bucketName).getFiles({ prefix });
+        return files.map((f) => ({ name: f.name }));
+      },
+    );
 
     return [fileList];
   }
@@ -144,11 +196,22 @@ class PackageUtils {
   /**
    * Downloads required CSV files from GCS bucket with local cache management.
    */
-  async downloadCsvFiles({ storage, bucketName, packageName, files, dimension = "overview", type = "installs", targetLocation, startDate, endDate, force = false }) {
+  async downloadCsvFiles({
+    storage,
+    bucketName,
+    packageName,
+    files,
+    dimension = "overview",
+    type = "installs",
+    targetLocation,
+    startDate,
+    endDate,
+    force = false,
+  }) {
     const cleanedFileNames = [];
     const now = Date.now();
     const nowDate = new Date(now);
-    const currentMonthStr = `${nowDate.getFullYear()}${String(nowDate.getMonth() + 1).padStart(2, '0')}`;
+    const currentMonthStr = `${nowDate.getFullYear()}${String(nowDate.getMonth() + 1).padStart(2, "0")}`;
 
     let requiredMonths = [];
     if (startDate && endDate) {
@@ -157,7 +220,7 @@ class PackageUtils {
       let current = new Date(start.getFullYear(), start.getMonth(), 1);
       while (current <= end) {
         const year = current.getFullYear();
-        const month = String(current.getMonth() + 1).padStart(2, '0');
+        const month = String(current.getMonth() + 1).padStart(2, "0");
         requiredMonths.push(`${year}${month}`);
         current.setMonth(current.getMonth() + 1);
       }
@@ -166,7 +229,11 @@ class PackageUtils {
     const filePrefix = type !== "installs" ? `${type}_` : "";
 
     for (let file of files) {
-      if (file.name && (file.name.endsWith(`_${dimension}.csv`) || file.name.endsWith(`_${dimension}_region.csv`))) {
+      if (
+        file.name &&
+        (file.name.endsWith(`_${dimension}.csv`) ||
+          file.name.endsWith(`_${dimension}_region.csv`))
+      ) {
         const match = file.name.match(/_(\d{6})_/);
         const fileMonth = match ? match[1] : null;
 
@@ -184,7 +251,9 @@ class PackageUtils {
         }
 
         if (shouldDownload) {
-          const fixedFileName = fileMonth ? `${filePrefix}${dimension}_${fileMonth}.csv` : `${filePrefix}${dimension}.csv`;
+          const fixedFileName = fileMonth
+            ? `${filePrefix}${dimension}_${fileMonth}.csv`
+            : `${filePrefix}${dimension}.csv`;
           const dest = path.join(targetLocation, fixedFileName);
 
           const exists = fs.existsSync(dest);
@@ -194,14 +263,19 @@ class PackageUtils {
           if (exists && isCurrentMonth) {
             const stat = fs.statSync(dest);
             const ageMs = now - stat.mtimeMs;
-            if (ageMs > 3600 * 1000) { // 1 hour TTL for current month
+            if (ageMs > 3600 * 1000) {
+              // 1 hour TTL for current month
               needsRefetch = true;
             } else if (ageMs > 300 * 1000) {
-              const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString().split('T')[0];
+              const twoDaysAgo = new Date(Date.now() - 2 * 86400000)
+                .toISOString()
+                .split("T")[0];
               try {
                 const content = this.readFileContent(dest);
                 if (!content.includes(twoDaysAgo)) {
-                  console.log(`[GooglePlay] Current month CSV ${fixedFileName} is missing data for recent date ${twoDaysAgo}. Repulling...`);
+                  console.log(
+                    `[GooglePlay] Current month CSV ${fixedFileName} is missing data for recent date ${twoDaysAgo}. Repulling...`,
+                  );
                   needsRefetch = true;
                 }
               } catch (e) {}
@@ -210,33 +284,59 @@ class PackageUtils {
 
           if (needsRefetch) {
             console.log(`Downloading ${file.name} to ${dest}`);
-            await storage.bucket(bucketName).file(file.name).download({ destination: dest });
+            await storage
+              .bucket(bucketName)
+              .file(file.name)
+              .download({ destination: dest });
           }
           cleanedFileNames.push(fixedFileName);
 
           if (db && fileMonth) {
             try {
-              let appRow = db.prepare('SELECT id FROM app WHERE package_name = ? AND platform = ?').get(packageName, 'google');
+              let appRow = db
+                .prepare(
+                  "SELECT id FROM app WHERE package_name = ? AND platform = ?",
+                )
+                .get(packageName, "google");
               if (!appRow) {
-                const res = db.prepare('INSERT INTO app (package_name, platform) VALUES (?, ?)').run(packageName, 'google');
+                const res = db
+                  .prepare(
+                    "INSERT INTO app (package_name, platform) VALUES (?, ?)",
+                  )
+                  .run(packageName, "google");
                 appRow = { id: res.lastInsertRowid };
               }
               const monthStart = `${fileMonth.substring(0, 4)}-${fileMonth.substring(4, 6)}-01`;
               const monthEnd = `${fileMonth.substring(0, 4)}-${fileMonth.substring(4, 6)}-31`;
-              db.prepare(`
+              db.prepare(
+                `
                 INSERT OR REPLACE INTO coverage_index (app_id, resource, start_date, end_date, file_month, fetched_at)
                 VALUES (?, ?, ?, ?, ?, datetime('now'))
-              `).run(appRow.id, dimension, monthStart, monthEnd, fileMonth);
+              `,
+              ).run(appRow.id, dimension, monthStart, monthEnd, fileMonth);
 
-              if (dimension === 'overview' && fs.existsSync(dest)) {
-                const { ingestGoogleOverview, updateAppDates, getChecksum } = require('./db/ingest');
+              if (dimension === "overview" && fs.existsSync(dest)) {
+                const {
+                  ingestGoogleOverview,
+                  updateAppDates,
+                  getChecksum,
+                } = require("./db/ingest");
                 const stat = fs.statSync(dest);
                 const checksum = getChecksum(dest);
-                await ingestGoogleOverview(dest, fileMonth, appRow.id, stat, checksum);
+                await ingestGoogleOverview(
+                  dest,
+                  fileMonth,
+                  appRow.id,
+                  stat,
+                  checksum,
+                );
                 await updateAppDates(appRow.id);
               }
             } catch (e) {
-              console.error(`[GooglePlay] DB ingestion error for ${fixedFileName}:`, e.message);
+              console.error(
+                `[GooglePlay] DB ingestion error for ${fixedFileName}:`,
+                e.message,
+              );
             }
           }
         }
@@ -245,9 +345,15 @@ class PackageUtils {
 
     if (cleanedFileNames.length === 0 && fs.existsSync(targetLocation)) {
       const localFiles = fs.readdirSync(targetLocation);
-      const matches = localFiles.filter(f => f.startsWith(`${filePrefix}${dimension}_`) || f === `${filePrefix}${dimension}.csv`);
+      const matches = localFiles.filter(
+        (f) =>
+          f.startsWith(`${filePrefix}${dimension}_`) ||
+          f === `${filePrefix}${dimension}.csv`,
+      );
       if (matches.length > 0) {
-        console.log(`No new files found in bucket for ${dimension}, but found ${matches.length} local files. Using them.`);
+        console.log(
+          `No new files found in bucket for ${dimension}, but found ${matches.length} local files. Using them.`,
+        );
         cleanedFileNames.push(...matches);
       }
     }
@@ -258,7 +364,9 @@ class PackageUtils {
         if (file.name && file.name.endsWith(`_${dimension}.csv`)) {
           const match = file.name.match(/_(\d{6})_/);
           const fileMonth = match ? match[1] : null;
-          const fixedFileName = fileMonth ? `${filePrefix}${dimension}_${fileMonth}.csv` : `${filePrefix}${dimension}.csv`;
+          const fixedFileName = fileMonth
+            ? `${filePrefix}${dimension}_${fileMonth}.csv`
+            : `${filePrefix}${dimension}.csv`;
           const dest = path.join(targetLocation, fixedFileName);
 
           const exists = fs.existsSync(dest);
@@ -274,7 +382,10 @@ class PackageUtils {
 
           if (needsRefetch) {
             console.log(`Downloading latest ${file.name} to ${dest}`);
-            await storage.bucket(bucketName).file(file.name).download({ destination: dest });
+            await storage
+              .bucket(bucketName)
+              .file(file.name)
+              .download({ destination: dest });
           } else {
             console.log(`Using cached latest file: ${fixedFileName}`);
           }
@@ -290,11 +401,17 @@ class PackageUtils {
   /**
    * Aggregates overview, ratings, and vitals totals across multiple CSV files.
    */
-  async findSumTotalOfValues({ cleanedFileNames, packageName, targetLocation, startDate, endDate }) {
+  async findSumTotalOfValues({
+    cleanedFileNames,
+    packageName,
+    targetLocation,
+    startDate,
+    endDate,
+  }) {
     let sumPromises = [];
-    cleanedFileNames.forEach(fileName => {
+    cleanedFileNames.forEach((fileName) => {
       const localPath = path.join(targetLocation, fileName);
-      if (fileName.startsWith('overview')) {
+      if (fileName.startsWith("overview")) {
         sumPromises.push(this.getTotals(localPath, startDate, endDate));
       }
     });
@@ -303,7 +420,7 @@ class PackageUtils {
 
     let allTrends = [];
     for (const fileName of cleanedFileNames) {
-      if (!fileName.startsWith('overview')) continue;
+      if (!fileName.startsWith("overview")) continue;
       const localPath = path.join(targetLocation, fileName);
       const trends = await this.getDailyTrends(localPath, startDate, endDate);
       allTrends = allTrends.concat(trends);
@@ -314,7 +431,7 @@ class PackageUtils {
     let averageRating = 0;
 
     for (const fileName of cleanedFileNames) {
-      if (!fileName.startsWith('ratings')) continue;
+      if (!fileName.startsWith("ratings")) continue;
       const localPath = path.join(targetLocation, fileName);
       const ratings = await this.getRatingTrends(localPath, startDate, endDate);
       ratingTrends = ratingTrends.concat(ratings);
@@ -322,35 +439,40 @@ class PackageUtils {
 
     let vitalsTrends = [];
     for (const fileName of cleanedFileNames) {
-      if (!fileName.startsWith('vitals')) continue;
+      if (!fileName.startsWith("vitals")) continue;
       const localPath = path.join(targetLocation, fileName);
       const vitals = await this.getVitalsTrends(localPath, startDate, endDate);
       vitalsTrends = vitalsTrends.concat(vitals);
     }
 
     const trendsMap = new Map();
-    allTrends.forEach(t => {
+    allTrends.forEach((t) => {
       const existing = trendsMap.get(t.date);
       if (existing) {
-        existing.activeDevices = Math.max(existing.activeDevices, t.activeDevices || 0);
-        existing.dailyInstalls += (t.dailyInstalls || 0);
-        existing.dailyUninstalls += (t.dailyUninstalls || 0);
-        existing.upgrades += (t.upgrades || 0);
-        existing.dailyDeviceInstalls += (t.dailyDeviceInstalls || 0);
-        existing.dailyUserInstalls += (t.dailyUserInstalls || 0);
-        existing.dailyUserUninstalls += (t.dailyUserUninstalls || 0);
+        existing.activeDevices = Math.max(
+          existing.activeDevices,
+          t.activeDevices || 0,
+        );
+        existing.dailyInstalls += t.dailyInstalls || 0;
+        existing.dailyUninstalls += t.dailyUninstalls || 0;
+        existing.upgrades += t.upgrades || 0;
+        existing.dailyDeviceInstalls += t.dailyDeviceInstalls || 0;
+        existing.dailyUserInstalls += t.dailyUserInstalls || 0;
+        existing.dailyUserUninstalls += t.dailyUserUninstalls || 0;
         existing.netGrowth = existing.dailyInstalls - existing.dailyUninstalls;
       } else {
         trendsMap.set(t.date, { ...t });
       }
     });
-    const uniqueTrends = Array.from(trendsMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+    const uniqueTrends = Array.from(trendsMap.values()).sort((a, b) =>
+      a.date.localeCompare(b.date),
+    );
 
     if (ratingTrends.length > 0) {
       ratingTrends.sort((a, b) => a.date.localeCompare(b.date));
-      const ratingMap = new Map(ratingTrends.map(r => [r.date, r]));
+      const ratingMap = new Map(ratingTrends.map((r) => [r.date, r]));
 
-      uniqueTrends.forEach(trend => {
+      uniqueTrends.forEach((trend) => {
         const r = ratingMap.get(trend.date);
         if (r) {
           trend.dailyAvgRating = r.dailyAvgRating;
@@ -367,7 +489,7 @@ class PackageUtils {
     if (vitalsTrends.length > 0) {
       vitalsTrends.sort((a, b) => a.date.localeCompare(b.date));
       const vitalsMap = new Map();
-      vitalsTrends.forEach(v => {
+      vitalsTrends.forEach((v) => {
         if (!vitalsMap.has(v.date)) {
           vitalsMap.set(v.date, { ...v });
         } else {
@@ -376,7 +498,7 @@ class PackageUtils {
           if (v.anrRate > 0) existing.anrRate = v.anrRate;
         }
       });
-      uniqueTrends.forEach(trend => {
+      uniqueTrends.forEach((trend) => {
         const v = vitalsMap.get(trend.date);
         if (v) {
           trend.crashRate = v.crashRate;
@@ -387,10 +509,14 @@ class PackageUtils {
 
     const aggregated = individualTotals.reduce(
       (accum, element) => {
-        accum.totalInstallCountByUser = Math.max(accum.totalInstallCountByUser, element.totalInstallCountByUser);
+        accum.totalInstallCountByUser = Math.max(
+          accum.totalInstallCountByUser,
+          element.totalInstallCountByUser,
+        );
         accum.totalUninstallCountByUser += element.totalUninstallCountByUser;
         accum.totalInstallEventsDetected += element.totalInstallEventsDetected;
-        accum.totalUninstallEventsDetected += element.totalUninstallEventsDetected;
+        accum.totalUninstallEventsDetected +=
+          element.totalUninstallEventsDetected;
         accum.totalUpdateEventsDetected += element.totalUpdateEventsDetected;
         accum.totalDeviceUpgrades += element.totalDeviceUpgrades;
         accum.totalDailyDeviceInstalls += element.totalDailyDeviceInstalls || 0;
@@ -407,39 +533,44 @@ class PackageUtils {
         totalDeviceUpgrades: 0,
         totalDailyDeviceInstalls: 0,
         totalDailyUserInstalls: 0,
-        totalDailyUserUninstalls: 0
-      }
+        totalDailyUserUninstalls: 0,
+      },
     );
 
-    const currentlyActiveDevices = uniqueTrends.length > 0 ? uniqueTrends[uniqueTrends.length - 1].activeDevices : 0;
+    const currentlyActiveDevices =
+      uniqueTrends.length > 0
+        ? uniqueTrends[uniqueTrends.length - 1].activeDevices
+        : 0;
 
     const result = {
       currentlyActiveDevices,
       averageRating,
       ratingsDistribution,
       dailyTrends: uniqueTrends,
-      platform: 'google',
+      platform: "google",
       hasUninstallData: true,
-      ...aggregated
+      ...aggregated,
     };
 
-    if (process.env.USE_DB === '1') {
+    if (process.env.USE_DB === "1") {
       try {
-        const { sqlRollup } = require('./db/read');
-        const { getOrCompute } = require('./db/cache');
-        
+        const { sqlRollup } = require("./db/read");
+        const { getOrCompute } = require("./db/cache");
+
         const req = {
-          kind: 'stats',
+          kind: "stats",
           appIds: [packageName],
           startDate,
-          endDate
+          endDate,
         };
-        
-        const dbResult = await getOrCompute(req, () => sqlRollup(packageName, startDate, endDate));
-        
+
+        const dbResult = await getOrCompute(req, () =>
+          sqlRollup(packageName, startDate, endDate),
+        );
+
         if (dbResult) {
-           console.log("Serving from DB layer");
-           return dbResult;
+          console.log("Serving from DB layer");
+          return dbResult;
         }
       } catch (err) {
         console.error("DB Rollup Error:", err);
@@ -455,9 +586,10 @@ class PackageUtils {
       let headers = null;
 
       const content = this.readFileContent(fileName);
-      csv.parseString(content)
-        .on("error", error => reject(error))
-        .on("data", row => {
+      csv
+        .parseString(content)
+        .on("error", (error) => reject(error))
+        .on("data", (row) => {
           if (!headers) {
             headers = this.getRatingHeaderIndexes(row);
             return;
@@ -465,21 +597,29 @@ class PackageUtils {
 
           const date = row[headers.date];
           if (date) {
-            const formattedDate = date.includes('-') ? date : `${date.substring(0, 4)}-${date.substring(4, 6)}-${date.substring(6, 8)}`;
+            const formattedDate = date.includes("-")
+              ? date
+              : `${date.substring(0, 4)}-${date.substring(4, 6)}-${date.substring(6, 8)}`;
             if (startDate && formattedDate < startDate) return;
             if (endDate && formattedDate > endDate) return;
 
             trends.push({
               date: formattedDate,
-              dailyAvgRating: headers.dailyAvgRating !== -1 ? parseFloat(row[headers.dailyAvgRating]) : 0,
-              totalAvgRating: headers.totalAvgRating !== -1 ? parseFloat(row[headers.totalAvgRating]) : 0,
+              dailyAvgRating:
+                headers.dailyAvgRating !== -1
+                  ? parseFloat(row[headers.dailyAvgRating])
+                  : 0,
+              totalAvgRating:
+                headers.totalAvgRating !== -1
+                  ? parseFloat(row[headers.totalAvgRating])
+                  : 0,
               ratingsDistribution: {
                 1: headers.star1 !== -1 ? getParsedInt(row[headers.star1]) : 0,
                 2: headers.star2 !== -1 ? getParsedInt(row[headers.star2]) : 0,
                 3: headers.star3 !== -1 ? getParsedInt(row[headers.star3]) : 0,
                 4: headers.star4 !== -1 ? getParsedInt(row[headers.star4]) : 0,
                 5: headers.star5 !== -1 ? getParsedInt(row[headers.star5]) : 0,
-              }
+              },
             });
           }
         })
@@ -495,9 +635,10 @@ class PackageUtils {
       let headers = null;
 
       const content = this.readFileContent(fileName);
-      csv.parseString(content)
-        .on("error", error => reject(error))
-        .on("data", row => {
+      csv
+        .parseString(content)
+        .on("error", (error) => reject(error))
+        .on("data", (row) => {
           if (!headers) {
             headers = this.getVitalsHeaderIndexes(row);
             return;
@@ -505,14 +646,22 @@ class PackageUtils {
 
           const date = row[headers.date];
           if (date) {
-            const formattedDate = date.includes('-') ? date : `${date.substring(0, 4)}-${date.substring(4, 6)}-${date.substring(6, 8)}`;
+            const formattedDate = date.includes("-")
+              ? date
+              : `${date.substring(0, 4)}-${date.substring(4, 6)}-${date.substring(6, 8)}`;
             if (startDate && formattedDate < startDate) return;
             if (endDate && formattedDate > endDate) return;
 
             trends.push({
               date: formattedDate,
-              crashRate: headers.crashRate !== -1 ? parseNumeric(row[headers.crashRate]) : null,
-              anrRate: headers.anrRate !== -1 ? parseNumeric(row[headers.anrRate]) : null,
+              crashRate:
+                headers.crashRate !== -1
+                  ? parseNumeric(row[headers.crashRate])
+                  : null,
+              anrRate:
+                headers.anrRate !== -1
+                  ? parseNumeric(row[headers.anrRate])
+                  : null,
             });
           }
         })
@@ -536,9 +685,10 @@ class PackageUtils {
       let headers = null;
 
       const content = this.readFileContent(fileName);
-      csv.parseString(content)
-        .on("error", error => reject(error))
-        .on("data", row => {
+      csv
+        .parseString(content)
+        .on("error", (error) => reject(error))
+        .on("data", (row) => {
           if (!headers) {
             headers = this.getHeaderIndexes(row);
             return;
@@ -546,7 +696,9 @@ class PackageUtils {
 
           const date = row[headers.date];
           if (date) {
-            const formattedDate = date.includes('-') ? date : `${date.substring(0, 4)}-${date.substring(4, 6)}-${date.substring(6, 8)}`;
+            const formattedDate = date.includes("-")
+              ? date
+              : `${date.substring(0, 4)}-${date.substring(4, 6)}-${date.substring(6, 8)}`;
             if (startDate && formattedDate < startDate) return;
             if (endDate && formattedDate > endDate) return;
 
@@ -567,30 +719,53 @@ class PackageUtils {
               totalUninstallCountByUser += dailyUn;
             }
 
-            totalDeviceUpgrades += headers.upgrades !== -1 ? getParsedInt(row[headers.upgrades]) : 0;
+            totalDeviceUpgrades +=
+              headers.upgrades !== -1 ? getParsedInt(row[headers.upgrades]) : 0;
 
-            const installs = (headers.installEvents !== -1 ? getParsedInt(row[headers.installEvents]) : 0) || (headers.dailyInstalls !== -1 ? getParsedInt(row[headers.dailyInstalls]) : 0);
+            const installs =
+              (headers.installEvents !== -1
+                ? getParsedInt(row[headers.installEvents])
+                : 0) ||
+              (headers.dailyInstalls !== -1
+                ? getParsedInt(row[headers.dailyInstalls])
+                : 0);
             totalInstallEventsDetected += installs;
 
-            totalUpdateEventsDetected += headers.updateEvents !== -1 ? getParsedInt(row[headers.updateEvents]) : (headers.upgrades !== -1 ? getParsedInt(row[headers.upgrades]) : 0);
+            totalUpdateEventsDetected +=
+              headers.updateEvents !== -1
+                ? getParsedInt(row[headers.updateEvents])
+                : headers.upgrades !== -1
+                  ? getParsedInt(row[headers.upgrades])
+                  : 0;
 
-            const uninstalls = (headers.uninstallEvents !== -1 ? getParsedInt(row[headers.uninstallEvents]) : 0) || (headers.dailyUninstalls !== -1 ? getParsedInt(row[headers.dailyUninstalls]) : 0);
+            const uninstalls =
+              (headers.uninstallEvents !== -1
+                ? getParsedInt(row[headers.uninstallEvents])
+                : 0) ||
+              (headers.dailyUninstalls !== -1
+                ? getParsedInt(row[headers.dailyUninstalls])
+                : 0);
             totalUninstallEventsDetected += uninstalls;
 
-            totalDailyDeviceInstalls += headers.dailyDeviceInstalls !== -1 ? getParsedInt(row[headers.dailyDeviceInstalls]) : 0;
+            totalDailyDeviceInstalls +=
+              headers.dailyDeviceInstalls !== -1
+                ? getParsedInt(row[headers.dailyDeviceInstalls])
+                : 0;
           }
         })
         .on("end", () => {
           resolve({
             totalInstallCountByUser,
             totalUninstallCountByUser,
-            totalInstallEventsDetected: totalInstallCountByUser || totalInstallEventsDetected,
-            totalUninstallEventsDetected: totalUninstallCountByUser || totalUninstallEventsDetected,
+            totalInstallEventsDetected:
+              totalInstallCountByUser || totalInstallEventsDetected,
+            totalUninstallEventsDetected:
+              totalUninstallCountByUser || totalUninstallEventsDetected,
             totalUpdateEventsDetected,
             totalDeviceUpgrades,
             totalDailyDeviceInstalls,
             totalDailyUserInstalls,
-            totalDailyUserUninstalls
+            totalDailyUserUninstalls,
           });
         });
     });
@@ -602,9 +777,10 @@ class PackageUtils {
       let headers = null;
 
       const content = this.readFileContent(fileName);
-      csv.parseString(content)
-        .on("error", error => reject(error))
-        .on("data", row => {
+      csv
+        .parseString(content)
+        .on("error", (error) => reject(error))
+        .on("data", (row) => {
           if (!headers) {
             headers = this.getHeaderIndexes(row);
             return;
@@ -612,17 +788,42 @@ class PackageUtils {
 
           const date = row[headers.date];
           if (date) {
-            const formattedDate = date.includes('-') ? date : `${date.substring(0, 4)}-${date.substring(4, 6)}-${date.substring(6, 8)}`;
+            const formattedDate = date.includes("-")
+              ? date
+              : `${date.substring(0, 4)}-${date.substring(4, 6)}-${date.substring(6, 8)}`;
             if (startDate && formattedDate < startDate) return;
             if (endDate && formattedDate > endDate) return;
 
-            const dailyInstalls = (headers.installEvents !== -1 ? getParsedInt(row[headers.installEvents]) : 0) || (headers.dailyInstalls !== -1 ? getParsedInt(row[headers.dailyInstalls]) : 0);
-            const dailyUninstalls = (headers.uninstallEvents !== -1 ? getParsedInt(row[headers.uninstallEvents]) : 0) || (headers.dailyUninstalls !== -1 ? getParsedInt(row[headers.dailyUninstalls]) : 0);
-            const activeDevices = headers.activeDevices !== -1 ? getParsedInt(row[headers.activeDevices]) : 0;
-            const upgrades = headers.upgrades !== -1 ? getParsedInt(row[headers.upgrades]) : 0;
-            const dailyDeviceInstalls = headers.dailyDeviceInstalls !== -1 ? getParsedInt(row[headers.dailyDeviceInstalls]) : 0;
-            const dailyUserInstalls = headers.dailyInstalls !== -1 ? getParsedInt(row[headers.dailyInstalls]) : 0;
-            const dailyUserUninstalls = headers.dailyUninstalls !== -1 ? getParsedInt(row[headers.dailyUninstalls]) : 0;
+            const dailyInstalls =
+              headers.installEvents !== -1
+                ? parseNumeric(row[headers.installEvents])
+                : headers.dailyInstalls !== -1
+                  ? parseNumeric(row[headers.dailyInstalls])
+                  : null;
+            const dailyUninstalls =
+              headers.uninstallEvents !== -1
+                ? parseNumeric(row[headers.uninstallEvents])
+                : headers.dailyUninstalls !== -1
+                  ? parseNumeric(row[headers.dailyUninstalls])
+                  : null;
+            const activeDevices =
+              headers.activeDevices !== -1
+                ? parseNumeric(row[headers.activeDevices])
+                : null;
+            const upgrades =
+              headers.upgrades !== -1 ? getParsedInt(row[headers.upgrades]) : 0;
+            const dailyDeviceInstalls =
+              headers.dailyDeviceInstalls !== -1
+                ? getParsedInt(row[headers.dailyDeviceInstalls])
+                : 0;
+            const dailyUserInstalls =
+              headers.dailyInstalls !== -1
+                ? parseNumeric(row[headers.dailyInstalls])
+                : null;
+            const dailyUserUninstalls =
+              headers.dailyUninstalls !== -1
+                ? parseNumeric(row[headers.dailyUninstalls])
+                : null;
 
             trends.push({
               date: formattedDate,
@@ -633,7 +834,7 @@ class PackageUtils {
               dailyDeviceInstalls,
               dailyUserInstalls,
               dailyUserUninstalls,
-              netGrowth: dailyInstalls - dailyUninstalls
+              netGrowth: dailyInstalls - dailyUninstalls,
             });
           }
         })
@@ -649,30 +850,57 @@ class PackageUtils {
       let headers = null;
 
       const content = this.readFileContent(fileName);
-      csv.parseString(content)
-        .on("error", error => reject(error))
-        .on("data", row => {
+      csv
+        .parseString(content)
+        .on("error", (error) => reject(error))
+        .on("data", (row) => {
           if (!headers) {
             headers = this.getHeaderIndexes(row);
             return;
           }
           const date = row[headers.date];
           if (date) {
-            const formattedDate = date.includes('-') ? date : `${date.substring(0, 4)}-${date.substring(4, 6)}-${date.substring(6, 8)}`;
+            const formattedDate = date.includes("-")
+              ? date
+              : `${date.substring(0, 4)}-${date.substring(4, 6)}-${date.substring(6, 8)}`;
             if (startDate && formattedDate < startDate) return;
             if (endDate && formattedDate > endDate) return;
 
             const label = row[headers.label];
-            const dailyInstalls = headers.dailyInstalls !== -1 ? getParsedInt(row[headers.dailyInstalls]) : 0;
-            const activeDevices = headers.activeDevices !== -1 ? getParsedInt(row[headers.activeDevices]) : 0;
+            const dailyInstalls =
+              headers.dailyInstalls !== -1
+                ? getParsedInt(row[headers.dailyInstalls])
+                : 0;
+            const activeDevices =
+              headers.activeDevices !== -1
+                ? getParsedInt(row[headers.activeDevices])
+                : 0;
 
-            const totalInstalls = headers.totalInstalls !== -1 ? getParsedInt(row[headers.totalInstalls]) : 0;
-            const dailyUserInstalls = headers.dailyInstalls !== -1 ? getParsedInt(row[headers.dailyInstalls]) : 0;
-            const dailyUserUninstalls = headers.dailyUninstalls !== -1 ? getParsedInt(row[headers.dailyUninstalls]) : 0;
+            const totalInstalls =
+              headers.totalInstalls !== -1
+                ? getParsedInt(row[headers.totalInstalls])
+                : 0;
+            const dailyUserInstalls =
+              headers.dailyInstalls !== -1
+                ? getParsedInt(row[headers.dailyInstalls])
+                : 0;
+            const dailyUserUninstalls =
+              headers.dailyUninstalls !== -1
+                ? getParsedInt(row[headers.dailyUninstalls])
+                : 0;
 
-            const installEvents = headers.installEvents !== -1 ? getParsedInt(row[headers.installEvents]) : 0;
-            const updateEvents = headers.updateEvents !== -1 ? getParsedInt(row[headers.updateEvents]) : 0;
-            const uninstallEvents = headers.uninstallEvents !== -1 ? getParsedInt(row[headers.uninstallEvents]) : 0;
+            const installEvents =
+              headers.installEvents !== -1
+                ? getParsedInt(row[headers.installEvents])
+                : 0;
+            const updateEvents =
+              headers.updateEvents !== -1
+                ? getParsedInt(row[headers.updateEvents])
+                : 0;
+            const uninstallEvents =
+              headers.uninstallEvents !== -1
+                ? getParsedInt(row[headers.uninstallEvents])
+                : 0;
 
             if (label && label.trim() !== "") {
               const current = statsMap.get(label) || {
@@ -683,13 +911,14 @@ class PackageUtils {
                 dailyUserUninstalls: 0,
                 installEvents: 0,
                 updateEvents: 0,
-                uninstallEvents: 0
+                uninstallEvents: 0,
               };
 
               current.activeDevices = activeDevices;
               current.totalInstalls += dailyInstalls;
               current.dailyUserInstalls += dailyUserInstalls || installEvents;
-              current.dailyUserUninstalls += dailyUserUninstalls || uninstallEvents;
+              current.dailyUserUninstalls +=
+                dailyUserUninstalls || uninstallEvents;
               current.installEvents += installEvents;
               current.updateEvents += updateEvents;
               current.uninstallEvents += uninstallEvents;
@@ -711,5 +940,5 @@ class PackageUtils {
 module.exports = {
   PackageUtils,
   parseNumeric,
-  getParsedInt
+  getParsedInt,
 };

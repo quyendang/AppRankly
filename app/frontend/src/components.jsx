@@ -1,5 +1,5 @@
 import { trendSeries, sparkSegments } from "./series.js";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Chart as ChartJS,
@@ -46,17 +46,30 @@ export function Button({
   );
 }
 export function Avatar({ app }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [app.id, app.iconAvailable]);
   const colors = ["#A64B32", "#9B7025", "#8F422E"];
   const index = [...app.name].reduce((s, c) => s + c.charCodeAt(0), 0) % 3;
   return (
     <>
-      <span
-        className="app-avatar"
-        aria-hidden="true"
-        style={{ "--app-color": colors[index] }}
-      >
-        {app.name.slice(0, 1).toUpperCase()}
-      </span>
+      {app.iconAvailable && !failed ? (
+        <img
+          className="app-avatar app-logo"
+          src={"/api/apps/icon/" + encodeURIComponent(app.id)}
+          alt=""
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <span
+          className="app-avatar"
+          aria-hidden="true"
+          style={{ "--app-color": colors[index] }}
+        >
+          {app.name.slice(0, 1).toUpperCase()}
+        </span>
+      )}
       <span className="app-name">
         <strong>{app.name}</strong>
         <small>{app.platform === "apple" ? "App Store" : "Google Play"}</small>

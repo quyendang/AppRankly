@@ -16,3 +16,9 @@ Not verified: real store permissions/data, real AI calls, outbound notifications
 ## Custom AI proxy follow-up
 
 OpenAI/Anthropic custom HTTPS base URLs are now server-only environment configuration. SDK-level mocked request tests verify custom path prefixes, provider-specific authentication, model IDs, URL rejection, no redirects/retries/fallback, and no key in status/body. API tests verify preview destination origin and reject client-side destination overrides. Full Node 22 backend tests and frontend build passed. Browser preview showed the synthetic `https://proxy.example` destination and model before consent, with no console errors and no external AI calls. Screenshot: `screenshots/production-proxy-preview.jpg`. Real proxy compatibility and deployment have not been tested.
+
+## Report/catalog/rank follow-up
+
+Production UI was inspected in the user's authenticated in-app browser: fifteen apps were listed, with a nonzero Google app and zero-filled Apple charts. Public `/healthz` and `/readyz` returned 200; unauthenticated `/api/auth/me` returned 401. No credentials were read from the browser.
+
+Regression tests exercise the actual Google viewer/download/UTF-16 parser pipeline with two distinct synthetic apps and a manually tracked app without reports; Apple tests check the required report version, numeric app matching, gaps, error handling and stale-negative-cache recovery. Tests also cover authenticated same-origin icons, image URL/type restrictions, explicit country/language ranks and preservation on source failure. Full backend Node 22 checks and frontend build pass locally. Production corrections still require deployment of the new commit and store sync; local fixtures do not establish that the user's live data is corrected.

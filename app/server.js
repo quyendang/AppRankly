@@ -125,6 +125,36 @@ function createApp() {
       if (require.main === module) scheduler.startPeriodicScheduler(helpers);
     }),
   );
+  app.post(
+    "/api/apps/google",
+    run(async (req, res) => {
+      const packageName = req.body.packageName;
+      if (!store.identifier(packageName) || !packageName.includes("."))
+        throw new Error("INVALID_PACKAGE");
+      const settings = config.getSettings();
+      config.saveSettings({
+        googlePackages: [
+          ...new Set([...(settings.googlePackages || []), packageName]),
+        ],
+      });
+      res.status(201).json({ success: true });
+    }),
+  );
+  app.get(
+    "/api/apps/icon/:id",
+    run(async (req, res) => {
+      const app = await store.ownedApp(req.params.id),
+        meta = await store.metadata(app);
+      if (!meta?.icon && !meta?.iconUrl) return res.status(404).end();
+      const icon = await require("./lib/appIcon").fetchIcon(
+        meta.icon || meta.iconUrl,
+      );
+      res
+        .set("Cache-Control", "private, max-age=3600")
+        .type(icon.type)
+        .send(Buffer.from(icon.data));
+    }),
+  );
   app.get("/api/integrations", (req, res) =>
     res.json({
       google: { configured: !!process.env.GOOGLE_SERVICE_ACCOUNT_JSON },
@@ -360,7 +390,7 @@ function createApp() {
       error:
         status === 413
           ? "REQUEST_TOO_LARGE"
-          : code === "AI_NOT_CONFIGURED"
+          : ["AI_NOT_CONFIGURED", "RANK_SOURCE_FAILED"].includes(code)
             ? code
             : invalid
               ? code

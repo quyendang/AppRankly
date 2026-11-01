@@ -3789,3 +3789,28 @@ input[type="checkbox"] {
   color: var(--muted);
   background: var(--surface-subtle);
 }
+
+.app-logo {
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.rank-context {
+  padding: 18px 24px;
+}
+.rank-context .form-field {
+  max-width: 320px;
+}
+.app-data-status {
+  display: block;
+  padding-left: 54px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.manual-package {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  overflow-wrap: anywhere;
+}

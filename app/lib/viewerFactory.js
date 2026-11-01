@@ -105,7 +105,17 @@ const fetchPackagesByPlatform = async (platform, baseConfig) => {
   );
 
   const ignoredSet = getIgnoredSet(baseConfig);
-  return (allPkgs || []).filter((p) => !isIgnored(p, ignoredSet));
+  const packages = [...(allPkgs || [])];
+  if (platform !== "apple" && baseConfig.keyJson)
+    for (const packageName of baseConfig.googlePackages || []) {
+      if (
+        !packages.some(
+          (app) => app.platform === "google" && app.packageName === packageName,
+        )
+      )
+        packages.push({ packageName, name: packageName, platform: "google" });
+    }
+  return packages.filter((p) => !isIgnored(p, ignoredSet));
 };
 
 module.exports = {

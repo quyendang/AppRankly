@@ -6,6 +6,17 @@ const {
   getIgnoredSet,
 } = require("./viewerFactory");
 const { getCachedStoreData } = require("./scraper");
+const scraper = require("./aso/scraper");
+const { limited } = require("./utils/concurrency");
+async function metadata(app) {
+  return resolver.resolve("personal:listing", { id: app.id }, () =>
+    limited(() =>
+      app.platform === "google"
+        ? scraper.getPlayListing(app.packageName, { force: true })
+        : scraper.getAppleLookup(app.appId || app.packageName, { force: true }),
+    ),
+  );
+}
 const resolver = require("./resolver");
 const identifier = (value) =>
   typeof value === "string" && /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,199}$/.test(value);
@@ -44,11 +55,24 @@ async function listApps() {
         platform === "google"
           ? buildGoogleViewer(config, "dummy")
           : buildAppleViewer(config);
-      const packages = await resolver.resolve(
-        "packages:personal",
-        { platform },
-        () => viewer.listPackages(),
-      );
+      let packages = await resolver
+        .resolve("packages:personal", { platform }, () => viewer.listPackages())
+        .catch((error) => {
+          if (platform !== "google") throw error;
+          warnings.push({ platform, error: "SOURCE_FAILED" });
+          return [];
+        });
+      if (platform === "google")
+        packages = [
+          ...new Map(
+            [
+              ...packages,
+              ...(config.googlePackages || []).map((packageName) => ({
+                packageName,
+              })),
+            ].map((item) => [item.bundleId || item.packageName, item]),
+          ).values(),
+        ];
       for (const p of packages) {
         if (isIgnored(p, ignored)) continue;
         const packageName = p.bundleId || p.packageName;
@@ -78,6 +102,25 @@ async function listApps() {
       warnings.push({ platform, error: "SOURCE_FAILED" });
     }
   }
+  await Promise.all(
+    apps.map(async (app) => {
+      try {
+        const meta = await metadata(app);
+        if (meta) {
+          app.name =
+            config.appMetadata?.[app.packageName]?.displayName ||
+            meta.title ||
+            meta.trackName ||
+            app.name;
+          app.rating = meta.score ?? null;
+          app.version = meta.version || null;
+          app.iconAvailable = !!(meta.icon || meta.iconUrl);
+        }
+      } catch {
+        app.metadataError = "SOURCE_FAILED";
+      }
+    }),
+  );
   return { apps, warnings };
 }
 async function ownedApp(id) {
@@ -88,7 +131,7 @@ async function ownedApp(id) {
 }
 async function appStats(app, range) {
   return resolver.resolve(
-    "personal:stats",
+    "personal:stats:v2",
     { id: app.id, ...range },
     async () => {
       const config = getBaseConfig();
@@ -126,7 +169,7 @@ async function appStats(app, range) {
         activeDevices:
           app.platform === "apple"
             ? null
-            : (raw.currentlyActiveDevices ?? null),
+            : (trends.at(-1)?.activeDevices ?? null),
         retention: null,
         lastDate: trends.at(-1)?.date || null,
       };
@@ -140,13 +183,14 @@ async function portfolio(input = {}) {
     apps.map(async (app) => {
       try {
         return { ...app, ...(await appStats(app, range)), error: null };
-      } catch {
+      } catch (error) {
         return {
           ...app,
           installs: null,
           revenueByCurrency: {},
           dailyTrends: [],
-          error: "SOURCE_FAILED",
+          error:
+            error.message === "NO_REPORTS" ? "NO_REPORTS" : "SOURCE_FAILED",
         };
       }
     }),
@@ -165,4 +209,5 @@ module.exports = {
   portfolio,
   dateRange,
   identifier,
+  metadata,
 };

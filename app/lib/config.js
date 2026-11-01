@@ -12,6 +12,7 @@ const defaults = {
   timezone: "Asia/Ho_Chi_Minh",
   notificationsEnabled: false,
   ignoredPackages: [],
+  googlePackages: [],
   appMetadata: {},
 };
 const allowed = new Set(Object.keys(defaults));
@@ -56,6 +57,16 @@ function saveSettings(input) {
     !Array.isArray(next.ignoredPackages) ||
     next.ignoredPackages.some(
       (x) => typeof x !== "string" || !/^[\w.-]{1,200}$/.test(x),
+    )
+  )
+    throw new Error("INVALID_SETTINGS");
+  if (
+    !Array.isArray(next.googlePackages) ||
+    next.googlePackages.length > 20 ||
+    next.googlePackages.some(
+      (id) =>
+        typeof id !== "string" ||
+        !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,199}$/.test(id),
     )
   )
     throw new Error("INVALID_SETTINGS");
