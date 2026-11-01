@@ -20,6 +20,30 @@ import {
   RefreshCw,
   ShieldCheck,
 } from "lucide-react";
+// Draws a dashed vertical line and dot for each event whose date is on the x axis.
+export const eventPlugin = {
+  id: "eventMarkers",
+  afterDatasetsDraw(chart, _args, options) {
+    const { ctx, chartArea, scales } = chart;
+    ctx.save();
+    for (const event of options?.events || []) {
+      const index = options.dates.indexOf(event.date);
+      if (index < 0) continue;
+      const x = scales.x.getPixelForValue(index);
+      ctx.strokeStyle = ctx.fillStyle = options.color;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(x, chartArea.top + 8);
+      ctx.lineTo(x, chartArea.bottom);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.arc(x, chartArea.top + 5, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  },
+};
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -135,7 +159,7 @@ export function Panel({
     </section>
   );
 }
-export function Chart({ apps, previous = [], theme, range }) {
+export function Chart({ apps, previous = [], theme, range, events = [] }) {
   const { t, i18n } = useTranslation();
   const { dates, values, old } = trendSeries(apps, previous, range);
   if (!values.some(Number.isFinite))
@@ -193,6 +217,13 @@ export function Chart({ apps, previous = [], theme, range }) {
             : { duration: 180 },
           interaction: { intersect: false, mode: "index" },
           plugins: {
+            eventMarkers: { events, dates, color: muted },
+            tooltip: {
+              callbacks: {
+                afterBody: (items) =>
+                  events.filter((e) => e.date === dates[items[0].dataIndex]).map((e) => "◆ " + e.label),
+              },
+            },
             legend: {
               position: "top",
               align: "end",
@@ -218,6 +249,7 @@ export function Chart({ apps, previous = [], theme, range }) {
             },
           },
         }}
+        plugins={[eventPlugin]}
         role="img"
         aria-label={t("trend")}
       />

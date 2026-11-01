@@ -55,8 +55,10 @@ async function parseSales(contents) {
         const date = row["Order Charged Date"], currency = row["Currency of Sale"];
         if (!/^\d{4}-\d{2}-\d{2}$/.test(date || "") || !/^[A-Z]{3}$/.test(currency || "") ||
             !String(row["Charged Amount"] ?? "").trim() || !Number.isFinite(amount)) return;
+        const country = String(row["Country of Buyer"] || "").trim().toUpperCase();
         rows.push({ packageName: row["Package ID"], date, currency,
-          amount: status === "charged" ? amount : -Math.abs(amount) });
+          amount: status === "charged" ? amount : -Math.abs(amount),
+          ...(/^[A-Z]{2}$/.test(country) ? { country } : {}) });
       }).on("error", reject).on("end", resolve);
     });
   return rows;
@@ -81,11 +83,16 @@ async function getGoogleSales(config, packageName, range) {
       });
     } catch { return null; }
   })));
-  const grossRevenueByCurrency = {};
+  const grossRevenueByCurrency = {}, grossRevenueByCountry = {};
   for (const row of results.flatMap(rows => rows || []))
-    if (row.packageName === packageName && row.date >= range.startDate && row.date <= range.endDate)
+    if (row.packageName === packageName && row.date >= range.startDate && row.date <= range.endDate) {
       grossRevenueByCurrency[row.currency] = (grossRevenueByCurrency[row.currency] || 0) + row.amount;
-  return { grossRevenueByCurrency, revenueAvailable: results.some(Boolean),
+      if (row.country) {
+        const byCurrency = grossRevenueByCountry[row.country] ||= {};
+        byCurrency[row.currency] = (byCurrency[row.currency] || 0) + row.amount;
+      }
+    }
+  return { grossRevenueByCurrency, grossRevenueByCountry, revenueAvailable: results.some(Boolean),
     revenueStatus: results.every(Boolean) ? "available" : results.some(Boolean) ? "partial" : "unavailable" };
 }
 module.exports = { getGoogleSales, parseSales, unzipCsv };

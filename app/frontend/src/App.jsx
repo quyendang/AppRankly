@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { revenueSummary, usdSummary } from "./revenue.js";
+import { AnomalyPanel, BulkReplyDialog, CountryTable, EventsPanel, RankHistory, TemplatePicker, renderTemplate, useTemplates } from "./insights.jsx";
 import {
   LayoutGrid,
   Smartphone,
@@ -23,6 +24,7 @@ import {
   Trash2,
   Pencil,
   Info,
+  Send,
 } from "lucide-react";
 import {
   Avatar,
@@ -107,6 +109,10 @@ export default function App() {
     [refresh, setRefresh] = useState(0);
   const [rankCountry, setRankCountry] = useState("us");
   const [reviewFilter, setReviewFilter] = useState("allReviews");
+  const [events, setEvents] = useState([]),
+    [rankHistory, setRankHistory] = useState([]),
+    [picked, setPicked] = useState([]),
+    [digestPreview, setDigestPreview] = useState("");
   const heading = useRef(null),
     pending = useRef(false),
     messageTimer = useRef(null);
@@ -176,10 +182,14 @@ export default function App() {
       if (!current) return;
       setAsoBusy(true);
       try {
-        const next = await api(
-          "/api/aso/app/" + encodeURIComponent(current.id),
-          { signal },
-        );
+        const id = encodeURIComponent(current.id);
+        const [next, history, eventList] = await Promise.all([
+          api("/api/aso/app/" + id, { signal }),
+          api("/api/aso/ranks/history?appId=" + id, { signal }).catch(() => ({ history: [] })),
+          api("/api/aso/events?appId=" + id, { signal }).catch(() => ({ events: [] })),
+        ]);
+        setRankHistory(history.history);
+        setEvents(eventList.events);
         setAsoData(next);
         setAiResult(next.aiResult || null);
       } catch (e) {
@@ -285,6 +295,9 @@ export default function App() {
   useEffect(() => {
     if (!authenticated || page !== "appDetail" || !current) return;
     setAsoData(null);
+    setEvents([]);
+    setRankHistory([]);
+    setPicked([]);
     const abort = new AbortController();
     loadASO(abort.signal);
     return () => abort.abort();
@@ -655,8 +668,11 @@ export default function App() {
                 previous={previous.filter((a) => a.id === current.id)}
                 theme={resolvedTheme}
                 range={data?.range}
+                events={events}
               />
             </Panel>
+            <EventsPanel app={current} events={events} action={action} busy={busy}
+              onChange={() => api("/api/aso/events?appId=" + encodeURIComponent(current.id)).then((r) => setEvents(r.events))} />
             <div className="detail-bottom">
               {breakdown()}
               <Panel title={t("dataCoverage")}>
@@ -679,7 +695,10 @@ export default function App() {
             </div>
           </>
         ) : (
-          breakdown()
+          <>
+            {breakdown()}
+            {detailTab === "countries" && <CountryTable app={current} range={rangeFor(period)} exchange={exchange} number={number} />}
+          </>
         )}
       </>
     );
@@ -750,6 +769,7 @@ export default function App() {
             </div>
           </>
         ) : detailTab === "keywords" ? (
+          <>
           <Panel
             title={t("keywords")}
             action={
@@ -877,6 +897,8 @@ export default function App() {
               <p className="content-message">{t("noKeywords")}</p>
             )}
           </Panel>
+          <RankHistory history={rankHistory} events={events} theme={resolvedTheme} />
+          </>
         ) : detailTab === "competitors" ? (
           <Panel title={t("competitors")}>
             <form
@@ -946,12 +968,27 @@ export default function App() {
                 setAsoData(data => ({ ...data, reviews: next.reviews, reviewSourceStatus: next.sourceStatus }));
               })}>{t("refreshReviews")}</Button>
             </div>
+            {(() => {
+              const open = reviewList.filter(r => r.canReply && !r.replyText).slice(0, 20);
+              return <div className="bulk-bar">
+                <Button disabled={busy || !open.length} onClick={() => setPicked(open.map(r => r.id))}>{t("selectUnanswered")}</Button>
+                {!!picked.length && <>
+                  <Button onClick={() => setPicked([])}>{t("clearSelection")}</Button>
+                  <Button primary icon={Send} disabled={busy} onClick={() => { setError(""); setModal({ type: "bulk" }); }}>
+                    {t("bulkReply")} ({picked.length})
+                  </Button>
+                </>}
+              </div>;
+            })()}
             <p className="content-message">{t(current.platform === "google" ? "googleReviewCoverage" : "appleReviewCoverage")}</p>
             {asoData?.reviewSourceStatus === "unavailable" && <p className="content-message" role="status">{t("reviewSourceUnavailable")}</p>}
             {reviewList.filter(r => reviewFilter === "allReviews" || (reviewFilter === "answered" ? !!r.replyText : !r.replyText)).length ? (
               reviewList.filter(r => reviewFilter === "allReviews" || (reviewFilter === "answered" ? !!r.replyText : !r.replyText)).map((r, i) => (
                 <article className="review" key={r.id || i}>
                   <div>
+                    {r.canReply && !r.replyText && <input type="checkbox" className="review-pick" checked={picked.includes(r.id)} disabled={busy}
+                      aria-label={t("bulkReply") + " " + (r.userName || r.author || "")}
+                      onChange={e => setPicked(list => e.target.checked ? [...list, r.id].slice(0, 20) : list.filter(id => id !== r.id))} />}
                     <strong>{r.userName || r.author || t("anonymousReviewer")}</strong>
                     <span>{number(r.score || r.rating, 1)} / 5</span>
                     {r.date && <time>{formatDate(r.date)}</time>}
@@ -1229,6 +1266,10 @@ export default function App() {
                     body: {
                       refreshIntervalHours: Number(form.get("frequency")),
                       notificationsEnabled: form.has("notifications"),
+                      digest: form.get("digest"),
+                      digestHour: Number(form.get("digestHour")),
+                      digestLocale: form.get("digestLocale"),
+                      anomalyThreshold: Number(form.get("anomalyThreshold")),
                     },
                   });
                   setSettings(next);
@@ -1269,6 +1310,42 @@ export default function App() {
                   role="switch"
                   defaultChecked={settings.notificationsEnabled}
                 />
+              </div>
+              <div className="setting-group digest-settings">
+                <h3>{t("digestSection")}</h3>
+                <div className="digest-grid">
+                  <FormField label={t("digestMode")}>
+                    <select name="digest" defaultValue={settings.digest}>
+                      {["off", "daily", "weekly"].map((v) => <option key={v} value={v}>{t("digest" + v[0].toUpperCase() + v.slice(1))}</option>)}
+                    </select>
+                  </FormField>
+                  <FormField label={t("digestHour")}>
+                    <select name="digestHour" defaultValue={settings.digestHour}>
+                      {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, "0")}:00</option>)}
+                    </select>
+                  </FormField>
+                  <FormField label={t("digestLocale")}>
+                    <select name="digestLocale" defaultValue={settings.digestLocale}>
+                      <option value="vi">Tiếng Việt</option>
+                      <option value="en">English</option>
+                    </select>
+                  </FormField>
+                  <FormField label={t("anomalyThreshold")}>
+                    <input name="anomalyThreshold" type="number" min={10} max={90} defaultValue={settings.anomalyThreshold} />
+                  </FormField>
+                </div>
+                <small>{t("digestHint")}</small>
+                <div className="digest-actions">
+                  <Button disabled={busy} onClick={() => action(async () => {
+                    setDigestPreview((await api("/api/insights/digest?period=" + (settings.digest === "weekly" ? "weekly" : "daily"))).message);
+                  })}>{t("digestPreview")}</Button>
+                  {settings.notificationsEnabled && integrations?.notifications?.configured && (
+                    <Button disabled={busy} onClick={() => action(() => api("/api/insights/digest/send", { method: "POST", body: { period: settings.digest === "weekly" ? "weekly" : "daily" } }), "digestSent")}>
+                      {t("digestSend")}
+                    </Button>
+                  )}
+                </div>
+                {digestPreview && <pre className="digest-preview">{digestPreview}</pre>}
               </div>
               <Button primary type="submit" disabled={busy}>
                 {t("save")}
@@ -1624,6 +1701,7 @@ export default function App() {
               ) : (
                 <>
                   {kpis(filtered)}
+                  <AnomalyPanel number={number} />
                   {appTable()}
                   <Panel title={t("trend")}>
                     <Chart
@@ -1681,6 +1759,9 @@ export default function App() {
           }}
         />
       )}
+      {modal?.type === "bulk" && <BulkReplyDialog app={current} busy={busy} action={action} error={error}
+        reviews={(asoData?.reviews || []).filter(r => picked.includes(r.id))}
+        onClose={() => setModal(null)} onDone={() => { setModal(null); setPicked([]); loadASO(); }} />}
       {modal?.type === "review" && <ReviewReplyDialog app={modal.app} review={modal.review} busy={busy} action={action} error={error}
         onClose={() => setModal(null)} onSaved={review => {
           setAsoData(data => ({ ...data, reviews: data.reviews.map(item => item.id === review.id ? review : item) }));
@@ -1748,9 +1829,11 @@ function ReviewReplyDialog({ app, review, busy, action, error, onClose, onSaved 
   const [generating, setGenerating] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const limit = app.platform === "google" ? 350 : 5970;
+  const [templates] = useTemplates();
   return <Dialog title={t("replyReview")} onClose={onClose}>
     <p className="modal-intro">{app.name} · {app.platform === "google" ? "Google Play" : "App Store"}</p>
     <blockquote className="review-quote">{review.text || review.body || review.title}</blockquote>
+    <TemplatePicker templates={templates} onPick={body => { setText(renderTemplate(body, review, app, t("reviewerFallback")).slice(0, limit)); setConfirmed(false); }} />
     <FormField label={t("replyBody")}>
       <textarea rows={5} maxLength={limit} value={text} disabled={busy} onChange={event => { setText(event.target.value); setConfirmed(false); }} />
     </FormField>

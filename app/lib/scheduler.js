@@ -511,6 +511,11 @@ async function checkAndNotifyStats(
   }
 }
 
+async function runTick(helpers) {
+  await checkAndNotifyStats(helpers);
+  if (!stopping) await require("./insights").runScheduled();
+}
+
 /**
  * Starts periodic scheduler background timer.
  */
@@ -533,13 +538,13 @@ function startPeriodicScheduler(helpers) {
   );
 
   initialTimer = setTimeout(() => {
-    checkAndNotifyStats(helpers).catch((err) => {
+    runTick(helpers).catch((err) => {
       console.error("[Scheduler] Initial run error:", err.message);
     });
   }, 20000);
 
   schedulerIntervalHandle = setInterval(() => {
-    checkAndNotifyStats(helpers).catch((err) => {
+    runTick(helpers).catch((err) => {
       console.error("[Scheduler] Interval run error:", err.message);
     });
   }, intervalMs);

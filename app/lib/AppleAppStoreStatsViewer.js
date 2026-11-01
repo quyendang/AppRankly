@@ -244,6 +244,47 @@ class AppleAppStoreStatsViewer {
     );
   }
 
+  async getAppSku(numericId) {
+    return resolver.resolve("apple:app-sku", { appId: numericId, issuerId: this.issuerId }, async () => {
+      const response = await axios.get(`https://api.appstoreconnect.apple.com/v1/apps/${encodeURIComponent(numericId)}`, {
+        params: { "fields[apps]": "sku" }, headers: { Authorization: `Bearer ${this.generateToken()}` }, timeout: 10000,
+      });
+      const value = response.data?.data?.attributes?.sku;
+      if (!value) throw new Error("APPLE_SKU_UNAVAILABLE");
+      return value;
+    });
+  }
+
+  // Installs and developer proceeds (apps, subscriptions, IAP) grouped by Country Code.
+  async getCountryRevenue(startDate, endDate) {
+    const numericId = String(await this.getNumericAppId());
+    const rows = [];
+    for (const dateStr of generateDateArray(startDate, endDate)) {
+      const rawTxt = await this.fetchDailySalesReport(dateStr);
+      if (!rawTxt || rawTxt === "__EMPTY__") continue;
+      await new Promise((resolve, reject) => csv.parseString(rawTxt, { headers: true, delimiter: "\t" })
+        .on("data", (row) => rows.push(row)).on("error", reject).on("end", resolve));
+    }
+    const skus = new Set(rows.filter((r) => String(r["Apple Identifier"] || "").trim() === numericId && r.SKU).map((r) => r.SKU.trim()));
+    if (!skus.size && rows.some((r) => r["Parent Identifier"])) skus.add(await this.getAppSku(numericId));
+    const byCountry = new Map();
+    for (const row of rows) {
+      const isApp = String(row["Apple Identifier"] || "").trim() === numericId;
+      if (!isApp && !skus.has(String(row["Parent Identifier"] || "").trim())) continue;
+      const country = String(row["Country Code"] || "").trim().toUpperCase();
+      if (!/^[A-Z]{2}$/.test(country)) continue;
+      const entry = byCountry.get(country) || { country, installs: 0, revenueByCurrency: {} };
+      const units = Number(row["Units"]) || 0;
+      if (isApp && FIRST_INSTALL_TYPES.has((row["Product Type Identifier"] || "").trim())) entry.installs += units;
+      const proceeds = Number(row["Developer Proceeds"] ?? row["Developer Proceeds (per unit)"]);
+      const currency = (row["Currency of Proceeds"] || "").trim();
+      if (Number.isFinite(proceeds) && /^[A-Z]{3}$/.test(currency))
+        entry.revenueByCurrency[currency] = (entry.revenueByCurrency[currency] || 0) + proceeds * units;
+      byCountry.set(country, entry);
+    }
+    return [...byCountry.values()];
+  }
+
   async getAppStats(startDate, endDate, options = {}) {
     const numericId = await this.getNumericAppId();
     console.log(
@@ -279,15 +320,7 @@ class AppleAppStoreStatsViewer {
       return { ...report, rows };
     }));
     if (!appSkus.size && parsedReports.some(report => report.rows.some(row => row["Parent Identifier"]))) {
-      const sku = await resolver.resolve("apple:app-sku", { appId: numericId, issuerId: this.issuerId }, async () => {
-        const response = await axios.get(`https://api.appstoreconnect.apple.com/v1/apps/${encodeURIComponent(numericId)}`, {
-          params: { "fields[apps]": "sku" }, headers: { Authorization: `Bearer ${this.generateToken()}` }, timeout: 10000,
-        });
-        const value = response.data?.data?.attributes?.sku;
-        if (!value) throw new Error("APPLE_SKU_UNAVAILABLE");
-        return value;
-      });
-      appSkus.add(sku);
+      appSkus.add(await this.getAppSku(numericId));
     }
 
     for (const { dateStr, rawTxt, rows } of parsedReports) {

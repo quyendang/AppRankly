@@ -148,6 +148,8 @@ ai.generateJSON = async () => ({
 const reviewFixtures = [
   { id: "r1", author: "Preview user", rating: 5, text: "A clean space for daily notes.", date: "2026-10-29T12:00:00Z", replyText: "Thank you for sharing your feedback!", replyDate: "2026-10-30T12:00:00Z", canReply: true, source: "official" },
   { id: "r2", author: "Another preview user", rating: 4, text: "Useful app. Could the timer text be a little larger?", date: "2026-10-28T12:00:00Z", replyText: null, canReply: true, source: "official" },
+  { id: "r3", author: "Minh", rating: 5, text: "Love the daily streaks.", date: "2026-10-27T12:00:00Z", replyText: null, canReply: true, source: "official" },
+  { id: "r4", author: "", rating: 2, text: "Crashes when I open settings.", date: "2026-10-26T12:00:00Z", replyText: null, canReply: true, source: "official" },
 ];
 const managedReviews = require("../lib/storeReviews");
 managedReviews.loadReviews = async () => ({ reviews: reviewFixtures, sourceStatus: "available" });
@@ -170,6 +172,20 @@ fs.writeFileSync(
     },
   ]),
 );
+// Synthetic keyword rank history (one drop of 25 places on the last check) and per-country revenue.
+const { db } = require("../lib/db");
+const keyword = db.prepare("INSERT INTO aso_keyword(package_name,platform,term,normalized,source,tracked,added_at) VALUES('example.muse','play','daily journal','daily journal','manual',1,datetime('now'))").run();
+for (let i = 0; i < 12; i++)
+  db.prepare("INSERT INTO aso_rank_history(keyword_id,package_name,platform,store,country,rank,top_n,checked_at,language) VALUES(?,?,?,?,?,?,?,?, 'en')")
+    .run(keyword.lastInsertRowid, "example.muse", "play", "play", "us", i === 11 ? 38 : 18 - Math.floor(i / 2), 100,
+      new Date(Date.parse("2026-10-20T08:00:00Z") + i * 86400000).toISOString());
+require("../lib/countryRevenue").countryRevenue = async () => ({ rows: [
+  { country: "US", installs: 2300, revenueByCurrency: { USD: 410.5 } },
+  { country: "VN", installs: 1700, revenueByCurrency: { VND: 9500000 } },
+  { country: "JP", installs: 520, revenueByCurrency: { JPY: 180000 } },
+  { country: "DE", installs: 410, revenueByCurrency: { EUR: 90.2 } },
+  { country: "BR", installs: 380, revenueByCurrency: {} },
+] });
 const { createApp } = require("../server");
 createApp().listen(3002, "127.0.0.1", () =>
   console.log("Synthetic UI preview: http://127.0.0.1:3002"),

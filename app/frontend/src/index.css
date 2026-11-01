@@ -3899,3 +3899,35 @@ input[type="checkbox"] {
 @media (max-width: 600px) {
   .toolbar { flex-wrap: wrap; }
 }
+
+/* Insights: anomalies, events, rank history, country table, bulk replies, digest */
+.insight-list, .event-list { list-style: none; margin: 0; padding: 0 24px 16px; display: grid; gap: 4px; }
+.insight { display: grid; grid-template-columns: 18px 1fr auto; gap: 10px; align-items: start; padding: 9px 12px; border-radius: 10px; }
+.insight.positive { background: var(--positive-soft); color: var(--positive); }
+.insight.negative { background: var(--negative-soft); color: var(--negative); }
+.insight div { display: grid; gap: 2px; min-width: 0; }
+.insight strong { color: var(--text); }
+.insight div span, .insight time { font-size: 12px; }
+.insight time { color: var(--muted); font-variant-numeric: tabular-nums; }
+.event-list li { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.event-list time { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 84px; }
+.event-list li > span:nth-of-type(2) { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.event-type { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; background: var(--surface-subtle); color: var(--muted); }
+.event-type.release { background: var(--accent-soft); color: var(--accent); }
+.event-type.campaign { background: var(--warning-soft); color: var(--warning); }
+.inline-form input[type="date"] { max-width: 170px; }
+.country-table .per-install { position: relative; white-space: nowrap; }
+.country-table .per-install i { position: absolute; left: 0; bottom: 3px; height: 3px; border-radius: 2px; background: var(--accent); opacity: 0.45; max-width: 100%; }
+.bulk-bar { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 24px 12px; }
+.review-pick { margin-right: 8px; accent-color: var(--accent); width: 16px; height: 16px; vertical-align: middle; }
+.bulk-preview { max-height: 260px; overflow: auto; margin: 12px 0; }
+.bulk-preview h3 { font-size: 13px; margin: 0 0 6px; }
+.digest-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 10px 0; }
+.digest-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.digest-preview { white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.6 var(--body); background: var(--surface-subtle); padding: 12px; border-radius: 10px; margin: 0 0 12px; }
+@media (max-width: 600px) {
+  .insight-list, .event-list, .bulk-bar { padding-left: 16px; padding-right: 16px; }
+  .insight { grid-template-columns: 18px 1fr; }
+  .insight time { grid-column: 2; }
+  .event-list li { flex-wrap: wrap; }
+}

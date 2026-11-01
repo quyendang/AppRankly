@@ -11,6 +11,10 @@ const defaults = {
   activeEndHour: 23,
   timezone: "Asia/Ho_Chi_Minh",
   notificationsEnabled: false,
+  digest: "off",
+  digestHour: 8,
+  digestLocale: "vi",
+  anomalyThreshold: 30,
   ignoredPackages: [],
   googlePackages: [],
   appMetadata: {},
@@ -42,6 +46,8 @@ function saveSettings(input) {
     ["statsCheckRangeDays", 1, 366],
     ["activeStartHour", 0, 23],
     ["activeEndHour", 0, 23],
+    ["digestHour", 0, 23],
+    ["anomalyThreshold", 10, 90],
   ])
     if (!Number.isInteger(next[k]) || next[k] < min || next[k] > max)
       throw new Error("INVALID_SETTINGS");
@@ -49,7 +55,9 @@ function saveSettings(input) {
     typeof next.name !== "string" ||
     next.name.length > 100 ||
     typeof next.notificationsEnabled !== "boolean" ||
-    typeof next.timezone !== "string"
+    typeof next.timezone !== "string" ||
+    !["off", "daily", "weekly"].includes(next.digest) ||
+    !["vi", "en"].includes(next.digestLocale)
   )
     throw new Error("INVALID_SETTINGS");
   new Intl.DateTimeFormat("en", { timeZone: next.timezone }).format();

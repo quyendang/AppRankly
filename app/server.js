@@ -222,6 +222,14 @@ function createApp() {
     }),
   );
   app.post(
+    "/api/country-revenue",
+    run(async (req, res) => {
+      const app = await store.ownedApp(req.body.appId),
+        range = store.dateRange(req.body);
+      res.json(await require("./lib/countryRevenue").countryRevenue(app, range));
+    }),
+  );
+  app.post(
     "/api/refresh",
     run(async (req, res) => {
       resolver.clearCache();

@@ -13,15 +13,8 @@ const { generateJSON, getAIStatus } = require("../lib/ai");
 const { redact } = require("../lib/runtime");
 const router = express.Router();
 const managedReviews = require("../lib/storeReviews");
-const markets = {
-  us: "en",
-  vn: "vi",
-  gb: "en",
-  jp: "ja",
-  kr: "ko",
-  de: "de",
-  fr: "fr",
-};
+const rankTracker = require("../lib/aso/rankTracker");
+const insights = require("../lib/insights");
 const run = (fn) => (req, res, next) =>
   Promise.resolve(fn(req, res)).catch(next);
 const previews = new Map();
@@ -108,65 +101,105 @@ router.delete(
 router.post(
   "/aso/ranks",
   run(async (req, res) => {
-    const app = await ownedApp(req.body.appId),
-      platform = codePlatform(app);
-    const country = req.body.country || "us",
-      language = markets[country];
-    if (!language) throw new Error("INVALID_MARKET");
-    const keywords = db
+    const app = await ownedApp(req.body.appId);
+    res.json(await rankTracker.checkRanks(app, req.body.country || "us"));
+  }),
+);
+router.get(
+  "/aso/ranks/history",
+  run(async (req, res) => {
+    const app = await ownedApp(req.query.appId);
+    const since = new Date(Date.now() - 90 * 86400000).toISOString();
+    const rows = db
       .prepare(
-        "SELECT * FROM aso_keyword WHERE package_name=? AND platform=? AND tracked=1 LIMIT 20",
+        `SELECT r.keyword_id, k.term, r.country, r.rank, r.top_n, r.checked_at FROM aso_rank_history r
+         JOIN aso_keyword k ON k.id=r.keyword_id
+         WHERE r.package_name=? AND r.platform=? AND r.checked_at>=? ORDER BY r.checked_at`,
       )
-      .all(app.packageName, platform);
-    const ranks = [];
-    for (const kw of keywords) {
-      const hits =
-        app.platform === "google"
-          ? await scraper.getPlaySearch(kw.term, 100, country, language, {
-              strict: true,
-            })
-          : await scraper.getAppleSearch(kw.term, country, 100, {
-              strict: true,
-            });
-      const idx = hits.findIndex(
-        (x) =>
-          (x.appId || x.bundleId) === app.packageName ||
-          (app.appId != null && String(x.id) === String(app.appId)),
-      );
-      const rank = idx < 0 ? null : idx + 1;
-      ranks.push({
-        keywordId: kw.id,
-        term: kw.term,
-        rank,
-        country,
-        language,
-        topN: hits.length,
-      });
+      .all(app.packageName, codePlatform(app), since);
+    const groups = new Map();
+    for (const r of rows) {
+      const key = r.keyword_id + ":" + r.country;
+      if (!groups.has(key)) groups.set(key, { keywordId: r.keyword_id, term: r.term, country: r.country, points: [] });
+      groups.get(key).points.push({ date: r.checked_at.slice(0, 10), rank: r.rank, topN: r.top_n });
     }
-    db.exec("BEGIN");
-    try {
-      const insert = db.prepare(
-        `INSERT INTO aso_rank_history(keyword_id,package_name,platform,store,country,rank,top_n,checked_at,language) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(keyword_id,store,country,checked_at) DO UPDATE SET rank=excluded.rank,top_n=excluded.top_n,language=excluded.language`,
-      );
-      const checkedAt = new Date().toISOString();
-      for (const rank of ranks)
-        insert.run(
-          rank.keywordId,
-          app.packageName,
-          platform,
-          platform,
-          country,
-          rank.rank,
-          rank.topN,
-          checkedAt,
-          language,
-        );
-      db.exec("COMMIT");
-    } catch (error) {
-      db.exec("ROLLBACK");
-      throw error;
+    res.json({ history: [...groups.values()] });
+  }),
+);
+router.get(
+  "/aso/events",
+  run(async (req, res) => {
+    res.json({ events: await insights.listEvents(await ownedApp(req.query.appId)) });
+  }),
+);
+router.post(
+  "/aso/events",
+  run(async (req, res) => {
+    const app = await ownedApp(req.body.appId);
+    res.status(201).json(insights.addEvent(app, req.body.date, req.body.label));
+  }),
+);
+router.delete(
+  "/aso/events/:id",
+  run(async (req, res) => {
+    db.prepare("DELETE FROM app_event WHERE id=? AND source='manual'").run(Number(req.params.id));
+    res.json({ success: true });
+  }),
+);
+router.get(
+  "/review-templates",
+  (req, res) => res.json({ templates: db.prepare("SELECT id,name,body FROM reply_template ORDER BY id").all() }),
+);
+router.post(
+  "/review-templates",
+  (req, res) => {
+    const name = String(req.body.name || "").trim(), body = String(req.body.body || "").trim();
+    if (!name || name.length > 60 || !body || body.length > 5970 || redact(body) !== body ||
+        db.prepare("SELECT COUNT(*) n FROM reply_template").get().n >= 30)
+      throw new Error("INVALID_INPUT");
+    const info = db.prepare("INSERT INTO reply_template(name,body) VALUES(?,?)").run(name, body);
+    res.status(201).json({ id: Number(info.lastInsertRowid), name, body });
+  },
+);
+router.delete(
+  "/review-templates/:id",
+  (req, res) => {
+    db.prepare("DELETE FROM reply_template WHERE id=?").run(Number(req.params.id));
+    res.json({ success: true });
+  },
+);
+router.post(
+  "/aso/reviews/reply-bulk",
+  run(async (req, res) => {
+    if (req.body.confirmed !== true) throw new Error("PREVIEW_REQUIRED");
+    const items = req.body.items;
+    if (!Array.isArray(items) || !items.length || items.length > 20) throw new Error("INVALID_INPUT");
+    const app = await ownedApp(req.body.appId), results = [];
+    // Sequential on purpose: store APIs are rate limited and one failure must not hide the rest.
+    for (const item of items) {
+      try {
+        await managedReviews.replyReview(app, item?.reviewId, item?.text);
+        results.push({ reviewId: item.reviewId, ok: true });
+      } catch (error) {
+        results.push({ reviewId: item?.reviewId, ok: false, error: error.message });
+      }
     }
-    res.json({ ranks, country, language, source: "public_store_search" });
+    res.json({ results });
+  }),
+);
+router.get(
+  "/insights/anomalies",
+  run(async (req, res) => res.json({ anomalies: await insights.collectAnomalies() })),
+);
+router.get(
+  "/insights/digest",
+  run(async (req, res) => res.json(await insights.buildDigest(req.query.period === "weekly" ? "weekly" : "daily"))),
+);
+router.post(
+  "/insights/digest/send",
+  run(async (req, res) => {
+    const digest = await insights.buildDigest(req.body.period === "weekly" ? "weekly" : "daily");
+    res.json({ digest, delivery: await require("../lib/notifier").broadcastAlert({ title: digest.title, message: digest.message }) });
   }),
 );
 router.get(
