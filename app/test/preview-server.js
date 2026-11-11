@@ -89,9 +89,12 @@ portfolio.appStats = async (app, range) => {
 };
 portfolio.portfolio = async (body) => {
   const range = portfolio.dateRange(body);
+  const list = ["apple", "google"].includes(body.platform) ? apps.filter((a) => a.platform === body.platform) : apps;
+  // Different delays per store make the per-source loading visible in the preview.
+  await new Promise((r) => setTimeout(r, body.platform === "google" ? 900 : 350));
   return {
     apps: await Promise.all(
-      apps.map(async (a) => ({
+      list.map(async (a) => ({
         ...a,
         ...(await portfolio.appStats(a, range)),
       })),

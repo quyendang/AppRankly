@@ -17,39 +17,6 @@ const toUsd = (byCurrency, exchange) => {
   return { total, missing };
 };
 
-// Unusual installs/revenue/rank moves detected by the server; renders nothing when all is calm.
-export function AnomalyPanel({ number }) {
-  const { t } = useTranslation();
-  const [items, setItems] = useState([]);
-  useEffect(() => {
-    const abort = new AbortController();
-    api("/api/insights/anomalies", { signal: abort.signal }).then((r) => setItems(r.anomalies)).catch(() => {});
-    return () => abort.abort();
-  }, []);
-  if (!items.length) return null;
-  const text = (a) => {
-    const direction = t(a.direction === "up" ? "directionUp" : "directionDown");
-    if (a.kind === "rank")
-      return t("anomalyRank", { term: a.term, country: a.country.toUpperCase(), from: a.from ?? t("rankOut"), to: a.to ?? t("rankOut") });
-    return t(a.kind === "installs" ? "anomalyInstalls" : "anomalyRevenue", {
-      currency: a.currency, direction, percent: Math.abs(Math.round(a.change)),
-      latest: number(a.latest, 2), avg: number(a.avg, 2) });
-  };
-  return (
-    <Panel title={t("insightsTitle")} description={t("insightsHint")} className="insights-panel">
-      <ul className="insight-list">
-        {items.slice(0, 8).map((a) => (
-          <li key={a.key} className={"insight " + (a.direction === "up" ? "positive" : "negative")}>
-            <span aria-hidden="true">{a.direction === "up" ? "▲" : "▼"}</span>
-            <div><strong>{a.name}</strong><span>{text(a)}</span></div>
-            <time>{a.date}</time>
-          </li>
-        ))}
-      </ul>
-    </Panel>
-  );
-}
-
 // Releases, campaigns and custom events shown as markers on the charts.
 export function EventsPanel({ app, events, onChange, action, busy }) {
   const { t } = useTranslation();
@@ -94,7 +61,7 @@ export function RankHistory({ history, events, theme }) {
   const { t, i18n } = useTranslation();
   const [pick, setPick] = useState("");
   const series = history.find((h) => h.keywordId + ":" + h.country === pick) || history[0];
-  const dark = theme === "dark", color = dark ? "#F3A77C" : "#B84F2B", muted = dark ? "#B9B1CD" : "#666177";
+  const dark = theme === "dark", color = dark ? "#FF5C9F" : "#D61F70", muted = dark ? "#A69CB3" : "#6B6377";
   const chart = useMemo(() => {
     if (!series) return null;
     const byDate = new Map(series.points.map((p) => [p.date, p.rank ?? 101]));
@@ -126,7 +93,7 @@ export function RankHistory({ history, events, theme }) {
             },
             scales: {
               x: { grid: { display: false }, ticks: { maxTicksLimit: 6, color: muted, font: { size: 11 } } },
-              y: { reverse: true, min: 1, grid: { color: dark ? "#3B354E" : "#E8E5F0" },
+              y: { reverse: true, min: 1, grid: { color: dark ? "#2B2436" : "#ECE9F1" },
                 ticks: { maxTicksLimit: 6, precision: 0, color: muted, font: { size: 11 }, callback: (v) => (v > 100 ? t("rankOut") : v) } },
             },
           }}

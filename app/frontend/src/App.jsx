@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { revenueSummary, usdSummary } from "./revenue.js";
-import { AnomalyPanel, BulkReplyDialog, CountryTable, EventsPanel, RankHistory, TemplatePicker, renderTemplate, useTemplates } from "./insights.jsx";
+import { BulkReplyDialog, CountryTable, EventsPanel, RankHistory, TemplatePicker, renderTemplate, useTemplates } from "./insights.jsx";
 import {
   LayoutGrid,
   Smartphone,
@@ -14,34 +14,40 @@ import {
   RefreshCw,
   Download,
   Search,
-  ArrowRight,
   Sparkles,
   LogOut,
   Bell,
-  Check,
-  ChevronRight,
-  Calendar,
   Trash2,
   Pencil,
   Info,
   Send,
+  ArrowLeft,
+  AlertTriangle,
+  FileJson,
+  Clock,
 } from "lucide-react";
+import { buildTasks } from "./tasks.js";
+import { Num, Skel, Toasts, toast, transition } from "./motion.jsx";
+import { ActionInbox, AppCard, CommandPalette, Delta, ReleaseImpact, SyncDots, SyncProgress } from "./today.jsx";
+import { trendSeries } from "./series.js";
 import {
-  LoadingState,
+  AppIcon,
+  PlatformLabel,
+  appColor,
   Avatar,
   Button,
-  Change,
   Chart,
   Dialog,
   Empty,
   Panel,
-  Sparkline,
   Tabs,
   FormField,
   api,
   csvDownload,
   download,
 } from "./components.jsx";
+const platforms = ["apple", "google"];
+const sources = ["apple", "google", "rates", "insights", "reviews"];
 const pages = [
   ["portfolio", LayoutGrid],
   ["appDetail", Smartphone],
@@ -88,35 +94,48 @@ export default function App() {
     [platform, setPlatform] = useState("all"),
     [query, setQuery] = useState(""),
     [sort, setSort] = useState("installs");
-  const [data, setData] = useState(null),
-    [previous, setPrevious] = useState([]),
+  // Each store is loaded on its own so the faster one renders first; results are cached per period.
+  const [byPlatform, setByPlatform] = useState({}),
+    [prevByPlatform, setPrevByPlatform] = useState({}),
+    [range, setRange] = useState(null),
+    [warnings, setWarnings] = useState([]),
+    [pendingPlatforms, setPendingPlatforms] = useState([]),
+    [sourceState, setSourceState] = useState({}),
+    [anomalies, setAnomalies] = useState([]),
+    [openReviews, setOpenReviews] = useState([]),
+    [dismissed, setDismissed] = useState(() => { try { return JSON.parse(localStorage.getItem("apprankly_dismissed") || "[]"); } catch { return []; } }),
+    [inboxAll, setInboxAll] = useState(false),
+    [palette, setPalette] = useState(false),
     [selected, setSelected] = useState(""),
-    [loading, setLoading] = useState(false),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState(""),
-    [message, setMessage] = useState("");
+    [error, setError] = useState("");
   const [settings, setSettings] = useState(null),
     [integrations, setIntegrations] = useState(null),
     [notifications, setNotifications] = useState([]);
   const [detailTab, setDetailTab] = useState(location.hash === "#aso" ? "storeListing" : "overview"),
     [dimensions, setDimensions] = useState(null),
     [dimensionBusy, setDimensionBusy] = useState(false);
-  const [asoData, setAsoData] = useState(null),
-    [asoBusy, setAsoBusy] = useState(false),
+  const [asoById, setAsoById] = useState({}),
+    [asoErrors, setAsoErrors] = useState({}),
     [searchCompetitors, setSearchCompetitors] = useState([]);
   const [modal, setModal] = useState(null),
-    [drawer, setDrawer] = useState(null),
+
     [aiResult, setAiResult] = useState(null),
     [refresh, setRefresh] = useState(0);
   const [rankCountry, setRankCountry] = useState("us");
   const [reviewFilter, setReviewFilter] = useState("allReviews");
-  const [events, setEvents] = useState([]),
-    [rankHistory, setRankHistory] = useState([]),
-    [picked, setPicked] = useState([]),
+  const [picked, setPicked] = useState([]),
     [digestPreview, setDigestPreview] = useState("");
   const heading = useRef(null),
     pending = useRef(false),
-    messageTimer = useRef(null);
+    portfolioCache = useRef(new Map()),
+    asoInflight = useRef(new Map()),
+    loadToken = useRef(0),
+    syncWatch = useRef(false),
+    loadedRef = useRef(new Set());
+  const data = range ? { apps: platforms.flatMap((p) => byPlatform[p] || []), range, warnings } : null;
+  const previous = platforms.flatMap((p) => prevByPlatform[p] || []);
+  const loading = pendingPlatforms.length > 0;
   const number = useCallback(
     (v, digits = 0) =>
       v == null
@@ -136,17 +155,25 @@ export default function App() {
       : "—";
   const apps = data?.apps || [],
     current = apps.find((a) => a.id === selected) || apps[0];
+  const entry = current ? asoById[current.id] : null;
+  const asoData = entry?.data || null,
+    asoBusy = !!current && !asoData && !asoErrors[current.id],
+    events = entry?.events || [],
+    rankHistory = entry?.history || [];
+  const setAsoData = (fn) => current && setAsoById((all) => ({ ...all, [current.id]: { ...all[current.id], data: typeof fn === "function" ? fn(all[current.id]?.data) : fn } }));
+  const setEvents = (list) => current && setAsoById((all) => ({ ...all, [current.id]: { ...all[current.id], events: list } }));
   const filtered = apps
     .filter(
       (a) =>
         (platform === "all" || a.platform === platform) &&
         a.name.toLowerCase().includes(query.toLowerCase()),
     )
-    .sort((a, b) =>
-      sort === "growth"
-        ? (growth(b) || 0) - (growth(a) || 0)
-        : (b.installs ?? -1) - (a.installs ?? -1),
-    );
+    .sort((a, b) => {
+      const value = (app) => sort === "growth" ? growth(app) ?? -1e9
+        : sort === "revenue" ? usdSummary([app], exchange).total ?? -1
+        : sort === "rating" ? app.rating ?? -1 : app.installs ?? -1;
+      return value(b) - value(a);
+    });
   function growth(app) {
     const old = previous.find((a) => a.id === app.id)?.installs;
     return app.installs != null && old > 0
@@ -154,9 +181,7 @@ export default function App() {
       : null;
   }
   function notify(code) {
-    setMessage(code);
-    clearTimeout(messageTimer.current);
-    messageTimer.current = setTimeout(() => setMessage(""), 4500);
+    toast(t(code, { defaultValue: code }));
   }
   const handleError = useCallback((e) => {
     if (e.name === "AbortError") return;
@@ -178,29 +203,41 @@ export default function App() {
       setBusy(false);
     }
   }
+  const stamp = (key, state, extra = {}) =>
+    setSourceState((all) => ({ ...all, [key]: { state, at: new Date().toISOString(), ...extra } }));
+  // ASO data per app, kept after the first load so switching apps or tabs never refetches.
   const loadASO = useCallback(
-    async (signal) => {
-      if (!current) return;
-      setAsoBusy(true);
-      try {
-        const id = encodeURIComponent(current.id);
-        const [next, history, eventList] = await Promise.all([
-          api("/api/aso/app/" + id, { signal }),
-          api("/api/aso/ranks/history?appId=" + id, { signal }).catch(() => ({ history: [] })),
-          api("/api/aso/events?appId=" + id, { signal }).catch(() => ({ events: [] })),
-        ]);
-        setRankHistory(history.history);
-        setEvents(eventList.events);
-        setAsoData(next);
-        setAiResult(next.aiResult || null);
-      } catch (e) {
-        handleError(e);
-      } finally {
-        if (!signal?.aborted) setAsoBusy(false);
-      }
+    (appId, { force = false } = {}) => {
+      if (!appId) return Promise.resolve();
+      if (!force && asoInflight.current.has(appId)) return asoInflight.current.get(appId);
+      const id = encodeURIComponent(appId);
+      const work = Promise.all([
+        api("/api/aso/app/" + id),
+        api("/api/aso/ranks/history?appId=" + id).catch(() => ({ history: [] })),
+        api("/api/aso/events?appId=" + id).catch(() => ({ events: [] })),
+      ])
+        .then(([next, history, eventList]) => {
+          setAsoById((all) => ({ ...all, [appId]: { data: next, history: history.history, events: eventList.events } }));
+          setAsoErrors((all) => { const copy = { ...all }; delete copy[appId]; return copy; });
+          setAiResult((r) => (appId === current?.id ? next.aiResult || null : r));
+        })
+        .catch((e) => {
+          if (e.message === "AUTH_REQUIRED") setAuthenticated(false);
+          setAsoErrors((all) => ({ ...all, [appId]: e.message || "OPERATION_FAILED" }));
+        })
+        .finally(() => asoInflight.current.delete(appId));
+      asoInflight.current.set(appId, work);
+      return work;
     },
-    [current?.id, handleError],
+    [current?.id],
   );
+  const warmApp = (appId) => { if (appId && !asoById[appId] && !asoInflight.current.has(appId)) loadASO(appId); };
+  const loadOpenReviews = useCallback(() => {
+    stamp("reviews", "loading");
+    return api("/api/insights/open-reviews")
+      .then((r) => { setOpenReviews(r.apps); stamp("reviews", "done", { count: r.apps.reduce((n, a) => n + a.open, 0) }); })
+      .catch(() => stamp("reviews", "error"));
+  }, []);
   useEffect(() => {
     api("/api/auth/me")
       .then(() => setAuthenticated(true))
@@ -208,7 +245,14 @@ export default function App() {
         setAuthenticated(false);
         if (e.message !== "AUTH_REQUIRED") setError(e.message);
       });
-    return () => clearTimeout(messageTimer.current);
+  }, []);
+  useEffect(() => {
+    const key = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setPalette((v) => !v); }
+      else if (e.key === "/" && !e.target.closest?.("input,textarea,select,[contenteditable]")) { e.preventDefault(); setPalette(true); }
+    };
+    document.addEventListener("keydown", key);
+    return () => document.removeEventListener("keydown", key);
   }, []);
   useEffect(() => {
     const media = matchMedia("(prefers-color-scheme:dark)"),
@@ -241,34 +285,83 @@ export default function App() {
   }, []);
   useEffect(() => {
     if (!authenticated) return;
-    const abort = new AbortController();
-    setLoading(true);
+    const token = ++loadToken.current, now = rangeFor(period), old = rangeFor(period, period);
+    const key = period + ":" + refresh;
+    const cached = portfolioCache.current.get(key);
     setError("");
-    Promise.all([
-      api("/api/portfolio", {
-        method: "POST",
-        body: rangeFor(period),
-        signal: abort.signal,
-      }),
-      api("/api/portfolio", {
-        method: "POST",
-        body: rangeFor(period, period),
-        signal: abort.signal,
-      }),
-    ])
-      .then(([now, old]) => {
-        setData(now);
-        setPrevious(old.apps);
-        setSelected((id) =>
-          now.apps.some((a) => a.id === id) ? id : now.apps[0]?.id || "",
-        );
-      })
-      .catch(handleError)
-      .finally(() => {
-        if (!abort.signal.aborted) setLoading(false);
+    if (cached) {
+      setByPlatform(cached.now); setPrevByPlatform(cached.old); setRange(cached.range); setWarnings(cached.warnings);
+      setPendingPlatforms([]);
+      return;
+    }
+    // Old numbers stay on screen (marked as updating) until each store answers.
+    setPendingPlatforms(platforms);
+    const result = { now: {}, old: {}, range: now, warnings: [] };
+    Promise.all(platforms.map((p) => {
+      stamp(p, "loading");
+      return Promise.all([
+        api("/api/portfolio", { method: "POST", body: { ...now, platform: p } }),
+        api("/api/portfolio", { method: "POST", body: { ...old, platform: p } }),
+      ]).then(([cur, prev]) => {
+        result.now[p] = cur.apps; result.old[p] = prev.apps; result.range = cur.range;
+        result.warnings = [...new Set([...result.warnings, ...(cur.warnings || [])])];
+        if (token !== loadToken.current) return;
+        setByPlatform((all) => ({ ...all, [p]: cur.apps }));
+        setPrevByPlatform((all) => ({ ...all, [p]: prev.apps }));
+        setRange(cur.range);
+        setWarnings((w) => [...new Set([...w, ...(cur.warnings || [])])]);
+        stamp(p, "done", { count: cur.apps.length });
+        setSelected((id) => id || cur.apps[0]?.id || "");
+      }).catch((e) => {
+        if (token !== loadToken.current) return;
+        stamp(p, "error");
+        handleError(e);
+        throw e;
+      }).finally(() => {
+        if (token === loadToken.current) setPendingPlatforms((list) => list.filter((x) => x !== p));
       });
-    return () => abort.abort();
+    })).then(() => portfolioCache.current.set(key, result)).catch(() => {});
   }, [authenticated, period, refresh, handleError]);
+  // Prefetch another period when the pointer rests on its button.
+  function prefetchPeriod(value) {
+    const key = value + ":" + refresh;
+    if (!authenticated || value === period || portfolioCache.current.has(key) || portfolioCache.current.has(key + ":pending")) return;
+    portfolioCache.current.set(key + ":pending", true);
+    const now = rangeFor(value), old = rangeFor(value, value), result = { now: {}, old: {}, range: now, warnings: [] };
+    Promise.all(platforms.map((p) => Promise.all([
+      api("/api/portfolio", { method: "POST", body: { ...now, platform: p } }),
+      api("/api/portfolio", { method: "POST", body: { ...old, platform: p } }),
+    ]).then(([cur, prev]) => { result.now[p] = cur.apps; result.old[p] = prev.apps; result.range = cur.range; })))
+      .then(() => portfolioCache.current.set(key, result))
+      .catch(() => {})
+      .finally(() => portfolioCache.current.delete(key + ":pending"));
+  }
+  useEffect(() => {
+    if (!authenticated) return;
+    stamp("insights", "loading");
+    api("/api/insights/anomalies").then((r) => { setAnomalies(r.anomalies); stamp("insights", "done", { count: r.anomalies.length }); }).catch(() => stamp("insights", "error"));
+    loadOpenReviews();
+  }, [authenticated, refresh, loadOpenReviews]);
+  // Once both stores have answered, load each app's reviews in the background, one at a time,
+  // so the To do list covers apps that have not been opened yet.
+  const appIds = apps.map((a) => a.id).join("|");
+  useEffect(() => {
+    if (!authenticated || pendingPlatforms.length || !appIds) return;
+    let stopped = false;
+    (async () => {
+      for (const id of appIds.split("|")) {
+        if (stopped) return;
+        if (loadedRef.current.has(id)) continue;
+        loadedRef.current.add(id);
+        if (!asoInflight.current.has(id)) await loadASO(id).catch(() => {});
+        await new Promise((r) => setTimeout(r, 250));
+      }
+    })();
+    return () => { stopped = true; };
+  }, [authenticated, pendingPlatforms.length, appIds, refresh]);
+  useEffect(() => {
+    try { localStorage.setItem("apprankly_dismissed", JSON.stringify(dismissed.slice(-200))); } catch {}
+  }, [dismissed]);
   useEffect(() => {
     if (!authenticated) return;
     const abort = new AbortController();
@@ -288,20 +381,21 @@ export default function App() {
   useEffect(() => {
     if (!authenticated) return;
     const abort = new AbortController();
-    const load = () => api("/api/exchange-rates", { signal: abort.signal }).then(setExchange).catch(() => {});
+    const load = () => {
+      stamp("rates", "loading");
+      return api("/api/exchange-rates", { signal: abort.signal })
+        .then((r) => { setExchange(r); stamp("rates", r.status === "stale" ? "error" : "done"); })
+        .catch((e) => { if (e.name !== "AbortError") stamp("rates", "error"); });
+    };
     load();
     const timer = setInterval(load, 3600000);
     return () => { abort.abort(); clearInterval(timer); };
   }, [authenticated, refresh]);
   useEffect(() => {
     if (!authenticated || page !== "appDetail" || !current) return;
-    setAsoData(null);
-    setEvents([]);
-    setRankHistory([]);
     setPicked([]);
-    const abort = new AbortController();
-    loadASO(abort.signal);
-    return () => abort.abort();
+    setAiResult(asoById[current.id]?.data?.aiResult || null);
+    if (!asoById[current.id]) loadASO(current.id);
   }, [page, current?.id, authenticated, loadASO]);
   useEffect(() => {
     if (!authenticated || page !== "appDetail" || !current || !["overview", "countries", "versions"].includes(detailTab)) return;
@@ -324,17 +418,41 @@ export default function App() {
       });
     return () => abort.abort();
   }, [page, current?.id, period, detailTab, authenticated, handleError]);
-  function navigate(next) {
-    setPage(next);
-    setDrawer(null);
-    setError("");
+  function navigate(next, { tab, kind } = {}) {
+    const go = () => {
+      setPage(next);
+      if (tab) setDetailTab(tab);
+
+      setPalette(false);
+      setError("");
+      scrollTo({ top: 0 });
+    };
+    if (next === page && !tab) return;
+    transition(go, kind || (next === "appDetail" ? "expand" : page === "appDetail" ? "collapse" : "page"));
+  }
+  function openApp(id, tab) {
+    if (page === "appDetail") { transition(() => { setSelected(id); if (tab) setDetailTab(tab); setPalette(false); }, "swap"); return; }
+    setSelected(id);
+    warmApp(id);
+    navigate("appDetail", { tab });
   }
   async function sync() {
     await action(async () => {
       await api("/api/refresh", { method: "POST", body: {} });
+      portfolioCache.current.clear();
+      loadedRef.current.clear();
+      setAsoById({});
       setRefresh((v) => v + 1);
-    }, "syncStarted");
+    });
+    syncWatch.current = true;
   }
+  const syncing = busy && syncWatch.current || sources.some((k) => sourceState[k]?.state === "loading");
+  useEffect(() => {
+    if (!syncWatch.current || sources.some((k) => sourceState[k]?.state === "loading") || pendingPlatforms.length) return;
+    syncWatch.current = false;
+    const failed = sources.filter((k) => sourceState[k]?.state === "error").length;
+    toast(failed ? t("syncPartial", { count: failed }) : t("syncDone"), { tone: failed ? "warn" : "ok" });
+  }, [sourceState, pendingPlatforms, t]);
   function revenueAmounts(list) {
     const { hasReports, entries } = revenueSummary(list);
     if (!hasReports) return (
@@ -398,205 +516,179 @@ export default function App() {
       {exchange?.status === "stale" && <span role="status">{t("staleRates")}</span>}
     </div>;
   }
-  function kpis(list) {
-    const available = list.filter((a) => a.installs != null),
-      total = available.reduce((s, a) => s + a.installs, 0),
-      old = previous
-        .filter((a) => list.some((x) => x.id === a.id) && a.installs != null)
-        .reduce((s, a) => s + a.installs, 0);
+  function usdValue(list) {
+    const { hasReports } = revenueSummary(list.map((a) => (a.platform === "google" ? { ...a, revenueByCurrency: a.grossRevenueByCurrency || {} } : a)));
+    const converted = usdSummary(list, exchange);
+    if (!hasReports && !list.some((a) => a.revenueAvailable)) return <span className="muted" title={t("noCurrencyData")}>—</span>;
+    if (!exchange) return <Skel w="4em" />;
+    return converted.total == null
+      ? <span className="muted" title={t("missingRates", { currencies: converted.missing.join(", ") })}>—</span>
+      : <><Num value={converted.total} format={(v) => number(v, 2)} /><small className="ccy">USD</small></>;
+  }
+  // Loaded review lists are fresher than the server archive summary, so they win when present.
+  const reviewSummary = useMemo(() => {
+    const merged = new Map(openReviews.map((r) => [r.appId, r]));
+    for (const [appId, item] of Object.entries(asoById)) {
+      const list = item?.data?.reviews;
+      if (!list) continue;
+      const open = list.filter((r) => r.canReply && !r.replyText);
+      const low = open.filter((r) => Number(r.rating ?? r.score) > 0 && Number(r.rating ?? r.score) <= 2);
+      const latest = open.map((r) => r.date).filter(Boolean).sort().at(-1) || null;
+      const sample = [...low].sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))[0];
+      merged.set(appId, { appId, open: open.length, low: low.length, latest, sample: sample && { id: sample.id, rating: sample.rating ?? sample.score, text: String(sample.text || "").slice(0, 160), date: sample.date } });
+    }
+    return [...merged.values()];
+  }, [openReviews, asoById]);
+  const tasks = useMemo(
+    () => buildTasks({ apps, openReviews: reviewSummary, anomalies, rangeEnd: data?.range?.endDate, dismissed }),
+    [apps, reviewSummary, anomalies, data?.range?.endDate, dismissed],
+  );
+  function dismissTask(key) {
+    transition(() => setDismissed((list) => [...list, key]));
+    toast(t("taskDismissed"), { undoLabel: t("undo"), undo: () => setDismissed((list) => list.filter((k) => k !== key)) });
+  }
+  function openTask(task, text) {
+    if (text.settings) { navigate("settings"); return; }
+    if (text.tab === "reviews") setReviewFilter("unanswered");
+    openApp(task.app.id, text.tab);
+  }
+  function greeting() {
+    const h = new Date().getHours();
+    return t(h < 11 ? "greetingMorning" : h < 18 ? "greetingAfternoon" : "greetingEvening");
+  }
+  function todayView() {
+    const firstLoad = !apps.length && loading;
+    const tot = (() => {
+      const avail = filtered.filter((a) => a.installs != null), total = avail.reduce((n, a) => n + a.installs, 0);
+      const old = previous.filter((a) => filtered.some((x) => x.id === a.id) && a.installs != null).reduce((n, a) => n + a.installs, 0);
+      return { value: avail.length ? total : null, change: old > 0 && avail.length ? (total / old - 1) * 100 : null };
+    })();
+    const days = trendSeries(filtered, [], data?.range);
+    const lastIndex = days.values.map((v, i) => [v, i]).filter(([v]) => Number.isFinite(v)).at(-1);
     return (
-      <section className="kpi-strip">
-        <div className="kpi">
-          <span>{t("totalInstalls")}</span>
-          <div className="kpi-value">
-            {available.length ? number(total) : "—"}
-            <Change
-              value={
-                old > 0 && available.length ? (total / old - 1) * 100 : null
-              }
-            />
-          </div>
-          <small>{t("lastMonth")}</small>
+      <section className="today-hero">
+        <div className="th-greet">
+          <p className="th-date">{new Intl.DateTimeFormat(i18n.language, { weekday: "long", day: "numeric", month: "long" }).format(new Date())}</p>
+          <h1 ref={heading} tabIndex={-1}>{greeting()}.</h1>
+          <p className="th-lead">{firstLoad ? <Skel w="14em" /> : tasks.length
+            ? <>{t("todayLead", { count: tasks.length }).split(String(tasks.length))[0]}<b className="lead-n">{tasks.length}</b>{t("todayLead", { count: tasks.length }).split(String(tasks.length)).slice(1).join(String(tasks.length))}</>
+            : t("todayLeadNone")}</p>
         </div>
-        <div className="kpi revenue-kpi">
-          <span>{t("availableRevenue")}</span>
-          <div className="currency-values">{revenue(list)}</div>
-          <details className="fx-details">
-            <summary><Info className="icon" />{t("howCalculated")}</summary>
-            {exchangeInfo(list)}
-          </details>
+        <dl className="th-stats">
+          <div><dt>{t("yesterday")}</dt><dd>{lastIndex ? <Num value={lastIndex[0]} format={(v) => number(v)} /> : firstLoad ? <Skel w="3em" /> : "—"}</dd>
+            <small>{t("installs").toLowerCase()}{lastIndex ? " · " + formatDate(days.dates[lastIndex[1]]) : ""}</small></div>
+          <div><dt>{t("periodDays", { count: period })}</dt><dd>{tot.value == null ? (firstLoad ? <Skel w="4em" /> : "—") : <Num value={tot.value} format={(v) => number(v)} />}</dd><Delta value={tot.change} number={number} /></div>
+          <div className="rev"><dt>{t("estimatedUsd")}</dt><dd>{firstLoad ? <Skel w="4em" /> : usdValue(filtered)}</dd>
+            <details className="fx-details"><summary><Info className="icon" />{t("howCalculated")}</summary><div className="fx-pop">{revenue(filtered)}{exchangeInfo(filtered)}</div></details></div>
+        </dl>
+        <div className="th-inbox">
+          <h2>{t("actionCenter")} <span className="badge-new">{t("new")}</span></h2>
+          <ActionInbox tasks={tasks} loading={firstLoad || sourceState.reviews?.state === "loading" && !openReviews.length}
+            expanded={inboxAll} onToggle={() => transition(() => setInboxAll((v) => !v))}
+            onOpen={openTask} onDone={dismissTask} number={number} formatDate={formatDate} />
         </div>
-        {list.length === 1 ? (
-          <div className="kpi">
-            <span>{t("storeRating")}</span>
-            <div className="kpi-value">
-              {number(list[0].rating, 1)}
-              {list[0].rating != null && <span className="stars" aria-hidden="true" style={{ "--rating": list[0].rating }} />}
+      </section>
+    );
+  }
+  function appGrid() {
+    const max = Math.max(1, ...filtered.flatMap((a) => (a.dailyTrends || []).map((d) => d.installs || 0)));
+    return (
+      <section className="apps-sec">
+        <div className="sec-head">
+          <h2>{t("yourApps")} <small className="tnum">{apps.length || ""}</small></h2>
+          <div className="filters">
+            <label className="search-field">
+              <Search className="icon" />
+              <input type="search" aria-label={t("searchLabel")} placeholder={t("search")} value={query} onChange={(e) => setQuery(e.target.value)} />
+            </label>
+            <div className="segmented" role="group" aria-label={t("platform")}>
+              {[["all", t("allPlatforms")], ["apple", "iOS"], ["google", "Android"]].map(([k, l]) => (
+                <button type="button" key={k} aria-pressed={platform === k} onClick={() => transition(() => setPlatform(k))}>{l}</button>
+              ))}
             </div>
-            <small>{t("storeRatingHint")}</small>
+            <select className="sort-select" aria-label={t("sort")} value={sort} onChange={(e) => transition(() => setSort(e.target.value))}>
+              {["installs", "growth", "revenue", "rating"].map((k) => <option key={k} value={k}>{t("sort" + k[0].toUpperCase() + k.slice(1))}</option>)}
+            </select>
+            <Button icon={Download} onClick={() => exportData()} disabled={!filtered.length}>CSV</Button>
+            <Button icon={FileJson} onClick={() => exportData(true)} disabled={!filtered.length}>JSON</Button>
           </div>
+        </div>
+        {!apps.length && loading ? (
+          <ul className="cards" aria-busy="true">
+            {[0, 1, 2, 3, 4, 5].map((i) => <li className="app-card-wrap" key={i}><div className="app-card skeleton"><span className="card-top"><Skel w="40px" h="40px" /><span className="card-name"><Skel w="7em" /><Skel w="5em" h=".8em" /></span></span><Skel h="48px" /><span className="card-stats"><Skel w="4em" /><Skel w="4em" /><Skel w="3em" /></span></div></li>)}
+          </ul>
+        ) : !apps.length ? (
+          <Empty title="firstConnection" text="firstConnectionHint" action={<Button primary onClick={() => navigate("settings")}>{t("viewSettings")}</Button>} />
+        ) : !filtered.length ? (
+          <Empty title="emptyTitle" text="emptyText" action={<Button onClick={() => { setQuery(""); setPlatform("all"); }}>{t("resetFilters")}</Button>} />
         ) : (
-          <div className="kpi">
-            <span>{t("activeApps")}</span>
-            <div className="kpi-value">{list.length}</div>
-            <small>{t("privateWorkspace")}</small>
+          <ul className="cards">
+            {filtered.map((a) => (
+              <AppCard key={a.id} app={a} change={growth(a)} revenue={usdValue([a])} pending={pendingPlatforms.includes(a.platform)}
+                openReviews={reviewSummary.find((r) => r.appId === a.id)?.open || 0} max={max} number={number}
+                onOpen={() => openApp(a.id, "overview")} onWarm={() => warmApp(a.id)} />
+            ))}
+          </ul>
+        )}
+        {!!apps.length && (
+          <div className="lower">
+            <Panel title={t("trend")} description={t("currentPeriod") + " · " + t("previousPeriod") + " ┄"}>
+              <Chart apps={filtered} previous={previous.filter((a) => filtered.some((x) => x.id === a.id))} theme={resolvedTheme} range={data?.range} />
+            </Panel>
+            <Panel title={<>{t("syncSources")} <span className="badge-new">{t("new")}</span></>}>
+              <SyncProgress state={sourceState} onSync={sync} syncing={syncing} />
+            </Panel>
           </div>
         )}
       </section>
     );
   }
-  function appSelect() {
+  function detailHead() {
+    const idx = filtered.findIndex((a) => a.id === current.id);
+    const color = appColor(current);
     return (
-      <label className="select-wrap app-selector">
-        <Smartphone className="icon" />
-        <select
-          value={current?.id || ""}
-          onChange={(e) => {
-            setSelected(e.target.value);
-            setAiResult(null);
-          }}
-          aria-label={t("chooseApp")}
-        >
-          {apps.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.name} · {a.platform === "apple" ? "App Store" : "Google Play"}
-            </option>
-          ))}
-        </select>
-      </label>
+      <section className="detail-head" style={{ "--app": color, viewTransitionName: "card-" + current.id.replace(/[^a-zA-Z0-9_-]/g, "-") }}>
+        <div className="dh-row">
+          <button type="button" className="back" onClick={() => navigate("portfolio")}><ArrowLeft className="icon" /><span>{t("today")}</span></button>
+          <div className="dh-switch" role="group" aria-label={t("chooseApp")}>
+            {filtered.map((a) => (
+              <button type="button" key={a.id} aria-current={a.id === current.id ? "true" : undefined} title={a.name} aria-label={a.name}
+                onClick={() => a.id !== current.id && openApp(a.id)} onPointerEnter={() => warmApp(a.id)}>
+                <AppIcon app={a} size="xs" />
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="dh-id">
+          <AppIcon app={current} size="xl" />
+          <div>
+            <h1 ref={heading} tabIndex={-1}>{current.name}</h1>
+            <p><PlatformLabel app={current} /><code>{current.packageName}</code></p>
+          </div>
+          <Button primary icon={Sparkles} onClick={() => setModal({ type: "ai" })}><span>{t("previewAI")}</span></Button>
+        </div>
+        <dl className="dh-stats">
+          <div><dt>{t("installs")} · {t("periodDays", { count: period })}</dt><dd>{current.installs == null ? "—" : <Num value={current.installs} format={(v) => number(v)} />}</dd><Delta value={growth(current)} number={number} /></div>
+          <div className="rev"><dt>{t("estimatedUsd")}</dt><dd>{usdValue([current])}</dd>
+            <details className="fx-details"><summary><Info className="icon" />{t("howCalculated")}</summary><div className="fx-pop">{revenue([current])}{exchangeInfo([current])}</div></details></div>
+          <div><dt>{t("storeRating")}</dt><dd>{number(current.rating, 1)}{current.rating != null && <em aria-hidden="true">★</em>}</dd><small>{t("reportDate")}: {formatDate(current.lastDate)}</small></div>
+          <div className="dh-period">{periodSwitch()}{idx >= 0 && <small>{idx + 1} / {filtered.length}</small>}</div>
+        </dl>
+        {(current.error || current.installs == null) && !pendingPlatforms.includes(current.platform) && (
+          <p className="dh-status" role="status"><AlertTriangle className="icon" />{current.sourceStatus ? t("appleReportHTTP", { status: current.sourceStatus }) : t(current.error === "SOURCE_FAILED" ? "appSourceFailed" : "appNoReports")}</p>
+        )}
+      </section>
     );
   }
-  function appTable() {
-    const max = Math.max(
-      1,
-      ...filtered.flatMap((a) => a.dailyTrends.map((d) => d.installs || 0)),
-    );
+  function periodSwitch() {
     return (
-      <Panel
-        title={t("compareApps")}
-        description={
-          filtered.length + " " + t("appCount") + " · " + t("compareScale")
-        }
-        className="apps-panel"
-        action={
-          <div className="table-controls">
-            <label className="search-field">
-              <Search className="icon" />
-              <input
-                type="search"
-                aria-label={t("searchLabel")}
-                placeholder={t("search")}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-            </label>
-            <select
-              className="sort-select"
-              aria-label={t("sort")}
-              value={sort}
-              onChange={(e) => setSort(e.target.value)}
-            >
-              <option value="installs">{t("sortInstalls")}</option>
-              <option value="growth">{t("sortGrowth")}</option>
-            </select>
-          </div>
-        }
-      >
-        <div className="table-scroll">
-          <table className="app-table comparison">
-            <thead>
-              <tr>
-                <th>{t("appColumn")}</th>
-                <th className="spark-column">{t("trend")}</th>
-                <th className="numeric">{t("installs")}</th>
-                <th className="numeric">{t("change")}</th>
-                <th className="numeric revenue-column">{t("revenue")}</th>
-                <th className="numeric rating-column">{t("rating")}</th>
-                <th>
-                  <span className="sr-only">{t("details")}</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((a) => (
-                <tr
-                  key={a.id}
-                  className="clickable-row"
-                  onClick={(e) => {
-                    if (e.target.closest("button,a,details,summary")) return;
-                    setSelected(a.id);
-                    navigate("appDetail");
-                  }}
-                >
-                  <td>
-                    <button
-                      className="app-row-button"
-                      onClick={() => {
-                        setSelected(a.id);
-                        setDrawer(a);
-                      }}
-                    >
-                      <Avatar app={a} />
-                    </button>
-                    {(a.error || a.installs == null) && (
-                      <small className="app-data-status">
-                        {a.sourceStatus
-                          ? t("appleReportHTTP", { status: a.sourceStatus })
-                          : t(
-                              a.error === "SOURCE_FAILED"
-                                ? "appSourceFailed"
-                                : "appNoReports",
-                            )}
-                      </small>
-                    )}
-                  </td>
-                  <td className="spark-column">
-                    <Sparkline
-                      values={a.dailyTrends.map((d) => d.installs)}
-                      max={max}
-                      tone={growth(a) > 0 ? "positive" : growth(a) < 0 ? "negative" : "accent"}
-                      label={t("trend") + " " + a.name}
-                    />
-                  </td>
-                  <td className="numeric strong-number">
-                    {number(a.installs)}
-                  </td>
-                  <td className="numeric">
-                    <Change value={growth(a)} />
-                  </td>
-                  <td className="numeric revenue-column">
-                    <div className="table-currency">{revenue([a], true)}</div>
-                  </td>
-                  <td className="numeric rating-column">
-                    {a.rating != null && <span className="star-mark" aria-hidden="true">★</span>}
-                    {number(a.rating, 1)}
-                  </td>
-                  <td>
-                    <button
-                      className="icon-button"
-                      onClick={() => {
-                        setSelected(a.id);
-                        navigate("appDetail");
-                      }}
-                      aria-label={t("viewApp") + " " + a.name}
-                    >
-                      <ChevronRight className="icon" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="table-footer">
-          <span>
-            {t("allRows")} · {filtered.length}
-          </span>
-          {filtered.some((a) => a.platform === "google") && (
-            <span>{t("noGoogleRevenueReal")}</span>
-          )}
-        </div>
-      </Panel>
+      <div className="segmented" role="group" aria-label={t("chooseRange")}>
+        {[7, 30, 90].map((v) => (
+          <button type="button" key={v} aria-pressed={period === v} onClick={() => setPeriod(v)} onPointerEnter={() => prefetchPeriod(v)} onFocus={() => prefetchPeriod(v)}>
+            {t("periodDays", { count: v })}
+          </button>
+        ))}
+      </div>
     );
   }
   function breakdown() {
@@ -609,7 +701,7 @@ export default function App() {
       <Panel title={t(detailTab === "versions" ? "versions" : "countries")}>
         <div aria-busy={dimensionBusy}>
           {dimensionBusy ? (
-            <p className="content-message">{t("loading")}</p>
+            [0, 1, 2, 3].map((i) => <div className="breakdown-row" key={i}><Skel w="5em" /><div className="bar-track"><Skel h="8px" /></div><Skel w="3em" /><Skel w="2.5em" /></div>)
           ) : rows.length ? (
             rows.slice(0, 20).map((r, i) => {
               const value = r.dailyUserInstalls ?? r.totalInstalls ?? 0;
@@ -646,16 +738,20 @@ export default function App() {
   function detail() {
     if (!current)
       return <Empty title="firstConnection" text="firstConnectionHint" />;
+    const tabs = ["overview", "countries", "versions", "storeListing", "keywords", "competitors", "reviews", "campaigns"];
+    const openCount = reviewSummary.find((r) => r.appId === current.id)?.open || 0;
     return (
       <>
+        {detailHead()}
         <div className="detail-nav">
           <Tabs
-            items={["overview", "countries", "versions", "storeListing", "keywords", "competitors", "reviews", "campaigns"]}
+            items={tabs}
             value={detailTab}
-            onChange={setDetailTab}
+            counts={{ reviews: openCount }}
+            onChange={(tab) => transition(() => setDetailTab(tab), tabs.indexOf(tab) > tabs.indexOf(detailTab) ? "tab-fwd" : "tab-back")}
           />
         </div>
-        {["overview", "countries", "versions"].includes(detailTab) && kpis([current])}
+        <div className="tab-panel" role="tabpanel">
         {!["overview", "countries", "versions"].includes(detailTab) ? aso() : detailTab === "overview" ? (
           <>
             <Panel
@@ -670,6 +766,7 @@ export default function App() {
                 theme={resolvedTheme}
                 range={data?.range}
                 events={events}
+                color={appColor(current)}
               />
             </Panel>
             <EventsPanel app={current} events={events} action={action} busy={busy}
@@ -697,10 +794,12 @@ export default function App() {
           </>
         ) : (
           <>
+            {detailTab === "versions" && <ReleaseImpact app={current} events={events} number={number} formatDate={formatDate} />}
             {breakdown()}
             {detailTab === "countries" && <CountryTable app={current} range={rangeFor(period)} exchange={exchange} number={number} />}
           </>
         )}
+        </div>
       </>
     );
   }
@@ -712,10 +811,17 @@ export default function App() {
       reviewList = asoData?.reviews || [];
     return (
       <>
-        {asoBusy ? (
-          <p role="status" className="content-message">
-            {t("loading")}
-          </p>
+        {asoErrors[current.id] && !asoData ? (
+          <Panel title={t(detailTab)}>
+            <p className="content-message" role="alert">{t(asoErrors[current.id], { defaultValue: t("OPERATION_FAILED") })}</p>
+            <Button icon={RefreshCw} onClick={() => loadASO(current.id, { force: true })}>{t("retry")}</Button>
+          </Panel>
+        ) : asoBusy ? (
+          <section className="panel" aria-busy="true">
+            <span className="sr-only" role="status">{t("loading")}</span>
+            <Skel w="9em" h="1.1em" />
+            {[0, 1, 2, 3, 4].map((i) => <div className="skel-row" key={i}><Skel w={40 + i * 9 + "%"} /><Skel w="3.5em" /></div>)}
+          </section>
         ) : detailTab === "storeListing" ? (
           <>
             <div className="aso-grid">
@@ -782,7 +888,7 @@ export default function App() {
                       method: "POST",
                       body: { appId: current.id, country: rankCountry },
                     });
-                    await loadASO();
+                    await loadASO(current.id, { force: true });
                   })
                 }
               >
@@ -829,7 +935,7 @@ export default function App() {
                     method: "POST",
                     body: { appId: current.id, term },
                   });
-                  await loadASO();
+                  await loadASO(current.id, { force: true });
                 }, "keywordCreated");
                 e.currentTarget.reset();
               }}
@@ -881,7 +987,7 @@ export default function App() {
                                 await api("/api/aso/keywords/" + k.id, {
                                   method: "DELETE",
                                 });
-                                await loadASO();
+                                await loadASO(current.id, { force: true });
                               })
                             }
                           >
@@ -949,7 +1055,7 @@ export default function App() {
                             },
                           });
                           setSearchCompetitors([]);
-                          await loadASO();
+                          await loadASO(current.id, { force: true });
                         })
                       }
                     >
@@ -1026,7 +1132,7 @@ export default function App() {
                       source: form.get("source"),
                     },
                   });
-                  await loadASO();
+                  await loadASO(current.id, { force: true });
                 }, "linkCreated");
               }}
             >
@@ -1063,7 +1169,7 @@ export default function App() {
                       await api("/api/aso/campaigns/" + c.id, {
                         method: "DELETE",
                       });
-                      await loadASO();
+                      await loadASO(current.id, { force: true });
                     })
                   }
                 >
@@ -1448,300 +1554,82 @@ export default function App() {
         </section>
       </main>
     );
-  const title =
-    page === "portfolio"
-      ? t("spectrumTitle")
-      : page === "appDetail"
-        ? current?.name || t("appDetail")
-        : t("settingsTitle");
+  const navItems = [["portfolio", LayoutGrid, "today"], ["appDetail", Smartphone, "appDetail"], ["palette", Search, "commandPalette"], ["settings", Settings, "settings"]];
+  const unread = notifications.some((n) => !n.read);
+  const logout = () => action(async () => {
+    await api("/api/auth/logout", { method: "POST", body: {} });
+    setAuthenticated(false);
+    setByPlatform({}); setPrevByPlatform({}); setRange(null); portfolioCache.current.clear(); setAsoById({});
+    setExchange(null);
+  });
   return (
     <>
-      <a className="skip-link" href="#main-content">
-        {t("overview")}
-      </a>
-      <header className="spectrum-nav">
+      <a className="skip-link" href="#main-content">{t("overview")}</a>
+      <header className="top">
         <Brand />
-        <nav className="main-nav" aria-label={t("appsLabel")}>
-          {pages.map(([key, Icon]) => (
-            <button
-              key={key}
-              className={"nav-item " + (page === key ? "active" : "")}
-              aria-current={page === key ? "page" : undefined}
-              onClick={() => navigate(key)}
-            >
-              <Icon className="icon" />
-              <span>{t(key)}</span>
-            </button>
-          ))}
-        </nav>
-        <div className="spectrum-owner">
-          <Lock className="icon" />
-          <span>{t("owner")}</span>
-          <button
-            className="icon-button"
-            aria-label={t("notifications")}
-            onClick={() => setModal({ type: "notifications" })}
-          >
-            <Bell className="icon" />
-            {notifications.some((n) => !n.read) && (
-              <i className="notification-dot" />
-            )}
+        <button type="button" className="cmd-trigger" onClick={() => setPalette(true)} aria-label={t("commandPalette")}>
+          <Search className="icon" /><span>{t("commandPlaceholder")}</span><kbd>⌘K</kbd>
+        </button>
+        <div className="top-end">
+          <SyncDots state={sourceState} onClick={sync} syncing={syncing} />
+          <button className="icon-button" aria-label={t("notifications")} onClick={() => setModal({ type: "notifications" })}>
+            <Bell className="icon" />{unread && <i className="notification-dot" />}
           </button>
-          <button
-            className="icon-button"
-            aria-label={t("logout")}
-            onClick={() =>
-              action(async () => {
-                await api("/api/auth/logout", { method: "POST", body: {} });
-                setAuthenticated(false);
-                setData(null);
-                setExchange(null);
-              })
-            }
-          >
-            <LogOut className="icon" />
+          <button className="icon-button hide-sm" aria-label={t("settings")} aria-current={page === "settings" ? "page" : undefined} onClick={() => navigate("settings")}>
+            <Settings className="icon" />
           </button>
+          <button className="icon-button hide-sm" aria-label={t("logout")} onClick={logout}><LogOut className="icon" /></button>
         </div>
       </header>
-      <div className="app-shell">
-        <header className="topbar">
-          <div className="breadcrumb">
-            Spectrum <span>/</span> {t(page)}
+      <main id="main-content" className={"main-content page-" + page}>
+        {error && (
+          <div className="state-banner error-banner" role="alert">
+            <AlertTriangle className="icon" />
+            <span>{t(error, { defaultValue: t("OPERATION_FAILED") })}</span>
+            <Button onClick={() => { setError(""); portfolioCache.current.clear(); setRefresh((v) => v + 1); }}>{t("retry")}</Button>
           </div>
-          <div className="topbar-end">
-            <span className="private-label">
-              <Lock className="icon" />
-              {t("privateWorkspace")}
-            </span>
-            <div className="quick-preferences">
-              <label className="sr-only" htmlFor="quick-theme">
-                {t("theme")}
-              </label>
-              <select
-                id="quick-theme"
-                value={theme}
-                onChange={(e) => setTheme(e.target.value)}
-              >
-                {["system", "light", "dark"].map((k) => (
-                  <option key={k} value={k}>
-                    {t(k)}
-                  </option>
-                ))}
-              </select>
-              <button
-                className="language-button"
-                onClick={() =>
-                  i18n.changeLanguage(i18n.language === "vi" ? "en" : "vi")
-                }
-                aria-label={t("language")}
-              >
-                <Globe className="icon" />
-                {i18n.language === "vi" ? "VI" : "EN"}
-              </button>
-            </div>
-            <button
-              className="icon-button mobile-logout"
-              aria-label={t("logout")}
-              onClick={() =>
-                action(async () => {
-                  await api("/api/auth/logout", { method: "POST", body: {} });
-                  setAuthenticated(false);
-                })
-              }
-            >
-              <LogOut className="icon" />
-            </button>
+        )}
+        {(!!data?.warnings?.length || apps.some((app) => app.error === "SOURCE_FAILED")) && (
+          <div className="state-banner stale-banner"><Info className="icon" /><span>{t("sourceUnavailable")}</span></div>
+        )}
+        {!loading && apps.some((app) => app.lastDate && app.lastDate < data?.range?.endDate) && page === "portfolio" && (
+          <div className="state-banner stale-banner"><Clock className="icon" /><span>{t("incompleteReports")}</span></div>
+        )}
+        {page === "portfolio" ? (
+          <div className="page today">
+            {todayView()}
+            <div className="period-row">{periodSwitch()}<span className="toolbar-date">{formatDate(rangeFor(period).startDate)} – {formatDate(rangeFor(period).endDate)}</span></div>
+            {appGrid()}
           </div>
-        </header>
-        <main id="main-content" className="main-content">
-          <div className="page-heading">
-            <div>
-              <h1 ref={heading} tabIndex={-1}>
-                {page === "appDetail" && current ? <span className="detail-identity"><Avatar app={current} /></span> : title}
-              </h1>
-              <p>
-                {t(
-                  page === "portfolio"
-                    ? "portfolioSubtitle"
-                    : page === "settings" ? "settingsSubtitle" : "appDetailSubtitle",
-                )}
-              </p>
+        ) : page === "appDetail" ? (
+          <div className="page detail" style={current ? { "--app": appColor(current) } : undefined}>{detail()}</div>
+        ) : (
+          <div className="page settings-page">
+            <div className="page-title">
+              <button type="button" className="back" onClick={() => navigate("portfolio")}><ArrowLeft className="icon" /><span>{t("today")}</span></button>
+              <h1 ref={heading} tabIndex={-1}>{t("settings")}</h1>
+              <p>{t("settingsSubtitle")}</p>
             </div>
-            {page === "appDetail" && current && (
-              <Button
-                primary
-                icon={Sparkles}
-                onClick={() => setModal({ type: "ai" })}
-              >
-                {t("previewAI")}
-              </Button>
-            )}
+            {settingsPage()}
           </div>
-          {["portfolio", "appDetail"].includes(page) && (
-            <div className="toolbar">
-              <div className="filter-group">
-                {page === "appDetail" ? current && appSelect() : <label className="select-wrap">
-                  <Smartphone className="icon" />
-                  <select
-                    aria-label={t("platform")}
-                    value={platform}
-                    onChange={(e) => setPlatform(e.target.value)}
-                  >
-                    <option value="all">{t("allPlatforms")}</option>
-                    <option value="apple">App Store</option>
-                    <option value="google">Google Play</option>
-                  </select>
-                </label>}
-                <label className="select-wrap">
-                  <Calendar className="icon" />
-                  <select
-                    aria-label={t("chooseRange")}
-                    value={period}
-                    onChange={(e) => setPeriod(Number(e.target.value))}
-                  >
-                    {[7, 30, 90].map((v) => (
-                      <option key={v} value={v}>
-                        {v} {t("days")}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <span className="toolbar-date">
-                  {formatDate(rangeFor(period).startDate)} –{" "}
-                  {formatDate(rangeFor(period).endDate)}
-                </span>
-                {page === "portfolio" && filtered.length > 0 && (
-                  <span className="toolbar-date">
-                    · {t("reportDate")}: {formatDate(filtered.map((a) => a.lastDate).filter(Boolean).sort().at(-1))}
-                  </span>
-                )}
-              </div>
-              <div className="toolbar-actions">
-                <Button
-                  icon={Download}
-                  onClick={() => exportData()}
-                  disabled={!filtered.length}
-                >
-                  {t("export")}
-                </Button>
-                {page === "portfolio" && (
-                  <Button onClick={() => exportData(true)} disabled={!filtered.length}>
-                    {t("downloadRaw")}
-                  </Button>
-                )}
-                <Button
-                  icon={RefreshCw}
-                  onClick={sync}
-                  disabled={busy || loading}
-                >
-                  {t(busy ? "syncing" : "sync")}
-                </Button>
-              </div>
-            </div>
-          )}
-          {error && (
-            <div className="state-banner error-banner" role="alert">
-              <Info className="icon" />
-              <span>{t(error, { defaultValue: t("OPERATION_FAILED") })}</span>
-              <Button
-                onClick={() => {
-                  setError("");
-                  setRefresh((v) => v + 1);
-                }}
-              >
-                {t("retry")}
-              </Button>
-            </div>
-          )}
-          {(!!data?.warnings?.length || apps.some((app) => app.error)) && (
-            <div className="state-banner stale-banner">
-              <Info className="icon" />
-              <span>{t("sourceUnavailable")}</span>
-            </div>
-          )}
-          {!loading &&
-            apps.some(
-              (app) => app.lastDate && app.lastDate < data?.range?.endDate,
-            ) && (
-              <div className="state-banner stale-banner">
-                <Info className="icon" />
-                <span>{t("incompleteReports")}</span>
-              </div>
-            )}
-          <div className="page-content">
-            {page === "portfolio" ? (
-              loading ? (
-                <LoadingState t={t} />
-              ) : !apps.length ? (
-                <Empty
-                  title="firstConnection"
-                  text="firstConnectionHint"
-                  action={
-                    <Button primary onClick={() => navigate("settings")}>
-                      {t("viewSettings")}
-                    </Button>
-                  }
-                />
-              ) : !filtered.length ? (
-                <Empty
-                  title="emptyTitle"
-                  text="emptyText"
-                  action={
-                    <Button
-                      onClick={() => {
-                        setQuery("");
-                        setPlatform("all");
-                      }}
-                    >
-                      {t("resetFilters")}
-                    </Button>
-                  }
-                />
-              ) : (
-                <>
-                  {kpis(filtered)}
-                  <AnomalyPanel number={number} />
-                  {appTable()}
-                  <Panel title={t("trend")}>
-                    <Chart
-                      apps={filtered}
-                      previous={previous.filter((a) =>
-                        filtered.some((x) => x.id === a.id),
-                      )}
-                      theme={resolvedTheme}
-                      range={data?.range}
-                    />
-                  </Panel>
-                </>
-              )
-            ) : page === "appDetail" ? (
-              detail()
-            ) : (
-              settingsPage()
-            )}
-          </div>
-          <footer className="production-footer">
-            <Lock className="icon" />
-            {t("privateWorkspace")} · AppRankly
-          </footer>
-        </main>
-      </div>
-      {drawer && (
-        <Dialog drawer title={t("appDetail")} onClose={() => setDrawer(null)}>
-          <div className="listing-brand">
-            <Avatar app={drawer} />
-          </div>
-          {kpis([drawer])}
-          <Chart apps={[drawer]} theme={resolvedTheme} range={data?.range} />
-          <p className="content-message">{t("dataCoverageText")}</p>
-          <Button
-            primary
-            icon={ArrowRight}
-            onClick={() => navigate("appDetail")}
-          >
-            {t("viewApp")}
-          </Button>
-        </Dialog>
+        )}
+        <footer className="production-footer"><Lock className="icon" />{t("privateWorkspace")} · AppRankly</footer>
+      </main>
+      <nav className="bottomnav" aria-label={t("appsLabel")}>
+        {navItems.map(([key, Icon, label]) => (
+          <button type="button" key={key} aria-current={page === key ? "page" : undefined}
+            onClick={() => (key === "palette" ? setPalette(true) : key === "appDetail" && !current ? null : navigate(key))}>
+            <Icon className="icon" /><span>{t(label)}</span>
+          </button>
+        ))}
+      </nav>
+      {palette && (
+        <CommandPalette apps={apps} current={page === "appDetail" ? current : null} theme={resolvedTheme} onClose={() => setPalette(false)}
+          onOpenApp={(id) => openApp(id, page === "appDetail" ? undefined : "overview")}
+          onTab={(tab) => (page === "appDetail" ? transition(() => setDetailTab(tab), "tab-fwd") : navigate("appDetail", { tab }))}
+          onPage={(p) => navigate(p)} onSync={sync} onExport={() => exportData()}
+          onAI={() => setModal({ type: "ai" })} onTheme={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+          onLanguage={() => i18n.changeLanguage(i18n.language === "vi" ? "en" : "vi")} />
       )}
       {modal?.type === "ai" && (
         <AIDialog
@@ -1760,11 +1648,11 @@ export default function App() {
       )}
       {modal?.type === "bulk" && <BulkReplyDialog app={current} busy={busy} action={action} error={error}
         reviews={(asoData?.reviews || []).filter(r => picked.includes(r.id))}
-        onClose={() => setModal(null)} onDone={() => { setModal(null); setPicked([]); loadASO(); }} />}
+        onClose={() => setModal(null)} onDone={() => { setModal(null); setPicked([]); loadASO(current.id, { force: true }); loadOpenReviews(); }} />}
       {modal?.type === "review" && <ReviewReplyDialog app={modal.app} review={modal.review} busy={busy} action={action} error={error}
         onClose={() => setModal(null)} onSaved={review => {
           setAsoData(data => ({ ...data, reviews: data.reviews.map(item => item.id === review.id ? review : item) }));
-          setModal(null); notify("replyPublished");
+          setModal(null); notify("replyPublished"); loadOpenReviews();
         }} />}
       {modal?.type === "notifications" && (
         <Dialog title={t("notifications")} onClose={() => setModal(null)}>
@@ -1793,15 +1681,7 @@ export default function App() {
           </Button>
         </Dialog>
       )}
-      {message && (
-        <div className="toast visible" role="status">
-          <Check className="icon" />
-          {t(message, { defaultValue: message })}
-          <button aria-label={t("dismiss")} onClick={() => setMessage("")}>
-            ×
-          </button>
-        </div>
-      )}
+      <Toasts closeLabel={t("dismiss")} />
     </>
   );
 }

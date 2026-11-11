@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const insights = require("../lib/insights");
 const { merge } = require("../lib/countryRevenue");
 const { getSettings, saveSettings } = require("../lib/config");
+const { db } = require("../lib/db");
 
 // Anomalies: needs a baseline, flags big moves in both directions, ignores noise and tiny apps.
 const flat = [100, 105, 95, 100, 102, 98, 100];
@@ -48,6 +49,26 @@ assert.throws(() => insights.addEvent(app, "2026-02-31", "Bad date"), /INVALID_E
 assert.throws(() => insights.addEvent(app, "2026-10-05", " "), /INVALID_EVENT/);
 insights.listEvents(app).then((events) => {
   assert.deepEqual(events.map((e) => e.label), ["Redesign", "Ads launch"]);
+
+  // Release impact: 7 days before vs after, single-currency revenue per install, reviews in the window.
+  const trend = Array.from({ length: 20 }, (_, i) => ({ date: `2026-10-${String(i + 1).padStart(2, "0")}`, installs: i < 10 ? 100 : 150, revenueByCurrency: { USD: i < 10 ? 10 : 30 } }));
+  const [impact] = insights.releaseImpact(trend, [{ id: 1, type: "release", date: "2026-10-11", label: "v2" }, { id: 2, type: "custom", date: "2026-10-11", label: "x" }],
+    [{ date: "2026-10-12T10:00:00Z", rating: 1 }, { date: "2026-10-13", rating: 5 }, { date: "2026-10-02", rating: 1 }]);
+  assert.equal(Math.round(impact.change), 50);
+  assert.equal(Math.round(impact.rpiChange), 100);
+  assert.deepEqual([impact.reviews, impact.low, impact.days], [2, 1, 7]);
+  assert.deepEqual(insights.releaseImpact(trend, [{ id: 3, type: "release", date: "2026-10-03", label: "early" }]), []);
+  const mixed = insights.releaseImpact(trend.map((d, i) => ({ ...d, revenueByCurrency: i < 10 ? { USD: 1 } : { EUR: 1 } })), [{ id: 4, type: "release", date: "2026-10-11", label: "v3" }]);
+  assert.equal(mixed[0].rpiChange, null);
+
+  // Open review summary counts only replyable, unanswered reviews; low = 1–2 stars.
+  const put = db.prepare("INSERT OR REPLACE INTO review_archive(app_id,review_id,payload) VALUES(?,?,?)");
+  put.run("apple:o", "a", JSON.stringify({ id: "a", rating: 1, text: "bad", canReply: true, date: "2026-10-02" }));
+  put.run("apple:o", "b", JSON.stringify({ id: "b", rating: 4, text: "ok", canReply: true, date: "2026-10-03" }));
+  put.run("apple:o", "c", JSON.stringify({ id: "c", rating: 1, text: "x", canReply: true, replyText: "thanks" }));
+  put.run("apple:o", "d", JSON.stringify({ id: "d", rating: 2, text: "csv", canReply: false }));
+  const summary = insights.openReviewSummary().find((s) => s.appId === "apple:o");
+  assert.deepEqual([summary.open, summary.low, summary.sample.id, summary.latest], [2, 1, "a", "2026-10-03"]);
 
   // Country merge keeps revenue-only countries and revenue stays per currency.
   assert.deepEqual(merge([{ country: "US", installs: 10 }], { US: { USD: 5 }, JP: { JPY: 900 } }),

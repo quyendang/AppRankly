@@ -1,5 +1,15 @@
 # Tiến độ AppRankly
 
+## Đợt mới: giao diện Today (nhánh `feat/today-ui`)
+
+- Người dùng chọn hướng B · Today trong `designs/apprankly-v2/` (prototype A · Leaderboard được giữ để tham khảo).
+- Frontend mới: trang Hôm nay (lời chào, Việc cần làm, số hôm qua/kỳ/USD), lưới thẻ app mở ra chi tiết bằng View Transitions, bảng lệnh ⌘K, tiến trình đồng bộ theo nguồn, Tác động phiên bản trong tab Phiên bản.
+- Tải dữ liệu: Apple và Google gọi riêng (`/api/portfolio` nhận `platform`), cache theo kỳ, tải trước khi rê chuột, giữ số cũ khi đổi kỳ, nạp review nền từng app.
+- Backend thêm `GET /api/insights/open-reviews`, `GET /api/insights/release-impact` (có test). Font chuyển sang Bricolage Grotesque + Readex Pro (OFL), bỏ font cũ.
+- Kiểm tra: `app/test/run.js` đạt; `designs/apprankly-v2/production-check.mjs` và `audit.mjs production` chạy trên preview-server tổng hợp, 1440/390, sáng/tối, không lỗi console, không tràn ngang.
+- Chưa làm: deploy Railway và kiểm tra với dữ liệu thật.
+
+
 **Cập nhật:** 2026-11-01 17:36 (Asia/Ho_Chi_Minh)
 **Agent gần nhất:** Codex
 **Trạng thái:** ✅ Hoàn tất yêu cầu hiện tại; đã lưu checkpoint

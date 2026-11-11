@@ -185,7 +185,9 @@ async function appStats(app, range) {
 }
 async function portfolio(input = {}) {
   const range = dateRange(input),
-    { apps, warnings } = await listApps();
+    { apps: all, warnings } = await listApps();
+  // Optional per-store request so the UI can show each store as soon as it arrives.
+  const apps = ["apple", "google"].includes(input.platform) ? all.filter((app) => app.platform === input.platform) : all;
   const results = await Promise.all(
     apps.map(async (app) => {
       try {

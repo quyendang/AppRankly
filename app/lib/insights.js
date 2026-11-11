@@ -180,6 +180,61 @@ async function listEvents(app) {
     if (c.created_at) events.push({ id: "c-" + c.id, date: c.created_at.slice(0, 10), type: "campaign", label: c.name, source: "campaign" });
   return events.sort((a, b) => a.date.localeCompare(b.date));
 }
+// Unanswered, replyable reviews per app from the saved archive (no store request).
+function openReviewSummary() {
+  const out = new Map();
+  for (const row of db.prepare("SELECT app_id, payload FROM review_archive").all()) {
+    const r = JSON.parse(row.payload);
+    if (r.replyText || !r.canReply) continue;
+    const item = out.get(row.app_id) || { appId: row.app_id, open: 0, low: 0, latest: null, sample: null };
+    item.open++;
+    const low = Number(r.rating) > 0 && Number(r.rating) <= 2;
+    if (low) item.low++;
+    if (!item.latest || (r.date && r.date > item.latest)) item.latest = r.date || item.latest;
+    if (low && (!item.sample || (r.date || "") > (item.sample.date || "")))
+      item.sample = { id: r.id, rating: r.rating, text: String(r.text || "").slice(0, 160), date: r.date || null };
+    out.set(row.app_id, item);
+  }
+  return [...out.values()];
+}
+// Average daily installs and revenue per install, 7 days before vs. from each release date.
+function releaseImpact(trends, events, reviews = []) {
+  const days = trends.filter((d) => d.date).sort((a, b) => a.date.localeCompare(b.date));
+  const avg = (list, pick) => {
+    const values = list.map(pick).filter(Number.isFinite);
+    return values.length ? sum(values) / values.length : null;
+  };
+  return events.filter((e) => e.type === "release" && validDate(e.date)).map((e) => {
+    const i = days.findIndex((d) => d.date >= e.date);
+    if (i < 7) return null;
+    const before = days.slice(i - 7, i), after = days.slice(i, i + 7);
+    const installs = (d) => d.installs;
+    const b = avg(before, installs), a = after.length >= 3 ? avg(after, installs) : null;
+    const revenue = (list) => {
+      const byCurrency = sumCurrencies(list), total = sum(list.map((d) => d.installs || 0));
+      return Object.keys(byCurrency).length === 1 && total > 0 ? { currency: Object.keys(byCurrency)[0], value: Object.values(byCurrency)[0] / total } : null;
+    };
+    const rb = revenue(before), ra = after.length >= 3 ? revenue(after) : null;
+    const end = days[i + 7]?.date;
+    const window = reviews.filter((r) => r.date && r.date.slice(0, 10) >= e.date && (!end || r.date.slice(0, 10) < end));
+    return {
+      id: e.id, date: e.date, label: e.label, days: after.length,
+      before: b, after: a, change: a != null && b > 0 ? (a / b - 1) * 100 : null,
+      rpiChange: rb && ra && rb.currency === ra.currency && rb.value > 0 ? (ra.value / rb.value - 1) * 100 : null,
+      reviews: window.length, low: window.filter((r) => Number(r.rating) > 0 && Number(r.rating) <= 2).length,
+    };
+  }).filter(Boolean).reverse();
+}
+async function releaseImpactFor(app) {
+  const events = (await listEvents(app)).filter((e) => e.type === "release");
+  const oldest = events.map((e) => e.date).filter(validDate).sort()[0];
+  if (!oldest) return [];
+  const end = isoDay(Date.now() - DAY);
+  const start = isoDay(Math.max(Date.parse(oldest) - 8 * DAY, Date.now() - 180 * DAY));
+  const stats = await appStats(app, { startDate: start, endDate: end });
+  const reviews = db.prepare("SELECT payload FROM review_archive WHERE app_id=?").all(app.id).map((r) => JSON.parse(r.payload));
+  return releaseImpact(stats.dailyTrends, events, reviews);
+}
 function trackVersions(apps) {
   for (const app of apps) {
     if (!app.version) continue;
@@ -223,4 +278,4 @@ async function runScheduled(now = new Date()) {
   });
 }
 module.exports = { detectSeriesAnomaly, appAnomalies, rankMoves, localParts, digestDue, buildDigest, collectAnomalies,
-  addEvent, listEvents, runScheduled };
+  addEvent, listEvents, runScheduled, openReviewSummary, releaseImpact, releaseImpactFor };

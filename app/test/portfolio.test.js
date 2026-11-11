@@ -75,6 +75,9 @@ const portfolio = require("../lib/portfolio");
     endDate: "2026-10-31",
   });
   assert.equal(result.apps.length, 3);
+  assert.equal((await portfolio.portfolio({ startDate: "2026-10-01", endDate: "2026-10-31", platform: "google" })).apps.length, 3);
+  assert.equal((await portfolio.portfolio({ startDate: "2026-10-01", endDate: "2026-10-31", platform: "apple" })).apps.length, 0);
+  assert.equal((await portfolio.portfolio({ startDate: "2026-10-01", endDate: "2026-10-31", platform: "other" })).apps.length, 3);
   assert.equal(
     result.apps.find((app) => app.packageName === "example.legacy").installs,
     7,

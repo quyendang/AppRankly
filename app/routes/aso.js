@@ -192,6 +192,14 @@ router.get(
   run(async (req, res) => res.json({ anomalies: await insights.collectAnomalies() })),
 );
 router.get(
+  "/insights/open-reviews",
+  (req, res) => res.json({ apps: insights.openReviewSummary() }),
+);
+router.get(
+  "/insights/release-impact",
+  run(async (req, res) => res.json({ releases: await insights.releaseImpactFor(await ownedApp(req.query.appId)) })),
+);
+router.get(
   "/insights/digest",
   run(async (req, res) => res.json(await insights.buildDigest(req.query.period === "weekly" ? "weekly" : "daily"))),
 );

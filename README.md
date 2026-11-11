@@ -2,7 +2,7 @@
 
 A single-owner dashboard for your own Google Play and App Store apps. Compare your portfolio, inspect analytics, track ASO keywords and competitors, review public listings and respond to customers inside App details, view estimated USD totals, export data, and optionally receive notifications. General AI analyses require a server-generated payload preview and explicit confirmation. Review replies use a one-click **AI-Generated Response** action to draft in the reviewer’s language; publishing always requires separate approval.
 
-The Spectrum interface uses warm accents, self-hosted fonts, English/Vietnamese localization, and light/dark/system appearance. The application runs as one Express service serving a React/Vite frontend, with Chart.js and SQLite.
+The Today interface opens on a to-do list (low-rated unanswered reviews, install and revenue anomalies, keyword rank moves, failing or late store reports), followed by app cards that expand into each app's details. It also includes release impact (7 days before vs. after each release), per-source sync progress, a ⌘K command palette, self-hosted fonts, English/Vietnamese localization, and light/dark/system appearance. The application runs as one Express service serving a React/Vite frontend, with Chart.js and SQLite.
 
 ## Quick links
 
@@ -62,7 +62,7 @@ For an isolated UI preview with synthetic data only:
 node app/test/preview-server.js
 ```
 
-Open `http://127.0.0.1:3002` and use `preview-only-password`. This test server is excluded from the production image. The three design prototypes under `designs/apprankly-redesign/` are also excluded.
+Open `http://127.0.0.1:3002` and use `preview-only-password`. This test server is excluded from the production image. The design prototypes under `designs/` are also excluded.
 
 Local checks are not a claim of successful Railway deployment. Real store access, provider billing behavior, outbound notifications, Docker execution, and Railway backup/restore must be validated in your deployment environment. See the [verification record](designs/apprankly-redesign/PRODUCTION-VERIFICATION.md).
 

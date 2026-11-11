@@ -16,8 +16,6 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   X,
-  ArrowRight,
-  RefreshCw,
   ShieldCheck,
 } from "lucide-react";
 // Draws a dashed vertical line and dot for each event whose date is on the x axis.
@@ -71,39 +69,45 @@ export function Button({
     </button>
   );
 }
-export function Avatar({ app }) {
+const APP_HUES = ["#C2185B", "#1A66CC", "#6A3FD9", "#0B7A4B", "#B4530F", "#0B7285", "#C0283E", "#9A3586"];
+export function appColor(app) {
+  return APP_HUES[[...String(app.id || app.name)].reduce((s, c) => s + c.charCodeAt(0), 0) % APP_HUES.length];
+}
+export function AppIcon({ app, size = "" }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [app.id, app.iconAvailable]);
-  const colors = ["#A64B32", "#9B7025", "#8F422E"];
-  const index = [...app.name].reduce((s, c) => s + c.charCodeAt(0), 0) % 3;
+  return app.iconAvailable && !failed ? (
+    <img
+      className={"app-avatar app-logo " + size}
+      src={"/api/apps/icon/" + encodeURIComponent(app.id)}
+      alt=""
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+    />
+  ) : (
+    <span className={"app-avatar " + size} aria-hidden="true" style={{ "--app-color": appColor(app) }}>
+      {app.name.slice(0, 1).toUpperCase()}
+    </span>
+  );
+}
+export function PlatformLabel({ app }) {
+  return (
+    <small className="platform-label">
+      <svg className="platform-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        {app.platform === "apple" ? <path d="M17.05 12.54c.03 3.1 2.72 4.13 2.75 4.14-.02.07-.43 1.47-1.42 2.92-.86 1.25-1.75 2.5-3.15 2.53-1.38.03-1.82-.82-3.4-.82-1.57 0-2.06.8-3.36.85-1.35.05-2.38-1.35-3.25-2.6-1.77-2.57-3.12-7.28-1.3-10.45a5.05 5.05 0 0 1 4.28-2.6c1.34-.02 2.6.9 3.4.9s2.3-1.12 3.88-.96c.66.03 2.52.27 3.72 2.04-.1.06-2.22 1.29-2.2 4.05ZM14.46 4.7c.72-.87 1.2-2.08 1.07-3.28-1.03.04-2.28.69-3.02 1.56-.66.77-1.24 2-1.08 3.18 1.15.09 2.32-.59 3.03-1.46Z" /> : <path d="m17.52 7.38 1.67-2.89a.35.35 0 0 0-.13-.48.35.35 0 0 0-.48.13l-1.69 2.93a10.4 10.4 0 0 0-9.78 0L5.42 4.14a.35.35 0 0 0-.61.35l1.67 2.89A9.43 9.43 0 0 0 2 15.5h20a9.43 9.43 0 0 0-4.48-8.12ZM7.5 12a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm9 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z" />}
+      </svg>
+      {app.platform === "apple" ? "iOS · App Store" : "Android · Google Play"}
+    </small>
+  );
+}
+export function Avatar({ app }) {
   return (
     <>
-      {app.iconAvailable && !failed ? (
-        <img
-          className="app-avatar app-logo"
-          src={"/api/apps/icon/" + encodeURIComponent(app.id)}
-          alt=""
-          loading="lazy"
-          referrerPolicy="no-referrer"
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        <span
-          className="app-avatar"
-          aria-hidden="true"
-          style={{ "--app-color": colors[index] }}
-        >
-          {app.name.slice(0, 1).toUpperCase()}
-        </span>
-      )}
+      <AppIcon app={app} />
       <span className="app-name">
         <strong>{app.name}</strong>
-        <small className="platform-label">
-          <svg className="platform-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            {app.platform === "apple" ? <path d="M17.05 12.54c.03 3.1 2.72 4.13 2.75 4.14-.02.07-.43 1.47-1.42 2.92-.86 1.25-1.75 2.5-3.15 2.53-1.38.03-1.82-.82-3.4-.82-1.57 0-2.06.8-3.36.85-1.35.05-2.38-1.35-3.25-2.6-1.77-2.57-3.12-7.28-1.3-10.45a5.05 5.05 0 0 1 4.28-2.6c1.34-.02 2.6.9 3.4.9s2.3-1.12 3.88-.96c.66.03 2.52.27 3.72 2.04-.1.06-2.22 1.29-2.2 4.05ZM14.46 4.7c.72-.87 1.2-2.08 1.07-3.28-1.03.04-2.28.69-3.02 1.56-.66.77-1.24 2-1.08 3.18 1.15.09 2.32-.59 3.03-1.46Z" /> : <path d="m17.52 7.38 1.67-2.89a.35.35 0 0 0-.13-.48.35.35 0 0 0-.48.13l-1.69 2.93a10.4 10.4 0 0 0-9.78 0L5.42 4.14a.35.35 0 0 0-.61.35l1.67 2.89A9.43 9.43 0 0 0 2 15.5h20a9.43 9.43 0 0 0-4.48-8.12ZM7.5 12a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm9 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z" />}
-          </svg>
-          {app.platform === "apple" ? "iOS · App Store" : "Android · Google Play"}
-        </small>
+        <PlatformLabel app={app} />
       </span>
     </>
   );
@@ -159,14 +163,14 @@ export function Panel({
     </section>
   );
 }
-export function Chart({ apps, previous = [], theme, range, events = [] }) {
+export function Chart({ apps, previous = [], theme, range, events = [], color: tint }) {
   const { t, i18n } = useTranslation();
   const { dates, values, old } = trendSeries(apps, previous, range);
   if (!values.some(Number.isFinite))
     return <p className="content-message">{t("noActualData")}</p>;
   const dark = theme === "dark",
-    color = dark ? "#F3A77C" : "#B84F2B",
-    muted = dark ? "#B9B1CD" : "#666177";
+    color = tint || (dark ? "#FF5C9F" : "#D61F70"),
+    muted = dark ? "#A69CB3" : "#6B6377";
   const data = {
     labels: dates.map((d) =>
       new Intl.DateTimeFormat(i18n.language, {
@@ -214,7 +218,7 @@ export function Chart({ apps, previous = [], theme, range, events = [] }) {
           maintainAspectRatio: false,
           animation: matchMedia("(prefers-reduced-motion: reduce)").matches
             ? false
-            : { duration: 180 },
+            : { duration: 420, easing: "easeOutQuart" },
           interaction: { intersect: false, mode: "index" },
           plugins: {
             eventMarkers: { events, dates, color: muted },
@@ -233,7 +237,7 @@ export function Chart({ apps, previous = [], theme, range, events = [] }) {
                 boxWidth: 18,
                 boxHeight: 8,
                 padding: 16,
-                font: { family: "Be Vietnam Pro", size: 11 },
+                font: { family: "Readex Pro", size: 11 },
               },
             },
           },
@@ -244,7 +248,7 @@ export function Chart({ apps, previous = [], theme, range, events = [] }) {
             },
             y: {
               beginAtZero: true,
-              grid: { color: dark ? "#3B354E" : "#E8E5F0" },
+              grid: { color: dark ? "#2B2436" : "#ECE9F1" },
               ticks: { maxTicksLimit: 5, color: muted, font: { size: 11 } },
             },
           },
@@ -343,10 +347,20 @@ export function Dialog({ title, onClose, children, drawer = false }) {
     </div>
   );
 }
-export function Tabs({ items, value, onChange }) {
+export function Tabs({ items, value, onChange, counts = {} }) {
   const { t } = useTranslation();
+  const ref = useRef(null), [ink, setInk] = useState(null);
+  useEffect(() => {
+    const place = () => {
+      const on = ref.current?.querySelector('[aria-selected="true"]');
+      if (on) setInk({ width: on.offsetWidth, x: on.offsetLeft });
+    };
+    place();
+    addEventListener("resize", place);
+    return () => removeEventListener("resize", place);
+  }, [value, items.length, t]);
   return (
-    <div className="tabs" role="tablist">
+    <div className="tabs" role="tablist" ref={ref}>
       {items.map((key, i) => (
         <button
           key={key}
@@ -371,8 +385,10 @@ export function Tabs({ items, value, onChange }) {
           }}
         >
           {t(key)}
+          {!!counts[key] && <i className="tab-count">{counts[key]}</i>}
         </button>
       ))}
+      {ink && <span className="tab-ink" aria-hidden="true" style={{ width: ink.width, transform: `translateX(${ink.x}px)` }} />}
     </div>
   );
 }
@@ -386,7 +402,7 @@ export function FormField({ label, children }) {
     </div>
   );
 }
-export async function api(url, { method = "GET", body, signal } = {}) {
+export async function api(url, { method = "GET", body, signal, keepalive } = {}) {
   let response;
   try {
     response = await fetch(url, {
@@ -395,6 +411,7 @@ export async function api(url, { method = "GET", body, signal } = {}) {
       headers: { "Content-Type": "application/json" },
       ...(body ? { body: JSON.stringify(body) } : {}),
       signal,
+      keepalive,
     });
   } catch (error) {
     if (error.name === "AbortError") throw error;
@@ -461,29 +478,4 @@ export function download(name, text, type = "application/json") {
   a.download = name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-const STAGES = ["loadingStage1", "loadingStage2"];
-export function LoadingState({ t }) {
-  const [sec, setSec] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setSec((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
-  const msg = sec >= 8 ? "loadingSlow" : STAGES[Math.floor(sec / 3) % 2];
-  return (
-    <div className="skeleton-area" role="status" aria-live="polite">
-      <p className="loading-label">
-        <RefreshCw className="icon spin" />
-        <span>{t(msg)}</span>
-      </p>
-      <div className="skeleton-kpis">
-        <div /><div /><div />
-      </div>
-      <div className="skeleton-chart" />
-      <div className="skeleton-table">
-        <div /><div /><div /><div />
-      </div>
-    </div>
-  );
 }
