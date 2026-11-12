@@ -366,6 +366,9 @@ function createApp() {
   app.post("/api/notifications/read", (req, res) =>
     res.json(notifier.markNotificationsRead(DATA_DIR, req.body.id)),
   );
+  app.delete("/api/notifications/:id", (req, res) =>
+    res.json(notifier.clearNotifications(DATA_DIR, req.params.id)),
+  );
   app.post(
     "/api/notifications/test",
     run(async (req, res) =>

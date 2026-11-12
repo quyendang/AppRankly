@@ -9,6 +9,13 @@
 - Kiểm tra: `app/test/run.js` đạt; `designs/apprankly-v2/production-check.mjs` và `audit.mjs production` chạy trên preview-server tổng hợp, 1440/390, sáng/tối, không lỗi console, không tràn ngang.
 - Chưa làm: deploy Railway và kiểm tra với dữ liệu thật.
 
+### Thông báo rõ ràng hơn (nhánh `feat/notifications-clarity`)
+
+- Mỗi thông báo mới lưu thêm `data` có cấu trúc (`lib/notificationData.js`): loại, từng app với chỉ số (giá trị, kỳ trước, % thay đổi), gợi ý hướng xử lý theo luật (khóa + tab). Văn bản thô vẫn được tạo cho ntfy, Telegram, Slack; bản ghi cũ không có `data` hiển thị bằng văn bản giữ xuống dòng.
+- Nơi tạo thông báo có `data`: cập nhật lượt cài (scheduler, kèm trung bình 7 ngày trước để tính %), churn, review xấu, biến động lượt cài/doanh thu/hạng, bản tin định kỳ.
+- Giao diện: hộp thoại nhóm theo Hôm nay/Hôm qua/Trước đó, lọc Tất cả/Biến động/Đánh giá/Hệ thống, dòng chỉ số có +/− màu xanh/đỏ, nút "Nên làm" mở đúng tab của app, đánh dấu đã đọc và xoá từng mục (`DELETE /api/notifications/:id`).
+- Sửa kèm: hộp thoại tràn ngang trên mobile (ảnh hưởng cả hộp thoại AI và trả lời review).
+
 ### Sửa theo phản hồi (nhánh `fix/today-feedback`)
 
 - Bộ lọc sắp xếp/nền tảng không đổi được: nguyên nhân là `flushSync` trong View Transition làm select kiểm soát bị trễ; bỏ transition cho các điều khiển này.

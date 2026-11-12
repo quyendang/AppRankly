@@ -336,7 +336,7 @@ export function Sparkline({ values, max = 1, label, tone = "accent" }) {
     </svg>
   );
 }
-export function Dialog({ title, onClose, children, drawer = false }) {
+export function Dialog({ title, onClose, children, drawer = false, wide = false }) {
   const { t } = useTranslation();
   const ref = useRef(null);
   useEffect(() => {
@@ -371,7 +371,7 @@ export function Dialog({ title, onClose, children, drawer = false }) {
     >
       <section
         ref={ref}
-        className={drawer ? "modal detail-drawer" : "modal"}
+        className={drawer ? "modal detail-drawer" : "modal" + (wide ? " wide" : "")}
         role="dialog"
         aria-modal="true"
         aria-labelledby="dialog-title"

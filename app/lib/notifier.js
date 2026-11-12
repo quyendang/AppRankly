@@ -3,6 +3,7 @@ const path = require("node:path");
 const axios = require("axios");
 const { DATA_DIR, redact } = require("./runtime");
 const { getSettings } = require("./config");
+const { cleanData } = require("./notificationData");
 const file = path.join(DATA_DIR, "notifications.json");
 function load() {
   try {
@@ -22,6 +23,7 @@ function addNotificationRecord(dataDir, item) {
     message: redact(item.message),
     priority: item.priority || "normal",
     source: "system",
+    ...(item.data ? { data: cleanData(item.data) } : {}),
     id: require("node:crypto").randomUUID(),
     timestamp: new Date().toISOString(),
     read: false,

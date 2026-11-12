@@ -207,6 +207,34 @@ require("../lib/countryRevenue").countryRevenue = async () => ({ rows: [
   { country: "DE", installs: 410, revenueByCurrency: { EUR: 90.2 } },
   { country: "BR", installs: 380, revenueByCurrency: {} },
 ] });
+// Notifications: two structured entries (digest, stats with a drop) and two old plain-text ones, like a real mixed history.
+{
+  const notifier = require("../lib/notifier"), data = require("../lib/notificationData");
+  const day = 86400000, at = (ago) => new Date(Date.now() - ago).toISOString();
+  const file = path.join(process.env.DATA_DIR, "notifications.json");
+  const item = (title, message, ago, extra = {}) => ({ id: crypto.randomUUID(), title, message, priority: "normal", source: "system", timestamp: at(ago), read: false, ...extra });
+  const stats = data.statsData([
+    { appId: "google:example.muse", displayName: "Muse Notes", platform: "GOOGLE", installs: 18, previousInstalls: 74, uninstalls: 31, smartAlerts: ["Downloads dropped by 76% vs 7-day avg"] },
+    { appId: "apple:example.daylight", displayName: "Daylight", platform: "APPLE", installs: 96, previousInstalls: 71 },
+  ]);
+  const digest = { kind: "digest", severity: "info", items: [
+    { appId: "google:example.muse", name: "Muse Notes", platform: "google", metrics: [{ key: "installs", value: 540, previous: 910, change: -40.7 }, { key: "revenue", value: 12.4, previous: 20.1, change: -38.3, unit: "USD" }] },
+    { appId: "apple:example.daylight", name: "Daylight", platform: "apple", metrics: [{ key: "installs", value: 1280, previous: 1010, change: 26.7 }, { key: "revenue", value: 88, previous: 61, change: 44.3, unit: "USD" }] },
+    { appId: "google:example.pocket", name: "Pocket Habits", platform: "google", metrics: [{ key: "installs", value: 300, previous: 300, change: 0 }] },
+    { appId: "apple:example.free", name: "Free Journal", platform: "apple", metrics: [{ key: "installs", value: 0, previous: 12, change: -100 }] },
+    { appId: "gone:app", name: "Removed app", platform: "google", metrics: [{ key: "installs", value: 3, previous: null, change: null }] },
+  ], hints: data.hintsFor({ appId: "google:example.muse", metrics: [{ key: "installs", value: 540, change: -40.7 }] }, "stats") };
+  const rank = data.anomalyData({ appId: "google:example.muse", kind: "rank", term: "daily journal", country: "us", from: 12, to: 38, move: -26, direction: "down" }, { name: "Muse Notes" });
+  fs.writeFileSync(file, JSON.stringify({ items: [
+    item("App Health & Stats (2 Apps)", "[Apple]\n* Daylight: +96 installs\n\n[Android]\n* Muse Notes: +18 installs, -31 uninstalls (Alert: Downloads dropped by 76% vs 7-day avg)\n\nCombined Total: +114 installs, -31 uninstalls across 2 app(s)", 2 * 3600000, { data: stats }),
+    item("AppRankly · Bản tin hằng ngày · 2026-11-11", "Store\n• Perfectnews (Android): không có báo cáo • Imagesearchtool (Android): không có báo cáo • Muse Notes: 540 lượt cài (-41%) · doanh thu 12.4 USD", 5 * 3600000, { data: digest }),
+    item("Muse Notes (Android) · Thứ hạng từ khóa", "▼ Muse Notes (Android): daily journal (US): 12 → 38", 20 * 3600000, { data: rank }),
+    item("AppRankly · installs", "▼ Daylight (iOS): Lượt cài -62% so với 7d (96 / 252)", 30 * 3600000, { read: true }),
+    item("App Health & Stats (3 Apps)", "[Apple]\n* Student Scores (iOS): +2 installs\n[Android]\n* StreetStride: +11 installs, -4 uninstalls\n\nCombined Total: +13 installs, -4 uninstalls across 3 app(s)", 3 * day, { read: true }),
+    item("🚨 Negative Review Alert (1★): Muse Notes", "\"Crashes — Opens then closes right away on Android 15.\"\n\nAuthor: Minh (v2.4.0)\nStore: GOOGLE", 3.1 * day, { data: data.reviewData({ appId: "google:example.muse", name: "Muse Notes", platform: "google", rating: 1, snippet: "Crashes — Opens then closes right away on Android 15." }) }),
+  ] }));
+  void notifier;
+}
 const { createApp } = require("../server");
 createApp().listen(3002, "127.0.0.1", () =>
   console.log("Synthetic UI preview: http://127.0.0.1:3002"),

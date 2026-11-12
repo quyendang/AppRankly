@@ -20,6 +20,8 @@ const strings = {
     rankLine: (t, c, a, b) => `${t} (${c.toUpperCase()}): ${a} → ${b}`, out: ">100" },
 };
 const str = (locale) => strings[locale] || strings.vi;
+const kindNames = { vi: { installs: "Lượt cài", revenue: "Doanh thu", rank: "Thứ hạng từ khóa" }, en: { installs: "Installs", revenue: "Revenue", rank: "Keyword rank" } };
+const s2 = (locale) => ({ kinds: kindNames[locale] || kindNames.vi });
 const label = (app) => `${app.name} (${app.platform === "apple" ? "iOS" : "Android"})`;
 
 // Latest value against the mean of the previous 7 values; null when too little signal.
@@ -131,6 +133,7 @@ async function buildDigest(period = "daily") {
   const { apps } = await listApps(), lines = [], anomalies = [];
   let idle = 0;
   let totalInstalls = 0, hasInstalls = false;
+  const items = [];
   for (const app of apps) {
     let stats;
     try { stats = await statsFor(app, 2 * n + 1); } catch { lines.push(`• ${label(app)}: ${s.nodata}`); continue; }
@@ -144,6 +147,12 @@ async function buildDigest(period = "daily") {
     anomalies.push(...found);
     if (!installs && !before && !Object.values(rev).some(Boolean) && !found.length) { idle++; continue; }
     lines.push(`• ${label(app)}: ${money(installs)} ${s.installs}${pct(installs, before)} · ${s.revenue} ${revText}`);
+    const prevRev = usdTotal(sumCurrencies(prev), rates);
+    items.push({ appId: app.id, name: app.name, platform: app.platform,
+      metrics: [
+        { key: "installs", value: installs, previous: before, change: before > 0 ? (installs / before - 1) * 100 : null },
+        ...(usd != null && (usd || prevRev) ? [{ key: "revenue", value: Math.round(usd * 100) / 100, previous: prevRev == null ? null : Math.round(prevRev * 100) / 100, change: prevRev > 0 ? (usd / prevRev - 1) * 100 : null, unit: "USD" }] : []),
+      ] });
   }
   const since = new Date(Date.now() - n * DAY).toISOString();
   const archive = db.prepare("SELECT payload FROM review_archive").all().map((r) => JSON.parse(r.payload));
@@ -157,7 +166,10 @@ async function buildDigest(period = "daily") {
   if (anomalies.length) parts.push(`${s.alerts}:\n` + anomalies.map((a) => describe(a, settings.digestLocale)).join("\n"));
   parts.push(`${s.reviews}: ${fresh.length}${avg != null ? ` (${avg.toFixed(1)}★)` : ""} · ${open} ${s.unanswered}`);
   if (moves.length) parts.push(`${s.ranks}:\n` + moves.map(({ app, m }) => describe({ ...m, kind: "rank", name: label(app), direction: m.move > 0 ? "up" : "down" }, settings.digestLocale)).join("\n"));
-  return { period, title: `AppRankly · ${s[period]} · ${isoDay(Date.now() - DAY)}`, message: parts.join("\n\n"), totalInstalls: hasInstalls ? totalInstalls : null };
+  const { hintsFor } = require("./notificationData");
+  const data = { kind: "digest", severity: "info", items: items.sort((a, b) => Math.abs(b.metrics[0].change ?? 0) - Math.abs(a.metrics[0].change ?? 0)),
+    hints: [...new Map(items.flatMap((i) => hintsFor(i, "stats")).map((h) => [h.key, h])).values()] };
+  return { period, title: `AppRankly · ${s[period]} · ${isoDay(Date.now() - DAY)}`, message: parts.join("\n\n"), totalInstalls: hasInstalls ? totalInstalls : null, data };
 }
 
 function validDate(date) {
@@ -267,14 +279,16 @@ async function runScheduled(now = new Date()) {
       const key = "alert:" + a.key;
       if (getState(key)) continue;
       setState(key, "1");
-      await broadcastAlert({ title: `AppRankly · ${a.kind}`, message: describe(a, settings.digestLocale), priority: a.direction === "down" ? "high" : "normal" });
+      const appRow = apps.find((x) => x.id === a.appId);
+      await broadcastAlert({ title: `${label(appRow || { name: a.name, platform: a.platform })} · ${s2(settings.digestLocale).kinds[a.kind] || a.kind}`, message: describe(a, settings.digestLocale),
+        data: require("./notificationData").anomalyData(a, appRow), priority: a.direction === "down" ? "high" : "normal" });
     }
   });
   await step("digest", async () => {
     if (!digestDue(settings, parts, getState("digest:lastSent"))) return;
     setState("digest:lastSent", parts.date);
     const digest = await buildDigest(settings.digest);
-    await broadcastAlert({ title: digest.title, message: digest.message });
+    await broadcastAlert({ title: digest.title, message: digest.message, data: digest.data });
   });
 }
 module.exports = { detectSeriesAnomaly, appAnomalies, rankMoves, localParts, digestDue, buildDigest, collectAnomalies,

@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { buildTasks } from "./tasks.js";
 import { Num, Skel, Toasts, toast, transition } from "./motion.jsx";
+import { NotificationsDialog } from "./notifications.jsx";
 import { ActionInbox, AppRow, CommandPalette, Delta, PurchasesPanel, ReleaseImpact, SyncDots, SyncProgress } from "./today.jsx";
 import { trendSeries } from "./series.js";
 import {
@@ -1699,31 +1700,34 @@ export default function App() {
           setModal(null); notify("replyPublished"); loadOpenReviews();
         }} />}
       {modal?.type === "notifications" && (
-        <Dialog title={t("notifications")} onClose={() => setModal(null)}>
-          {!notifications.length && (
-            <p className="content-message">{t("noNotifications")}</p>
-          )}
-          {notifications.map((n) => (
-            <article className="review" key={n.id}>
-              <h3>{n.title}</h3>
-              <p>{n.message}</p>
-              <small>{formatDate(n.timestamp)}</small>
-            </article>
-          ))}
-          <Button
-            onClick={() =>
-              action(async () => {
-                await api("/api/notifications/read", {
-                  method: "POST",
-                  body: {},
-                });
-                setNotifications((n) => n.map((x) => ({ ...x, read: true })));
-              })
-            }
-          >
-            {t("readNotifications")}
-          </Button>
-        </Dialog>
+        <NotificationsDialog
+          notifications={notifications}
+          busy={busy}
+          number={number}
+          formatTime={(value) => new Intl.DateTimeFormat(i18n.language, { hour: "2-digit", minute: "2-digit" }).format(new Date(value))}
+          onClose={() => setModal(null)}
+          onRead={(id) => {
+            setNotifications((list) => list.map((x) => (x.id === id ? { ...x, read: true } : x)));
+            api("/api/notifications/read", { method: "POST", body: { id } }).catch(handleError);
+          }}
+          onReadAll={() => action(async () => {
+            await api("/api/notifications/read", { method: "POST", body: {} });
+            setNotifications((list) => list.map((x) => ({ ...x, read: true })));
+          })}
+          onDelete={(id) => {
+            const removed = notifications.find((x) => x.id === id);
+            setNotifications((list) => list.filter((x) => x.id !== id));
+            api("/api/notifications/" + encodeURIComponent(id), { method: "DELETE" }).catch((e) => {
+              setNotifications((list) => [...list, removed].sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp))));
+              handleError(e);
+            });
+          }}
+          onOpen={(appId, tab) => {
+            setModal(null);
+            if (appId && apps.some((a) => a.id === appId)) openApp(appId, tab);
+            else if (appId) toast(t("notifAppGone"), { tone: "warn" });
+          }}
+        />
       )}
       <Toasts closeLabel={t("dismiss")} />
     </>

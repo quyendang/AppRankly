@@ -307,6 +307,8 @@ async function checkAndNotifyStats(
             (!prevRecord || prevRecord.lastAnomalyDate !== latestTrend.date)
           ) {
             broadcastAlert({
+              data: { kind: "anomaly", severity: "bad", items: [{ appId: appKey, name: displayName, platform, metrics: [{ key: "uninstalls", value: highAnom.uninstalls, previous: null, change: null }], tab: "reviews" }],
+                hints: [{ key: "checkRelease", tab: "versions", appId: appKey }, { key: "checkRecentReviews", tab: "reviews", appId: appKey }] },
               title: `⚠️ Churn Anomaly: ${displayName}`,
               message: `High uninstall spike detected on ${latestTrend.date}: ${highAnom.uninstalls} uninstalls (z=${highAnom.zScore}).`,
               priority: "urgent",
@@ -345,11 +347,18 @@ async function checkAndNotifyStats(
           console.warn("[Scheduler] Review check error:", e.message);
         }
 
+        const history = trends
+          .filter((d) => d.date && d.date < latestTrend.date)
+          .slice(-7)
+          .map((d) => Number(d.dailyUserInstalls ?? d.dailyInstalls))
+          .filter(Number.isFinite);
         return {
           appKey,
+          appId: appKey,
           displayName,
           platform: platform.toUpperCase(),
           date: latestTrend.date,
+          previousInstalls: history.length >= 3 ? history.reduce((a, b) => a + b, 0) / history.length : null,
           installs: currentDailyInstalls,
           uninstalls: currentDailyUninstalls,
           totalInstalls,
@@ -453,6 +462,7 @@ async function checkAndNotifyStats(
       const res = await broadcastAlert({
         title,
         message,
+        data: require("./notificationData").statsData(appsWithChanges),
         priority: "high",
         tags: "chart_with_upwards_trend,package",
         topic: ntfyTopic,
@@ -601,6 +611,7 @@ async function checkNegativeReviewAlerts({
         const message = `"${rev.title ? rev.title + " — " : ""}${bodySnippet}"\n\nAuthor: ${rev.author || "Anonymous"} (v${rev.version || "unknown"})\nStore: ${platform.toUpperCase()}`;
 
         await broadcastAlert({
+          data: require("./notificationData").reviewData({ appId: `${platform}:${pkgId}`, name: displayName, platform, rating: rev.rating, snippet: `${rev.title ? rev.title + " — " : ""}${bodySnippet}` }),
           title,
           message,
           priority: "urgent",
