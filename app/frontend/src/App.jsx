@@ -15,6 +15,9 @@ import {
   Download,
   Search,
   Sparkles,
+  Plus,
+  Eye,
+  Loader2,
   LogOut,
   Bell,
   Trash2,
@@ -28,7 +31,7 @@ import {
 } from "lucide-react";
 import { buildTasks } from "./tasks.js";
 import { Num, Skel, Toasts, toast, transition } from "./motion.jsx";
-import { ActionInbox, AppCard, CommandPalette, Delta, ReleaseImpact, SyncDots, SyncProgress } from "./today.jsx";
+import { ActionInbox, AppRow, CommandPalette, Delta, PurchasesPanel, ReleaseImpact, SyncDots, SyncProgress } from "./today.jsx";
 import { trendSeries } from "./series.js";
 import {
   AppIcon,
@@ -99,6 +102,8 @@ export default function App() {
     [prevByPlatform, setPrevByPlatform] = useState({}),
     [range, setRange] = useState(null),
     [warnings, setWarnings] = useState([]),
+    [syncing, setSyncing] = useState(false),
+    [purchasesByKey, setPurchasesByKey] = useState({}),
     [pendingPlatforms, setPendingPlatforms] = useState([]),
     [sourceState, setSourceState] = useState({}),
     [anomalies, setAnomalies] = useState([]),
@@ -397,6 +402,19 @@ export default function App() {
     setAiResult(asoById[current.id]?.data?.aiResult || null);
     if (!asoById[current.id]) loadASO(current.id);
   }, [page, current?.id, authenticated, loadASO]);
+  const purchaseKey = current ? current.id + ":" + period + ":" + refresh : "";
+  const loadPurchases = useCallback((force = false) => {
+    if (!current) return;
+    const key = purchaseKey;
+    setPurchasesByKey((all) => (all[key] && !force ? all : { ...all, [key]: { loading: true } }));
+    api("/api/purchases", { method: "POST", body: { appId: current.id, ...rangeFor(period) } })
+      .then((r) => setPurchasesByKey((all) => ({ ...all, [key]: { available: r.available, purchases: r.purchases } })))
+      .catch((e) => { if (e.message === "AUTH_REQUIRED") setAuthenticated(false); setPurchasesByKey((all) => ({ ...all, [key]: { error: true } })); });
+  }, [purchaseKey, period]);
+  useEffect(() => {
+    if (!authenticated || page !== "appDetail" || !current || detailTab !== "overview" || purchasesByKey[purchaseKey]) return;
+    loadPurchases();
+  }, [authenticated, page, purchaseKey, detailTab]);
   useEffect(() => {
     if (!authenticated || page !== "appDetail" || !current || !["overview", "countries", "versions"].includes(detailTab)) return;
     const abort = new AbortController();
@@ -437,19 +455,29 @@ export default function App() {
     navigate("appDetail", { tab });
   }
   async function sync() {
-    await action(async () => {
+    if (syncWatch.current) return;
+    // Show progress on the click itself; the server refresh can take several seconds.
+    syncWatch.current = true;
+    const at = new Date().toISOString();
+    setSourceState(Object.fromEntries(sources.map((k) => [k, { state: "loading", at }])));
+    setSyncing(true);
+    try {
       await api("/api/refresh", { method: "POST", body: {} });
       portfolioCache.current.clear();
       loadedRef.current.clear();
       setAsoById({});
       setRefresh((v) => v + 1);
-    });
-    syncWatch.current = true;
+    } catch (e) {
+      syncWatch.current = false;
+      setSyncing(false);
+      setSourceState((state) => Object.fromEntries(Object.entries(state).map(([k, v]) => [k, v.state === "loading" ? { ...v, state: "error" } : v])));
+      handleError(e);
+    }
   }
-  const syncing = busy && syncWatch.current || sources.some((k) => sourceState[k]?.state === "loading");
   useEffect(() => {
     if (!syncWatch.current || sources.some((k) => sourceState[k]?.state === "loading") || pendingPlatforms.length) return;
     syncWatch.current = false;
+    setSyncing(false);
     const failed = sources.filter((k) => sourceState[k]?.state === "error").length;
     toast(failed ? t("syncPartial", { count: failed }) : t("syncDone"), { tone: failed ? "warn" : "ok" });
   }, [sourceState, pendingPlatforms, t]);
@@ -603,10 +631,10 @@ export default function App() {
             </label>
             <div className="segmented" role="group" aria-label={t("platform")}>
               {[["all", t("allPlatforms")], ["apple", "iOS"], ["google", "Android"]].map(([k, l]) => (
-                <button type="button" key={k} aria-pressed={platform === k} onClick={() => transition(() => setPlatform(k))}>{l}</button>
+                <button type="button" key={k} aria-pressed={platform === k} onClick={() => setPlatform(k)}>{l}</button>
               ))}
             </div>
-            <select className="sort-select" aria-label={t("sort")} value={sort} onChange={(e) => transition(() => setSort(e.target.value))}>
+            <select className="sort-select" aria-label={t("sort")} value={sort} onChange={(e) => setSort(e.target.value)}>
               {["installs", "growth", "revenue", "rating"].map((k) => <option key={k} value={k}>{t("sort" + k[0].toUpperCase() + k.slice(1))}</option>)}
             </select>
             <Button icon={Download} onClick={() => exportData()} disabled={!filtered.length}>CSV</Button>
@@ -614,17 +642,20 @@ export default function App() {
           </div>
         </div>
         {!apps.length && loading ? (
-          <ul className="cards" aria-busy="true">
-            {[0, 1, 2, 3, 4, 5].map((i) => <li className="app-card-wrap" key={i}><div className="app-card skeleton"><span className="card-top"><Skel w="40px" h="40px" /><span className="card-name"><Skel w="7em" /><Skel w="5em" h=".8em" /></span></span><Skel h="48px" /><span className="card-stats"><Skel w="4em" /><Skel w="4em" /><Skel w="3em" /></span></div></li>)}
+          <ul className="app-list" aria-busy="true">
+            {[0, 1, 2, 3, 4, 5].map((i) => <li className="app-row-wrap" key={i}><div className="app-row skeleton"><span className="row-id"><Skel w="40px" h="40px" /><span className="card-name"><Skel w="7em" /><Skel w="5em" h=".8em" /></span></span><span className="row-chart"><Skel h="32px" /></span><span className="row-num"><Skel w="4em" /></span><span className="row-num"><Skel w="4em" /></span><span className="row-num"><Skel w="3em" /></span><span /></div></li>)}
           </ul>
         ) : !apps.length ? (
           <Empty title="firstConnection" text="firstConnectionHint" action={<Button primary onClick={() => navigate("settings")}>{t("viewSettings")}</Button>} />
         ) : !filtered.length ? (
           <Empty title="emptyTitle" text="emptyText" action={<Button onClick={() => { setQuery(""); setPlatform("all"); }}>{t("resetFilters")}</Button>} />
         ) : (
-          <ul className="cards">
+          <ul className="app-list">
+            <li className="app-list-head" aria-hidden="true">
+              <span>{t("appColumn")}</span><span>{t("trend")}</span><span>{t("installs")}</span><span>{t("revenue")}</span><span>{t("rating")}</span><span />
+            </li>
             {filtered.map((a) => (
-              <AppCard key={a.id} app={a} change={growth(a)} revenue={usdValue([a])} pending={pendingPlatforms.includes(a.platform)}
+              <AppRow key={a.id} app={a} change={growth(a)} revenue={usdValue([a])} pending={pendingPlatforms.includes(a.platform)}
                 openReviews={reviewSummary.find((r) => r.appId === a.id)?.open || 0} max={max} number={number}
                 onOpen={() => openApp(a.id, "overview")} onWarm={() => warmApp(a.id)} />
             ))}
@@ -767,8 +798,10 @@ export default function App() {
                 range={data?.range}
                 events={events}
                 color={appColor(current)}
+                purchases={purchasesByKey[purchaseKey]?.purchases}
               />
             </Panel>
+            <PurchasesPanel app={current} state={purchasesByKey[purchaseKey]} exchange={exchange} number={number} onRetry={() => loadPurchases(true)} />
             <EventsPanel app={current} events={events} action={action} busy={busy}
               onChange={() => api("/api/aso/events?appId=" + encodeURIComponent(current.id)).then((r) => setEvents(r.events))} />
             <div className="detail-bottom">
@@ -880,20 +913,23 @@ export default function App() {
           <Panel
             title={t("keywords")}
             action={
-              <Button
-                disabled={busy || !keywords.length}
-                onClick={() =>
-                  action(async () => {
-                    await api("/api/aso/ranks", {
-                      method: "POST",
-                      body: { appId: current.id, country: rankCountry },
-                    });
-                    await loadASO(current.id, { force: true });
-                  })
-                }
-              >
-                {t("checkRanks")}
-              </Button>
+              <div className="panel-actions">
+                <Button icon={Sparkles} disabled={busy} onClick={() => setModal({ type: "keywords" })}>{t("suggestKeywords")}</Button>
+                <Button
+                  disabled={busy || !keywords.length}
+                  onClick={() =>
+                    action(async () => {
+                      await api("/api/aso/ranks", {
+                        method: "POST",
+                        body: { appId: current.id, country: rankCountry },
+                      });
+                      await loadASO(current.id, { force: true });
+                    })
+                  }
+                >
+                  {t("checkRanks")}
+                </Button>
+              </div>
             }
           >
             <div className="rank-context">
@@ -1001,7 +1037,10 @@ export default function App() {
               </table>
             </div>
             {!keywords.length && (
-              <p className="content-message">{t("noKeywords")}</p>
+              <div className="empty-hint">
+                <p className="content-message">{t("noKeywords")}</p>
+                <Button primary icon={Sparkles} onClick={() => setModal({ type: "keywords" })}>{t("suggestKeywords")}</Button>
+              </div>
             )}
           </Panel>
           <RankHistory history={rankHistory} events={events} theme={resolvedTheme} />
@@ -1559,7 +1598,7 @@ export default function App() {
   const logout = () => action(async () => {
     await api("/api/auth/logout", { method: "POST", body: {} });
     setAuthenticated(false);
-    setByPlatform({}); setPrevByPlatform({}); setRange(null); portfolioCache.current.clear(); setAsoById({});
+    setByPlatform({}); setPrevByPlatform({}); setRange(null); portfolioCache.current.clear(); setAsoById({}); setPurchasesByKey({});
     setExchange(null);
   });
   return (
@@ -1645,6 +1684,11 @@ export default function App() {
             setModal(null);
           }}
         />
+      )}
+      {modal?.type === "keywords" && current && (
+        <KeywordSuggestDialog app={current} country={rankCountry} tracked={(asoData?.keywords || []).length}
+          onClose={() => setModal(null)}
+          onAdded={(count) => { setModal(null); toast(t("keywordsAdded", { count })); loadASO(current.id, { force: true }); }} />
       )}
       {modal?.type === "bulk" && <BulkReplyDialog app={current} busy={busy} action={action} error={error}
         reviews={(asoData?.reviews || []).filter(r => picked.includes(r.id))}
@@ -1741,6 +1785,100 @@ function ReviewReplyDialog({ app, review, busy, action, error, onClose, onSaved 
       })}>{t(busy ? "saving" : "publishReply")}</Button>
     </div>
   </Dialog>;
+}
+// Suggest keywords with AI: preview exactly what is sent, confirm, then choose which suggestions to track.
+function KeywordSuggestDialog({ app, country, tracked, onClose, onAdded }) {
+  const { t, i18n } = useTranslation();
+  const [step, setStep] = useState("setup"),
+    [market, setMarket] = useState(country),
+    [count, setCount] = useState(15),
+    [preview, setPreview] = useState(null),
+    [confirmed, setConfirmed] = useState(false),
+    [working, setWorking] = useState(false),
+    [error, setError] = useState(""),
+    [picked, setPicked] = useState([]),
+    [suggestions, setSuggestions] = useState([]),
+    [reasons, setReasons] = useState([]);
+  const region = new Intl.DisplayNames([i18n.language], { type: "region" });
+  const fail = (e) => { if (e.name !== "AbortError") setError(e.message || "OPERATION_FAILED"); };
+  async function buildPreview() {
+    setWorking(true); setError("");
+    try {
+      setPreview(await api("/api/ai/preview", { method: "POST", body: { appId: app.id, kind: "keywords", country: market, count, locale: i18n.language } }));
+      setConfirmed(false);
+    } catch (e) { fail(e); } finally { setWorking(false); }
+  }
+  async function run() {
+    setWorking(true); setError(""); setStep("running");
+    try {
+      const result = await api("/api/ai/run", { method: "POST", body: { previewId: preview.previewId, confirmed: true } });
+      const list = result.result.candidates || [];
+      setSuggestions(list); setReasons(result.result.recommendations || []); setPicked(list); setStep("pick");
+    } catch (e) { fail(e); setStep("setup"); setPreview(null); setConfirmed(false); } finally { setWorking(false); }
+  }
+  async function add() {
+    setWorking(true); setError("");
+    try {
+      await api("/api/aso/keywords/bulk", { method: "POST", body: { appId: app.id, terms: picked } });
+      onAdded(picked.length);
+    } catch (e) { fail(e); setWorking(false); }
+  }
+  const invalidate = (fn) => { fn(); setPreview(null); setConfirmed(false); };
+  return (
+    <Dialog title={t("suggestKeywordsTitle")} onClose={onClose}>
+      {step === "pick" ? (
+        <>
+          <p className="modal-intro">{t("suggestPickHint", { count: suggestions.length })}</p>
+          <ul className="suggest-list">
+            {suggestions.map((term, i) => (
+              <li key={term} style={{ "--i": i }}>
+                <label>
+                  <input type="checkbox" checked={picked.includes(term)} disabled={working}
+                    onChange={(e) => setPicked((list) => (e.target.checked ? [...list, term] : list.filter((x) => x !== term)))} />
+                  <span><strong>{term}</strong>{reasons[i] && <small>{reasons[i]}</small>}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+          <p className="privacy-note">{t("suggestNoVolume")}</p>
+          {error && <p role="alert" className="content-message">{t(error, { defaultValue: t("OPERATION_FAILED") })}</p>}
+          <div className="modal-footer">
+            <Button onClick={() => setPicked(picked.length === suggestions.length ? [] : suggestions)}>{t(picked.length === suggestions.length ? "clearSelection" : "selectAll")}</Button>
+            <Button primary icon={Plus} disabled={working || !picked.length} onClick={add}>{t(working ? "saving" : "addSelectedKeywords", { count: picked.length })}</Button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="modal-intro">{t("suggestIntro")}</p>
+          <FormField label={t("rankMarket")}>
+            <select value={market} disabled={working} onChange={(e) => invalidate(() => setMarket(e.target.value))}>
+              {["us", "vn", "gb", "jp", "kr", "de", "fr"].map((code) => <option key={code} value={code}>{region.of(code.toUpperCase())}</option>)}
+            </select>
+          </FormField>
+          <FormField label={t("suggestCount")}>
+            <select value={count} disabled={working} onChange={(e) => invalidate(() => setCount(Number(e.target.value)))}>
+              {[10, 15, 20, 25].map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </FormField>
+          <p className="fine-print">{t("suggestTracked", { count: tracked })}</p>
+          <Button icon={Eye} disabled={working} onClick={buildPreview}>{t(working && !preview ? "loading" : "buildPreview")}</Button>
+          {preview && (
+            <>
+              {preview.destination && <p className="privacy-note">{t("aiDestination", { provider: preview.destination.provider, origin: preview.destination.origin, model: preview.destination.model })}</p>}
+              <pre className="payload">{JSON.stringify(preview.payload, null, 2)}</pre>
+              <label className="consent-label"><input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />{t("aiConsent")}</label>
+            </>
+          )}
+          {step === "running" && <p className="content-message" role="status"><Loader2 className="icon spin" /> {t("suggestRunning")}</p>}
+          {error && <p role="alert" className="content-message">{t(error, { defaultValue: t("OPERATION_FAILED") })}</p>}
+          <div className="modal-footer">
+            <Button onClick={onClose}>{t("cancel")}</Button>
+            <Button primary icon={Sparkles} disabled={working || !preview || !confirmed} onClick={run}>{t(step === "running" ? "aiRunning" : "suggestRun")}</Button>
+          </div>
+        </>
+      )}
+    </Dialog>
+  );
 }
 function AIDialog({ app, range, action, busy, onClose, onResult }) {
   const { t, i18n } = useTranslation();

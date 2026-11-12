@@ -61,7 +61,7 @@ router.get(
       aiResult: JSON.parse(
         db
           .prepare(
-            "SELECT payload FROM aso_ai_run WHERE package_name=? AND platform=? ORDER BY id DESC LIMIT 1",
+            "SELECT payload FROM aso_ai_run WHERE package_name=? AND platform=? AND kind NOT IN ('keywords','reviewReply') ORDER BY id DESC LIMIT 1",
           )
           .get(app.packageName, app.platform)?.payload || "null",
       ),
@@ -89,6 +89,32 @@ router.post(
       `INSERT INTO aso_keyword(package_name,platform,term,normalized,source,tracked,added_at) VALUES(?,?,?,?,'manual',1,datetime('now')) ON CONFLICT(package_name,platform,normalized) DO UPDATE SET tracked=1`,
     ).run(app.packageName, codePlatform(app), term, term.toLowerCase());
     res.json({ success: true });
+  }),
+);
+router.post(
+  "/aso/keywords/bulk",
+  run(async (req, res) => {
+    const app = await ownedApp(req.body.appId), terms = req.body.terms;
+    if (!Array.isArray(terms) || !terms.length || terms.length > 25) throw new Error("INVALID_KEYWORD");
+    const seen = new Set(), clean = [];
+    for (const raw of terms) {
+      const term = typeof raw === "string" ? raw.trim() : "";
+      if (!term || term.length > 80 || redact(term) !== term) throw new Error("INVALID_KEYWORD");
+      // Keep the first spelling of a duplicate.
+      if (!seen.has(term.toLowerCase())) { seen.add(term.toLowerCase()); clean.push(term); }
+    }
+    const insert = db.prepare(
+      `INSERT INTO aso_keyword(package_name,platform,term,normalized,source,tracked,added_at) VALUES(?,?,?,?,'ai',1,datetime('now')) ON CONFLICT(package_name,platform,normalized) DO UPDATE SET tracked=1`,
+    );
+    db.exec("BEGIN");
+    try {
+      for (const term of clean) insert.run(app.packageName, codePlatform(app), term, term.toLowerCase());
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
+    res.json({ success: true, added: clean.length });
   }),
 );
 router.delete(
@@ -319,7 +345,7 @@ router.post(
       reviewId,
     } = req.body;
     if (
-      !["audit", "variants", "reviews", "reviewReply", "ask", "note"].includes(kind) ||
+      !["audit", "variants", "reviews", "reviewReply", "ask", "note", "keywords"].includes(kind) ||
       !["vi", "en"].includes(locale) ||
       typeof question !== "string" ||
       question.length > 1000 ||
@@ -350,6 +376,18 @@ router.post(
         )
         .all(app.packageName, codePlatform(app)),
     };
+    if (kind === "keywords") {
+      const market = String(req.body.country || "us").toLowerCase();
+      if (!rankTracker.markets[market]) throw new Error("INVALID_MARKET");
+      const count = Math.min(Math.max(Number(req.body.count) || 15, 5), 25);
+      payload.market = { country: market, language: rankTracker.markets[market] };
+      payload.limit = count;
+      payload.competitors = db
+        .prepare("SELECT title FROM aso_competitor WHERE package_name=? AND platform=? ORDER BY pinned DESC LIMIT 10")
+        .all(app.packageName, codePlatform(app)).map((row) => row.title).filter(Boolean);
+      payload.maxTermLength = 80;
+      payload.instruction = `Suggest up to ${count} search keywords people in the target market would type to find this app. Write each keyword in the market language (${payload.market.language}). Prefer specific 1-4 word phrases that match what the app really does; mix high-intent terms and long-tail terms. Never repeat tracked keywords. Never use competitor brand names. Put the keywords in candidates, one per item with no numbering or quotes, each at most ${payload.maxTermLength} characters. In recommendations give one short reason per keyword in the same order. Do not claim search volume or ranking, because no such data is provided.`;
+    }
     if (kind === "reviews")
       payload.reviews = (await reviews(app)).slice(0, 20).map((x) => ({
         rating: x.score || x.rating,
@@ -435,6 +473,20 @@ router.post(
       maxTokens: entry.payload.kind === "reviewReply" ? 8192 : 2500,
     });
     const payload = entry.payload;
+    if (payload.kind === "keywords") {
+      const tracked = new Set(payload.keywords.map((row) => String(row.term).toLowerCase()));
+      const seen = new Set(), clean = [];
+      for (const raw of Array.isArray(result.data?.candidates) ? result.data.candidates : []) {
+        const term = typeof raw === "string" ? raw.replace(/\s+/g, " ").replace(/^["'“”‘’\-–•\d.)\s]+|["'“”‘’\s]+$/g, "").trim() : "";
+        const key = term.toLowerCase();
+        if (!term || term.length > payload.maxTermLength || redact(term) !== term || tracked.has(key) || seen.has(key)) continue;
+        seen.add(key);
+        clean.push(term);
+        if (clean.length >= payload.limit) break;
+      }
+      if (!clean.length) throw new Error("AI_INVALID_RESPONSE");
+      result.data.candidates = clean;
+    }
     if (payload.kind === "reviewReply" && (result.data?.candidates?.length !== 1 ||
         typeof result.data.candidates[0] !== "string" || !result.data.candidates[0].trim() ||
         result.data.candidates[0].length > payload.replyLimit)) throw new Error("AI_INVALID_RESPONSE");

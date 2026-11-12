@@ -2,6 +2,7 @@ const { Storage } = require("@google-cloud/storage");
 const csv = require("@fast-csv/parse");
 const yauzl = require("yauzl");
 const resolver = require("./resolver");
+const { googleKind, summarizePurchases } = require("./purchases");
 const limited = require("./utils/concurrency").createLimiter(2);
 
 function text(buffer) {
@@ -56,9 +57,13 @@ async function parseSales(contents) {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(date || "") || !/^[A-Z]{3}$/.test(currency || "") ||
             !String(row["Charged Amount"] ?? "").trim() || !Number.isFinite(amount)) return;
         const country = String(row["Country of Buyer"] || "").trim().toUpperCase();
+        const kind = googleKind(row["Product Type"]);
         rows.push({ packageName: row["Package ID"], date, currency,
           amount: status === "charged" ? amount : -Math.abs(amount),
-          ...(/^[A-Z]{2}$/.test(country) ? { country } : {}) });
+          ...(/^[A-Z]{2}$/.test(country) ? { country } : {}),
+          // A full refund reverses one purchase; a partial refund only reduces the amount.
+          ...(kind ? { kind, sku: row["SKU ID"] || "", title: row["Product Title"] || "",
+            units: status === "charged" ? 1 : status === "partial refund" ? 0 : -1 } : {}) });
       }).on("error", reject).on("end", resolve);
     });
   return rows;
@@ -75,7 +80,7 @@ async function getGoogleSales(config, packageName, range) {
   }
   const results = await Promise.all(months.map(month => limited(async () => {
     try {
-      return await resolver.resolve("google:estimated-sales", { bucket: config.bucketName, month }, async () => {
+      return await resolver.resolve("google:estimated-sales:v2", { bucket: config.bucketName, month }, async () => {
         const stream = storage.bucket(config.bucketName).file(`sales/salesreport_${month}.zip`).createReadStream();
         const contents = await unzipCsv(await readLimited(stream, 50 * 1024 * 1024));
         if (!contents.length) throw new Error("GOOGLE_SALES_UNAVAILABLE");
@@ -83,9 +88,10 @@ async function getGoogleSales(config, packageName, range) {
       });
     } catch { return null; }
   })));
-  const grossRevenueByCurrency = {}, grossRevenueByCountry = {};
+  const grossRevenueByCurrency = {}, grossRevenueByCountry = {}, purchaseEvents = [];
   for (const row of results.flatMap(rows => rows || []))
     if (row.packageName === packageName && row.date >= range.startDate && row.date <= range.endDate) {
+      if (row.kind) purchaseEvents.push(row);
       grossRevenueByCurrency[row.currency] = (grossRevenueByCurrency[row.currency] || 0) + row.amount;
       if (row.country) {
         const byCurrency = grossRevenueByCountry[row.country] ||= {};
@@ -93,6 +99,7 @@ async function getGoogleSales(config, packageName, range) {
       }
     }
   return { grossRevenueByCurrency, grossRevenueByCountry, revenueAvailable: results.some(Boolean),
+    ...(results.some(Boolean) ? { purchases: summarizePurchases(purchaseEvents) } : {}),
     revenueStatus: results.every(Boolean) ? "available" : results.some(Boolean) ? "partial" : "unavailable" };
 }
 module.exports = { getGoogleSales, parseSales, unzipCsv };

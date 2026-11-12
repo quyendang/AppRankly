@@ -7,7 +7,9 @@ export const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)"
 export function transition(update, kind) {
   if (!document.startViewTransition || reducedMotion()) { update(); return; }
   if (kind) document.documentElement.dataset.vt = kind;
-  const vt = document.startViewTransition(() => flushSync(update));
+  // flushSync must run inside the callback so React commits before the "after" snapshot.
+  // Controlled inputs are updated by the caller first (see setNow) so they never lag behind.
+  const vt = document.startViewTransition(() => { flushSync(update); });
   vt.finished.catch(() => {}).finally(() => { delete document.documentElement.dataset.vt; });
 }
 

@@ -131,7 +131,7 @@ async function ownedApp(id) {
 }
 async function appStats(app, range) {
   return resolver.resolve(
-    "personal:stats:v4",
+    "personal:stats:v5",
     { id: app.id, ...range },
     async () => {
       const config = getBaseConfig();
@@ -173,6 +173,7 @@ async function appStats(app, range) {
           : null,
         revenueByCurrency,
         ...sales,
+        ...(raw.purchases ? { purchases: raw.purchases } : {}),
         activeDevices:
           app.platform === "apple"
             ? null
@@ -191,7 +192,9 @@ async function portfolio(input = {}) {
   const results = await Promise.all(
     apps.map(async (app) => {
       try {
-        return { ...app, ...(await appStats(app, range)), error: null };
+        // Purchase detail is large; it is served by /api/purchases instead of every portfolio call.
+        const { purchases, ...stats } = await appStats(app, range);
+        return { ...app, ...stats, error: null };
       } catch (error) {
         return {
           ...app,

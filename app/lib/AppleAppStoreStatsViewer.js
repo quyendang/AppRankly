@@ -5,6 +5,7 @@ const csv = require("@fast-csv/parse");
 const fs = require("fs");
 const path = require("path");
 const resolver = require("./resolver");
+const { appleKind, summarizePurchases } = require("./purchases");
 const reportLimit = require("./utils/concurrency").createLimiter(2);
 const reportFailures = new Map();
 
@@ -297,6 +298,7 @@ class AppleAppStoreStatsViewer {
       resolver.clearCache("apple:sales_report:v2");
 
     const mergedTrends = new Map();
+    const purchaseEvents = [];
 
     // Parallel fetch for active dates only
     const reports = await Promise.all(
@@ -364,6 +366,11 @@ class AppleAppStoreStatsViewer {
         if (!Number.isFinite(proceeds)) throw new Error("APPLE_REPORTS_INVALID");
         const productType = (row["Product Type Identifier"] || "").trim();
 
+        const purchaseKind = isApp ? null : appleKind(productType);
+        if (purchaseKind && rowDate >= dateList[0] && rowDate <= dateList.at(-1))
+          purchaseEvents.push({ date: rowDate, kind: purchaseKind, sku: (row.SKU || "").trim(), title: (row.Title || "").trim(),
+            units, currency: (row["Currency of Proceeds"] || "").trim(), amount: proceeds * units });
+
         if (isApp && FIRST_INSTALL_TYPES.has(productType)) {
           trend.dailyInstalls += units;
         } else if (
@@ -427,6 +434,7 @@ class AppleAppStoreStatsViewer {
     return {
       ...aggregated,
       dailyTrends,
+      purchases: summarizePurchases(purchaseEvents),
       platform: "apple",
       hasUninstallData: false,
     };

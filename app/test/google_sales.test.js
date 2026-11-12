@@ -28,6 +28,21 @@ const { parseSales, unzipCsv, getGoogleSales } = require("../lib/googleSales");
   const result = await getGoogleSales(config, "com.example.app", { startDate: "2026-10-20", endDate: "2026-10-20" });
   assert.deepEqual(result.grossRevenueByCurrency, { USD: 1219.5, EUR: 0.49 });
   assert.equal(result.revenueStatus, "available");
+  // Product columns are optional for the older schema; purchases then stay empty rather than invented.
+  assert.deepEqual(result.purchases.totals.iap.purchases + result.purchases.totals.subscription.purchases, 0);
+  const rows = await parseSales([header.trim() + ",Product Type,SKU ID,Product Title,Country of Buyer\n" + [
+    "com.example.app,2026-10-20,Charged,USD,4.99,Subscription,pro_month,Pro monthly,US",
+    "com.example.app,2026-10-20,Charged,USD,4.99,Subscription,pro_month,Pro monthly,VN",
+    "com.example.app,2026-10-20,Refund,USD,4.99,Subscription,pro_month,Pro monthly,US",
+    "com.example.app,2026-10-20,Partial refund,USD,1,Subscription,pro_month,Pro monthly,US",
+    "com.example.app,2026-10-21,Charged,EUR,0.99,One-time product,coins,Coins,DE",
+    "com.example.app,2026-10-21,Charged,USD,2.99,Paid app,,,US",
+  ].join("\n") + "\n"]);
+  const { summarizePurchases } = require("../lib/purchases");
+  const summary = summarizePurchases(rows.filter((row) => row.kind));
+  assert.deepEqual(summary.totals.subscription, { purchases: 2, refunds: 1, revenueByCurrency: { USD: 4.99 + 4.99 - 4.99 - 1 } });
+  assert.deepEqual(summary.totals.iap.purchases, 1);
+  assert.equal(rows.filter((row) => row.kind).length, 5, "paid apps are not in-app purchases");
   failed = true;
   require("../lib/resolver").clearCache("google:estimated-sales");
   assert.equal((await getGoogleSales(config, "com.example.app", { startDate: "2026-10-20", endDate: "2026-10-20" })).revenueAvailable, false);

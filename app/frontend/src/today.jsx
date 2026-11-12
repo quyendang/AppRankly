@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  ArrowRight, ArrowUpRight, ArrowDownRight, Check, CheckCircle2, AlertTriangle, Loader2, CircleDashed, MessageSquare, Inbox, Clock, TrendingDown, TrendingUp, Flag, Search, Settings, RefreshCw, Download, Sparkles, Moon, Sun, Globe, LayoutGrid,
+  ArrowRight, ChevronRight, ArrowUpRight, ArrowDownRight, Check, CheckCircle2, AlertTriangle, Loader2, CircleDashed, MessageSquare, Inbox, Clock, TrendingDown, TrendingUp, Flag, Search, Settings, RefreshCw, Download, Sparkles, Moon, Sun, Globe, LayoutGrid,
 } from "lucide-react";
 import { Panel, AppIcon, PlatformLabel, appColor, api } from "./components.jsx";
 import { Num, Skel } from "./motion.jsx";
+import { usdSummary } from "./revenue.js";
 
 const ICONS = { lowReview: MessageSquare, reviews: Inbox, source: AlertTriangle, lag: Clock, drop: TrendingDown, spike: TrendingUp,
   revenueDrop: TrendingDown, revenueSpike: TrendingUp, rankDrop: Flag, rankRise: Flag };
@@ -74,27 +75,32 @@ function Spark({ values, color, max }) {
   );
 }
 
-export function AppCard({ app, change, revenue, pending, openReviews, max, number, onOpen, onWarm }) {
+// One row per app: identity, trend, then the numbers in fixed columns so apps can be compared down the list.
+export function AppRow({ app, change, revenue, pending, openReviews, max, number, onOpen, onWarm }) {
   const { t } = useTranslation();
   const color = appColor(app);
   return (
-    <li className="app-card-wrap">
-      <button type="button" className={"app-card" + (pending ? " is-updating" : "") + (app.error ? " has-error" : "")}
+    <li className="app-row-wrap">
+      <button type="button" className={"app-row" + (pending ? " is-updating" : "") + (app.error ? " has-error" : "")}
         style={{ "--app": color, viewTransitionName: "card-" + app.id.replace(/[^a-zA-Z0-9_-]/g, "-") }}
         onClick={onOpen} onPointerEnter={onWarm} onFocus={onWarm} aria-label={t("openApp", { name: app.name })}>
-        <span className="card-top">
+        <span className="row-id">
           <AppIcon app={app} />
-          <span className="card-name"><strong>{app.name}</strong><PlatformLabel app={app} /></span>
+          <span className="card-name">
+            <strong>{app.name}</strong>
+            <PlatformLabel app={app} />
+          </span>
           {app.error === "SOURCE_FAILED" ? <span className="pill neg"><AlertTriangle className="icon" />{app.sourceStatus ? "HTTP " + app.sourceStatus : t("appSourceFailed")}</span>
-            : openReviews ? <span className="pill rev-pill"><MessageSquare className="icon" />{openReviews}</span> : null}
-          {pending && <Loader2 className="icon spin card-flag" aria-label={t("updating")} />}
+            : openReviews ? <span className="pill rev-pill" title={t("unanswered")}><MessageSquare className="icon" />{openReviews}</span> : null}
         </span>
-        <span className="card-chart">{pending && app.installs == null ? <Skel h="48px" /> : <Spark values={(app.dailyTrends || []).map((d) => d.installs)} color={color} max={max} />}</span>
-        <span className="card-stats">
-          <span><small>{t("installs")}</small><b>{app.installs == null ? "—" : <Num value={app.installs} format={(v) => number(v)} />}</b><Delta value={change} number={number} /></span>
-          <span><small>{t("revenue")}</small><b>{revenue}</b></span>
-          <span><small>{t("rating")}</small><b>{number(app.rating, 1)}{app.rating != null && <em aria-hidden="true">★</em>}</b></span>
+        <span className="row-chart">{pending && app.installs == null ? <Skel h="32px" /> : <Spark values={(app.dailyTrends || []).map((d) => d.installs)} color={color} max={max} />}</span>
+        <span className="row-num" data-label={t("installs")}>
+          <b>{app.installs == null ? "—" : <Num value={app.installs} format={(v) => number(v)} />}</b>
+          <Delta value={change} number={number} />
         </span>
+        <span className="row-num" data-label={t("revenue")}><b>{revenue}</b></span>
+        <span className="row-num" data-label={t("rating")}><b>{number(app.rating, 1)}{app.rating != null && <em aria-hidden="true">★</em>}</b></span>
+        <span className="row-go" aria-hidden="true">{pending ? <Loader2 className="icon spin" /> : <ChevronRight className="icon" />}</span>
       </button>
     </li>
   );
@@ -214,4 +220,55 @@ export function CommandPalette({ apps, current, onClose, onOpenApp, onTab, onPag
       </section>
     </div>
   );
+}
+
+// In-app purchases and subscriptions for the selected app and period, with a per-product breakdown.
+export function PurchasesPanel({ app, state, exchange, number, onRetry }) {
+  const { t } = useTranslation();
+  const usd = (byCurrency) => usdSummary([{ platform: "apple", revenueByCurrency: byCurrency || {} }], exchange);
+  const money = (byCurrency) => {
+    const entries = Object.entries(byCurrency || {}).filter(([, v]) => v);
+    if (!entries.length) return "—";
+    if (!exchange) return entries.map(([c, v]) => number(v, 2) + " " + c).join(" · ");
+    const converted = usd(byCurrency);
+    return converted.total == null ? entries.map(([c, v]) => number(v, 2) + " " + c).join(" · ") : number(converted.total, 2) + " USD";
+  };
+  let body;
+  if (!state || state.loading)
+    body = <div aria-busy="true"><div className="purchase-tiles">{[0, 1, 2].map((i) => <div key={i} className="tile"><Skel w="5em" /><Skel w="3em" h="1.6em" /></div>)}</div>{[0, 1, 2].map((i) => <div className="skel-row" key={i}><Skel w="40%" /><Skel w="3em" /></div>)}</div>;
+  else if (state.error)
+    body = <div className="inline-error" role="alert"><AlertTriangle className="icon" /><span>{t("OPERATION_FAILED")}</span><button type="button" className="button small" onClick={onRetry}>{t("retry")}</button></div>;
+  else if (!state.available)
+    body = <p className="content-message">{t(app.platform === "google" ? "purchasesGoogleUnavailable" : "purchasesUnavailable")}</p>;
+  else {
+    const { totals, products } = state.purchases, none = !totals.iap.purchases && !totals.subscription.purchases && !totals.iap.refunds && !totals.subscription.refunds;
+    const refunds = (totals.iap.refunds || 0) + (totals.subscription.refunds || 0);
+    body = none ? <p className="content-message">{t("purchasesNone")}</p> : (
+      <>
+        <div className="purchase-tiles">
+          <div className="tile sub"><span>{t("subscriptions")}</span><b><Num value={totals.subscription.purchases} format={(v) => number(v)} /></b><small>{money(totals.subscription.revenueByCurrency)}</small></div>
+          <div className="tile iap"><span>{t("inAppPurchases")}</span><b><Num value={totals.iap.purchases} format={(v) => number(v)} /></b><small>{money(totals.iap.revenueByCurrency)}</small></div>
+          <div className="tile"><span>{t("refunds")}</span><b><Num value={refunds} format={(v) => number(v)} /></b><small>{t("purchasesRefundHint")}</small></div>
+        </div>
+        <div className="table-scroll">
+          <table>
+            <thead><tr><th>{t("product")}</th><th>{t("productType")}</th><th className="numeric">{t("purchases")}</th><th className="numeric">{t("refunds")}</th><th className="numeric">{t("revenue")}</th></tr></thead>
+            <tbody>
+              {products.map((p) => (
+                <tr key={p.kind + p.sku}>
+                  <td><strong>{p.title || p.sku || "—"}</strong>{p.title && p.sku && <small className="sku">{p.sku}</small>}</td>
+                  <td><span className={"pill kind-" + p.kind}>{t(p.kind === "subscription" ? "subscription" : "inAppPurchase")}</span></td>
+                  <td className="numeric">{number(p.purchases)}</td>
+                  <td className="numeric">{p.refunds ? number(p.refunds) : "—"}</td>
+                  <td className="numeric">{money(p.revenueByCurrency)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="fine-print">{t(app.platform === "apple" ? "purchasesAppleHint" : "purchasesGoogleHint")}</p>
+      </>
+    );
+  }
+  return <Panel title={<>{t("purchasesTitle")} <span className="badge-new">{t("new")}</span></>} description={t("purchasesHint")} className="purchases-panel">{body}</Panel>;
 }

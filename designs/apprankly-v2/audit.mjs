@@ -20,7 +20,7 @@ const audit = () => {
     if (r.right > innerWidth + 1 && !el.closest('.tray,.sim')) out.push(`past viewport (${Math.round(r.right - innerWidth)}px): ` + label(el));
   });
   // 2. Children escaping their parent card horizontally
-  document.querySelectorAll('.panel, .lane, .hero-app, .scoreboard, .task, .app-card, .today-hero, .detail-head, .inbox-item').forEach((card) => {
+  document.querySelectorAll('.app-row, .tile, .purchases-panel, .panel, .lane, .hero-app, .scoreboard, .task, .app-card, .today-hero, .detail-head, .inbox-item').forEach((card) => {
     const cr = card.getBoundingClientRect();
     card.querySelectorAll('*').forEach((c) => {
       if (!vis(c) || c.closest('.rev-detail,.how,.chart-tip,.table-wrap,.table-scroll,.tabbar,.tabs,.fx-pop,.dh-switch')) return;
@@ -29,7 +29,7 @@ const audit = () => {
     });
   });
   // 3. Overlapping siblings in flex/grid rows (text collisions)
-  document.querySelectorAll('.lane-name, .lane-val, .r-head, .ha-id, .task-acts, .card-top, .card-stats, .controls, .ctrl-right, .page-title, .dh-id, .dh-row, .ib-title, .sec-head, .filters, .top-end, .review > div').forEach((row) => {
+  document.querySelectorAll('.row-id, .row-num, .app-row, .purchase-tiles, .tile, .panel-actions, .suggest-list label, .lane-name, .lane-val, .r-head, .ha-id, .task-acts, .card-top, .card-stats, .controls, .ctrl-right, .page-title, .dh-id, .dh-row, .ib-title, .sec-head, .filters, .top-end, .review > div').forEach((row) => {
     const kids = [...row.children].filter(vis);
     for (let i = 0; i < kids.length; i++) for (let j = i + 1; j < kids.length; j++) {
       const a = kids[i].getBoundingClientRect(), b = kids[j].getBoundingClientRect();
@@ -69,7 +69,7 @@ for (const [w, h] of [[1440, 900], [390, 844]]) {
     } else await page.goto(`http://127.0.0.1:4320/${proto}/index.html#portfolio`);
     await page.waitForTimeout(4000);
     const res = { portfolio: await page.evaluate(audit) };
-    const opener = proto === 'leaderboard' ? '.lane-hit' : '.app-card';
+    const opener = proto === 'leaderboard' ? '.lane-hit' : proto === 'production' ? '.app-row' : '.app-card';
     await page.locator(opener).first().click();
     await page.waitForTimeout(2500);
     res.detail = await page.evaluate(audit);

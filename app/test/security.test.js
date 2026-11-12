@@ -44,10 +44,13 @@ let calls = 0,
 require("../lib/storeReviews").loadReviews = async () => ({
   reviews: [{ id: "review-fr", rating: 5, text: "Très bonne application, merci !", language: "fr" }], sourceStatus: "available",
 });
+let keywordDraft = ["habit tracker", "Habit Tracker", "  daily routine ", "1. morning planner", "x".repeat(100), "already tracked", "", 7];
 ai.generateJSON = async (input) => {
   calls++;
   lastPayload = input.prompt;
   lastSystem = input.system;
+  if (JSON.parse(input.prompt).kind === "keywords")
+    return { data: { summary: "ok", recommendations: [], candidates: keywordDraft }, provider: "openai", model: "synthetic", usage: {} };
   if (replyDraft === "__AI_INVALID_RESPONSE__") throw new Error("AI_INVALID_RESPONSE");
   return {
     data: { summary: "Safe result", recommendations: [], candidates: JSON.parse(input.prompt).kind === "reviewReply" ? [replyDraft] : [] },
@@ -327,6 +330,38 @@ require("../lib/exchangeRates").getExchangeRates = async () => ({ base: "USD", s
       400,
     );
     assert.equal(calls, 1);
+    // AI keyword suggestions: market is validated, only clean new terms are returned, and nothing is saved until the owner adds them.
+    const dbRef = require("../lib/db").db;
+    dbRef.prepare("INSERT OR IGNORE INTO aso_keyword(package_name,platform,term,normalized,source,tracked,added_at) VALUES(?,?,?,?,'manual',1,datetime('now'))")
+      .run(fakeApp.packageName, "apple", "Already tracked", "already tracked");
+    const badMarket = await request("/api/ai/preview", "POST", { appId: fakeApp.id, kind: "keywords", country: "zz" }, cookie);
+    assert.equal(badMarket.status, 400);
+    const kwPreview = await (await request("/api/ai/preview", "POST", { appId: fakeApp.id, kind: "keywords", country: "vn", count: 99 }, cookie)).json();
+    assert.equal(kwPreview.payload.market.language, "vi");
+    assert.equal(kwPreview.payload.limit, 25);
+    assert.deepEqual(kwPreview.payload.keywords.map((k) => k.term), ["Already tracked"]);
+    assert.ok(!kwPreview.payload.metrics && !kwPreview.payload.notes);
+    const before = calls;
+    const kwRun = await (await request("/api/ai/run", "POST", { previewId: kwPreview.previewId, confirmed: true }, cookie)).json();
+    assert.equal(calls, before + 1);
+    assert.deepEqual(kwRun.result.candidates, ["habit tracker", "daily routine", "morning planner"]);
+    assert.equal(dbRef.prepare("SELECT COUNT(*) n FROM aso_keyword WHERE source='ai'").get().n, 0, "suggestions are not saved automatically");
+    const lastAi = dbRef.prepare("SELECT kind FROM aso_ai_run ORDER BY id DESC LIMIT 1").get();
+    assert.equal(lastAi.kind, "keywords");
+    keywordDraft = ["", 5, null];
+    const emptyPreview = await (await request("/api/ai/preview", "POST", { appId: fakeApp.id, kind: "keywords" }, cookie)).json();
+    const emptyRun = await request("/api/ai/run", "POST", { previewId: emptyPreview.previewId, confirmed: true }, cookie);
+    assert.equal(emptyRun.status, 502);
+    assert.deepEqual(await emptyRun.json(), { error: "AI_INVALID_RESPONSE" });
+    // Bulk add: trims, de-duplicates, rejects invalid input atomically.
+    const bulk = (terms) => request("/api/aso/keywords/bulk", "POST", { appId: fakeApp.id, terms }, cookie);
+    assert.equal((await bulk([])).status, 400);
+    assert.equal((await bulk(["ok", " "])).status, 400);
+    assert.equal((await bulk(Array.from({ length: 26 }, (_, i) => "k" + i))).status, 400);
+    assert.equal(dbRef.prepare("SELECT COUNT(*) n FROM aso_keyword WHERE normalized='ok'").get().n, 0, "failed bulk adds nothing");
+    const added = await (await bulk(["Habit tracker", "habit TRACKER", " daily routine "])).json();
+    assert.equal(added.added, 2);
+    assert.deepEqual(dbRef.prepare("SELECT term FROM aso_keyword WHERE source='ai' ORDER BY id").all().map((r) => r.term), ["Habit tracker", "daily routine"]);
     const replyPreview = await (await request("/api/ai/preview", "POST", {
       appId: fakeApp.id, kind: "reviewReply", reviewId: "review-fr", locale: "vi",
     }, cookie)).json();

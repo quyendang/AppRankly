@@ -73,7 +73,17 @@ portfolio.appStats = async (app, range) => {
     upgrades: 20 + (i % 8),
     revenueByCurrency: app.platform === "apple" ? { USD: 12 + i } : {},
   }));
+  // Synthetic IAP/subscription activity so the purchases chart and table have something to show.
+  const { summarizePurchases } = require("../lib/purchases");
+  const events = [];
+  dailyTrends.forEach((day, i) => {
+    if ((i + index) % 2 === 0) events.push({ date: day.date, kind: "subscription", sku: "pro_monthly", title: "Pro monthly", units: 1 + ((i + index) % 3), currency: "USD", amount: 4.99 * (1 + ((i + index) % 3)) });
+    if ((i + index) % 3 === 0) events.push({ date: day.date, kind: "iap", sku: "coins_500", title: "500 coins", units: 1 + (i % 2), currency: "USD", amount: 0.99 * (1 + (i % 2)) });
+    if (i % 9 === 4) events.push({ date: day.date, kind: "subscription", sku: "pro_monthly", title: "Pro monthly", units: -1, currency: "USD", amount: -4.99 });
+    if (i % 5 === 1) events.push({ date: day.date, kind: "subscription", sku: "pro_yearly", title: "Pro yearly", units: 1, currency: "USD", amount: 39.99 });
+  });
   return {
+    purchases: app.appId === "456" ? undefined : summarizePurchases(events),
     dailyTrends,
     installs: dailyTrends.reduce((s, d) => s + d.installs, 0),
     revenueByCurrency: app.platform !== "apple" ? {} : app.appId === "456"
@@ -138,7 +148,7 @@ scraper.getAppleReviewsRSS = scraper.getPlayReviews;
 scraper.getPlaySearch = async () => [];
 scraper.getAppleSearch = async () => [];
 const ai = require("../lib/ai");
-ai.generateJSON = async () => ({
+const generic = async () => ({
   data: {
     summary: "Preview result using synthetic data only.",
     recommendations: ["Review listing clarity."],
@@ -148,6 +158,14 @@ ai.generateJSON = async () => ({
   model: "fixture",
   usage: {},
 });
+ai.generateJSON = async (input) => {
+  if (JSON.parse(input.prompt).kind === "keywords") {
+    await new Promise((resolve) => setTimeout(resolve, 1800));
+    return { data: { summary: "Preview keywords", candidates: ["daily journal app", "habit tracker", "gratitude diary", "mood log", "morning pages", "private notes", "writing prompts", "mindful journaling"],
+      recommendations: ["Matches the core feature", "High-intent phrase", "Fits the audience", "Related behaviour", "Long-tail phrase", "Privacy angle", "Common search", "Differentiator"] }, provider: "test", model: "fixture", usage: {} };
+  }
+  return generic();
+};
 const reviewFixtures = [
   { id: "r1", author: "Preview user", rating: 5, text: "A clean space for daily notes.", date: "2026-10-29T12:00:00Z", replyText: "Thank you for sharing your feedback!", replyDate: "2026-10-30T12:00:00Z", canReply: true, source: "official" },
   { id: "r2", author: "Another preview user", rating: 4, text: "Useful app. Could the timer text be a little larger?", date: "2026-10-28T12:00:00Z", replyText: null, canReply: true, source: "official" },

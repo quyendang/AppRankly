@@ -7,11 +7,14 @@ import {
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
+  BarController,
+  LineController,
   Tooltip,
   Legend,
   Filler,
 } from "chart.js";
-import { Line } from "react-chartjs-2";
+import { Chart as ChartComponent } from "react-chartjs-2";
 import {
   ArrowUpRight,
   ArrowDownRight,
@@ -47,10 +50,14 @@ ChartJS.register(
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
+  BarController,
+  LineController,
   Tooltip,
   Legend,
   Filler,
 );
+const Line = (props) => <ChartComponent type="line" {...props} />;
 export function Button({
   children,
   icon: Icon,
@@ -163,7 +170,7 @@ export function Panel({
     </section>
   );
 }
-export function Chart({ apps, previous = [], theme, range, events = [], color: tint }) {
+export function Chart({ apps, previous = [], theme, range, events = [], color: tint, purchases }) {
   const { t, i18n } = useTranslation();
   const { dates, values, old } = trendSeries(apps, previous, range);
   if (!values.some(Number.isFinite))
@@ -171,6 +178,25 @@ export function Chart({ apps, previous = [], theme, range, events = [], color: t
   const dark = theme === "dark",
     color = tint || (dark ? "#FF5C9F" : "#D61F70"),
     muted = dark ? "#A69CB3" : "#6B6377";
+  const byDay = new Map((purchases?.daily || []).map((d) => [d.date, d]));
+  const hasPurchases = (purchases?.daily || []).some((d) => d.iap || d.subscription);
+  const barSeries = hasPurchases
+    ? [
+        { key: "subscription", label: t("subscriptions"), color: dark ? "#5BA6FF" : "#1A66CC" },
+        { key: "iap", label: t("inAppPurchases"), color: dark ? "#FFC53D" : "#B8780A" },
+      ].map(({ key, label, color: barColor }) => ({
+        type: "bar",
+        label,
+        data: dates.map((d) => byDay.get(d)?.[key] || 0),
+        backgroundColor: barColor + "CC",
+        borderRadius: 3,
+        borderSkipped: false,
+        stack: "purchases",
+        yAxisID: "yPurchases",
+        order: 2,
+        maxBarThickness: 14,
+      }))
+    : [];
   const data = {
     labels: dates.map((d) =>
       new Intl.DateTimeFormat(i18n.language, {
@@ -191,7 +217,10 @@ export function Chart({ apps, previous = [], theme, range, events = [], color: t
         pointRadius: 0,
         pointHoverRadius: 4,
         tension: 0.2,
+        order: 1,
+        yAxisID: "y",
       },
+      ...barSeries,
       ...(old.some(Number.isFinite)
         ? [
             {
@@ -204,6 +233,8 @@ export function Chart({ apps, previous = [], theme, range, events = [], color: t
               pointStyle: "line",
               pointRadius: 0,
               tension: 0.2,
+              order: 1,
+              yAxisID: "y",
             },
           ]
         : []),
@@ -251,6 +282,20 @@ export function Chart({ apps, previous = [], theme, range, events = [], color: t
               grid: { color: dark ? "#2B2436" : "#ECE9F1" },
               ticks: { maxTicksLimit: 5, color: muted, font: { size: 11 } },
             },
+            ...(hasPurchases
+              ? {
+                  yPurchases: {
+                    position: "right",
+                    beginAtZero: true,
+                    stacked: true,
+                    // Keep the bars in the lower part so they do not hide the installs line.
+                    suggestedMax: Math.max(4, ...barSeries[0].data.map((v, i) => v + barSeries[1].data[i])) * 2.4,
+                    grid: { display: false },
+                    ticks: { precision: 0, maxTicksLimit: 4, color: muted, font: { size: 11 } },
+                    title: { display: true, text: t("purchasesAxis"), color: muted, font: { size: 11 } },
+                  },
+                }
+              : {}),
           },
         }}
         plugins={[eventPlugin]}

@@ -9,6 +9,15 @@
 - Kiểm tra: `app/test/run.js` đạt; `designs/apprankly-v2/production-check.mjs` và `audit.mjs production` chạy trên preview-server tổng hợp, 1440/390, sáng/tối, không lỗi console, không tràn ngang.
 - Chưa làm: deploy Railway và kiểm tra với dữ liệu thật.
 
+### Sửa theo phản hồi (nhánh `fix/today-feedback`)
+
+- Bộ lọc sắp xếp/nền tảng không đổi được: nguyên nhân là `flushSync` trong View Transition làm select kiểm soát bị trễ; bỏ transition cho các điều khiển này.
+- "Your apps" đổi từ lưới thẻ sang danh sách dạng bảng (cột cố định: xu hướng, lượt cài, doanh thu, đánh giá).
+- Đồng bộ: các chấm chuyển động ngay khi bấm (trước đây chờ `/api/refresh` xong, vài giây).
+- Chi tiết app: biểu đồ có cột IAP/subscription theo ngày (trục phải), panel lượt mua và bảng theo sản phẩm. Backend: `lib/purchases.js`, `POST /api/purchases`; Apple lấy từ Sales Reports (IA1, IA9, IAY), Google từ Estimated Sales (Product Type, SKU ID).
+- Gợi ý từ khóa bằng AI: `kind: "keywords"` trong `/api/ai/preview` + `/api/ai/run` (xem payload, xác nhận, không tự lưu), `POST /api/aso/keywords/bulk` để thêm các từ đã chọn.
+- Lưu ý: Google chỉ tính subscription/IAP khi báo cáo Estimated Sales có cột Product Type và SKU ID (đúng theo tài liệu hiện hành); cache báo cáo Google đổi sang `google:estimated-sales:v2`.
+
 
 **Cập nhật:** 2026-11-01 17:36 (Asia/Ho_Chi_Minh)
 **Agent gần nhất:** Codex

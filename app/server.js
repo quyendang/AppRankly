@@ -230,6 +230,19 @@ function createApp() {
     }),
   );
   app.post(
+    "/api/purchases",
+    run(async (req, res) => {
+      const app = await store.ownedApp(req.body.appId),
+        range = store.dateRange(req.body);
+      const stats = await store.appStats(app, range);
+      res.json({
+        available: !!stats.purchases,
+        purchases: stats.purchases || { daily: [], products: [], totals: { iap: {}, subscription: {} } },
+        range,
+      });
+    }),
+  );
+  app.post(
     "/api/refresh",
     run(async (req, res) => {
       resolver.clearCache();

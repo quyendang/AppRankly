@@ -18,11 +18,11 @@ for (const [w, h, tag] of [[1440, 900, 'desktop'], [390, 844, 'mobile']]) {
   await page.fill('input[type=password]', 'preview-only-password');
   await page.click('button[type=submit]');
   await page.waitForTimeout(250);
-  const early = await page.evaluate(() => ({ skel: document.querySelectorAll('.app-card.skeleton').length, cards: document.querySelectorAll('.app-card:not(.skeleton)').length }));
+  const early = await page.evaluate(() => ({ skel: document.querySelectorAll('.app-row.skeleton').length, cards: document.querySelectorAll('.app-row:not(.skeleton)').length }));
   await page.waitForTimeout(700);
-  const mid = await page.evaluate(() => document.querySelectorAll('.app-card:not(.skeleton)').length);
+  const mid = await page.evaluate(() => document.querySelectorAll('.app-row:not(.skeleton)').length);
   await page.waitForTimeout(2500);
-  const done = await page.evaluate(() => document.querySelectorAll('.app-card:not(.skeleton)').length);
+  const done = await page.evaluate(() => document.querySelectorAll('.app-row:not(.skeleton)').length);
   if (tag === 'desktop') {
     ok('skeleton on first load', early.skel > 0, JSON.stringify(early));
     ok('Apple cards arrive before Google', mid > 0 && mid < done, `${mid}→${done}`);
@@ -35,7 +35,7 @@ for (const [w, h, tag] of [[1440, 900, 'desktop'], [390, 844, 'mobile']]) {
   // period switch keeps cards
   await page.click('.period-row [aria-pressed=false]');
   await page.waitForTimeout(120);
-  ok(tag + ' period switch keeps cards', (await page.$$('.app-card.skeleton')).length === 0 && (await page.$$('.app-card')).length === 4);
+  ok(tag + ' period switch keeps cards', (await page.$$('.app-row.skeleton')).length === 0 && (await page.$$('.app-row')).length === 4);
   await page.waitForTimeout(1500);
   // inbox dismiss + undo
   const n0 = (await page.$$('.inbox-item')).length;
@@ -46,7 +46,7 @@ for (const [w, h, tag] of [[1440, 900, 'desktop'], [390, 844, 'mobile']]) {
   await page.click('.toast button:not(.toast-x)').catch(() => {});
   await page.waitForTimeout(400);
   // open app → detail
-  await page.click('.app-card');
+  await page.click('.app-row');
   await page.waitForTimeout(1500);
   ok(tag + ' detail head', !!(await page.$('.detail-head h1')));
   await overflow('detail');
@@ -83,7 +83,7 @@ for (const [w, h, tag] of [[1440, 900, 'desktop'], [390, 844, 'mobile']]) {
   await page.goto('http://127.0.0.1:3002/');
   await page.fill('input[type=password]', 'preview-only-password'); await page.click('button[type=submit]');
   await page.waitForTimeout(2500);
-  await page.locator('.app-card', { hasText: 'Muse' }).click(); await page.waitForTimeout(1200);
+  await page.locator('.app-row', { hasText: 'Muse' }).click(); await page.waitForTimeout(1200);
   await page.locator('.tab').nth(2).click(); await page.waitForTimeout(2500);
   const txt = await page.textContent('.impact-panel');
   ok('release impact renders for Muse v2.5.0', /2\.5\.0/.test(txt), txt.slice(0, 120));

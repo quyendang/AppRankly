@@ -35,6 +35,11 @@ const Viewer = require("../lib/AppleAppStoreStatsViewer");
   assert.equal(first.dailyTrends[0].dailyInstalls, 7);
   assert.deepEqual(first.dailyTrends[0].revenueByCurrency, { USD: 3.5, EUR: 1 });
   assert.equal(requests[0].params["filter[version]"], "1_0");
+  // IAP/subscription units come from rows whose Parent Identifier is this app's SKU (refund = negative units).
+  assert.deepEqual(first.purchases.daily, [{ date: "2026-10-20", iap: 1, subscription: 2, refunds: 1 }]);
+  assert.deepEqual(first.purchases.totals.subscription, { purchases: 2, refunds: 1, revenueByCurrency: { USD: 3.5 } });
+  assert.deepEqual(first.purchases.totals.iap, { purchases: 1, refunds: 0, revenueByCurrency: { EUR: 1 } });
+  assert.deepEqual(first.purchases.products.map((p) => p.sku).sort(), ["coins", "sub-monthly"]);
   viewer.appId = "222";
   viewer.numericAppId = null;
   const second = await viewer.getAppStats("2026-10-20", "2026-10-20");
