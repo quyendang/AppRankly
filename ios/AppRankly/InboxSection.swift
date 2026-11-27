@@ -36,7 +36,7 @@ struct InboxSection: View {
                             Button("Bỏ qua", systemImage: "checkmark") { session.dismissInboxTask(task.key) }
                         }
                     }
-                    .navigationTitle("Hộp việc")
+                    .appNavigationTitle("Hộp việc")
                 }
             } else if tasks.isEmpty, loader.value != nil {
                 Text("Chưa có việc cần xử lý.").foregroundStyle(.secondary)

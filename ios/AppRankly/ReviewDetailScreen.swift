@@ -51,7 +51,7 @@ struct ReviewDetailScreen: View {
                 Button("Thử lại") { Task { await load() } }
             }
         }
-        .navigationTitle("Chi tiết review")
+        .appNavigationTitle("Chi tiết review")
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
         .refreshable { await load() }

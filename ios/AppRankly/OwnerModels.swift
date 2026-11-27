@@ -40,16 +40,23 @@ struct Integrations: Decodable {
     let notifications: Connection
 }
 
+struct SyncSource: Decodable {
+    let attempted: Int
+    let withReports: Int
+}
+
 struct SyncStatus: Decodable {
     let status: String
     let lastRun: String?
     let appsChecked: Int?
+    let sources: [String: SyncSource]?
 }
 
 struct SyncJob: Decodable {
     let id: String
     let state: String
     let appsChecked: Int?
+    let sources: [String: SyncSource]?
 }
 
 struct DigestPreview: Decodable {

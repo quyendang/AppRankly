@@ -7,6 +7,9 @@ struct SettingsView: View {
     @State private var settings: ServerSettings?
     @State private var integrations: Integrations?
     @State private var syncStatus: SyncStatus?
+    @State private var syncJob: SyncJob?
+    @State private var syncing = false
+    @State private var syncMessage: String?
     @State private var preferences: ServerPreferences?
     @State private var packageName = ""
     @State private var removing: String?
@@ -44,14 +47,19 @@ struct SettingsView: View {
             Section("Đồng bộ") {
                 if let last = syncStatus?.lastRun { LabeledContent("Lần gần nhất", value: ReviewDate.display(last)) }
                 if let count = syncStatus?.appsChecked { LabeledContent("Số app đã kiểm tra", value: count.formatted()) }
+                let sources = syncJob?.state == "completed" ? syncJob?.sources : syncStatus?.sources
+                if let apple = sources?["apple"] { syncSource("App Store", apple) }
+                if let google = sources?["google"] { syncSource("Google Play", google) }
                 Button("Đồng bộ ngay", systemImage: "arrow.clockwise") { Task { await sync() } }.disabled(busy)
+                if syncing { ProgressView("Đang đồng bộ…") }
+                if let syncMessage { Text(syncMessage).foregroundStyle(.secondary) }
             }
             if let settings, let preferences {
                 packages(settings.googlePackages)
                 preferencesSection(settings, preferences)
             }
             NavigationLink { NotificationsScreen(session: session) } label: { Label("Thông báo", systemImage: "bell") }
-            if busy { ProgressView("Đang xử lý…") }
+            if busy && !syncing { ProgressView("Đang xử lý…") }
             if let message { Text(message).foregroundStyle(.secondary) }
             Section {
                 Button("Đăng xuất", role: .destructive) { Task { await session.logout() } }
@@ -59,7 +67,7 @@ struct SettingsView: View {
                 if let message = session.message { Text(message).foregroundStyle(.secondary) }
             }
         }
-        .navigationTitle("Cài đặt")
+        .appNavigationTitle("Cài đặt")
         .task { await load() }
         .refreshable { await load() }
         .confirmationDialog("Bỏ mã gói đã thêm?", isPresented: Binding(get: { removing != nil },
@@ -74,6 +82,10 @@ struct SettingsView: View {
                 if let delivery { Task { await send(delivery) } }
             }
         }
+    }
+
+    private func syncSource(_ name: String, _ source: SyncSource) -> some View {
+        LabeledContent(name, value: AppLanguage.text("\(source.withReports)/\(source.attempted) app có báo cáo"))
     }
 
     private func connection(_ label: String, id: String, configured: Bool) -> some View {
@@ -199,23 +211,35 @@ struct SettingsView: View {
     }
 
     private func sync() async {
-        await perform {
+        guard !busy else { return }
+        busy = true
+        syncing = true
+        message = nil
+        syncMessage = nil
+        defer {
+            busy = false
+            syncing = false
+        }
+        do {
             var job = try await session.write(SyncJob.self, at: ["sync"], body: ASOEmptyBody())
             for _ in 0..<90 {
                 guard job.state == "running" else { break }
                 try await Task.sleep(for: .seconds(2))
                 job = try await session.get(SyncJob.self, at: ["sync", job.id])
             }
+            syncJob = job
+            if let latest = try? await session.get(SyncStatus.self, at: ["sync"]) { syncStatus = latest }
             switch job.state {
             case "completed":
                 session.catalogChanged()
                 session.reviewsChanged()
-                message = AppLanguage.text("Đồng bộ hoàn tất.")
-            case "skipped": message = AppLanguage.text("Một lượt đồng bộ khác đang chạy.")
-            case "failed": message = AppLanguage.text("Không hoàn tất được đồng bộ.")
-            default: message = AppLanguage.text("Máy chủ vẫn đang đồng bộ.")
+                syncMessage = AppLanguage.text("Đồng bộ hoàn tất.")
+            case "skipped": syncMessage = AppLanguage.text("Một lượt đồng bộ khác đang chạy.")
+            case "failed": syncMessage = AppLanguage.text("Không hoàn tất được đồng bộ.")
+            default: syncMessage = AppLanguage.text("Máy chủ vẫn đang đồng bộ.")
             }
-            syncStatus = try await session.get(SyncStatus.self, at: ["sync"])
+        } catch {
+            if !Task.isCancelled { syncMessage = OwnerMessage.text(error) }
         }
     }
 

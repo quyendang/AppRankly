@@ -59,7 +59,7 @@ struct OverviewScreen: View {
                 await load()
             }
         }
-        .navigationTitle("Thống kê")
+        .appNavigationTitle("Thống kê")
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button("Xuất báo cáo", systemImage: "square.and.arrow.up") { exporting = true }

@@ -73,8 +73,9 @@ notifier.broadcastAlert = async () => { assert.fail("No real notifications shoul
     const sync = await send("/sync", 202, "POST", {});
     assert.equal(sync.state, "running");
     assert.equal((await send("/sync", 202, "POST", {})).id, sync.id);
-    finishSync({ success: true, appsChecked: 0 });
-    assert.deepEqual(await send("/sync/" + sync.id), { id: sync.id, state: "completed", appsChecked: 0 });
+    const sources = { google: { attempted: 1, withReports: 0 } };
+    finishSync({ status: "completed", appsChecked: 0, sources });
+    assert.deepEqual(await send("/sync/" + sync.id), { id: sync.id, state: "completed", appsChecked: 0, sources });
     assert.equal((await send("/sync/unknown", 404)).error.code, "SYNC_NOT_FOUND");
 
     notifier.addNotificationRecord(directory, { title: "Example", message: "New report" });

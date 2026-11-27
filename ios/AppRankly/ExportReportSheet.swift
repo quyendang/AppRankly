@@ -45,7 +45,7 @@ struct ExportReportSheet: View {
                 if busy { ProgressView("Đang chuẩn bị báo cáo…") }
                 if let error { Text(error).foregroundStyle(.secondary) }
             }
-            .navigationTitle("Xuất báo cáo")
+            .appNavigationTitle("Xuất báo cáo")
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Đóng") { dismiss() } } }
         }
         .onChange(of: format) { file = nil; error = nil }

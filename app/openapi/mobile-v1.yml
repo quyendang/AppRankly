@@ -1301,12 +1301,19 @@ components:
         status: { type: string }
         lastRun: { type: string, format: date-time, nullable: true }
         appsChecked: { type: integer, nullable: true }
+        sources: { type: object, additionalProperties: { $ref: '#/components/schemas/SyncSource' } }
     SyncJob:
       type: object
       properties:
         id: { type: string }
         state: { type: string, enum: [running, completed, skipped, failed] }
         appsChecked: { type: integer, nullable: true }
+        sources: { type: object, additionalProperties: { $ref: '#/components/schemas/SyncSource' } }
+    SyncSource:
+      type: object
+      properties:
+        attempted: { type: integer, minimum: 0 }
+        withReports: { type: integer, minimum: 0 }
     OwnerEvent:
       type: object
       properties:

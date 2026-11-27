@@ -87,7 +87,7 @@ struct KeywordsScreen: View {
                 ContentUnavailableView("Chưa có ứng dụng", systemImage: "square.grid.2x2")
             }
         }
-        .navigationTitle("Từ khóa")
+        .appNavigationTitle("Từ khóa")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu("Thêm từ khóa", systemImage: "plus") {
@@ -241,7 +241,7 @@ struct AddKeywordSheet: View {
                 Button("Theo dõi") { Task { await add() } }
                     .disabled(busy || term.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || term.utf16.count > 80)
             }
-            .navigationTitle("Thêm từ khóa")
+            .appNavigationTitle("Thêm từ khóa")
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Hủy") { dismiss() }.disabled(busy) } }
         }
         .interactiveDismissDisabled(busy)

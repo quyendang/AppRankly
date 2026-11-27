@@ -70,7 +70,7 @@ struct KeywordSuggestionSheet: View {
                 if busy { ProgressView("Đang xử lý…") }
                 if let error { Text(error).foregroundStyle(.secondary) }
             }
-            .navigationTitle("Gợi ý từ khóa")
+            .appNavigationTitle("Gợi ý từ khóa")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Đóng", systemImage: "xmark") { dismiss() }.disabled(busy) }

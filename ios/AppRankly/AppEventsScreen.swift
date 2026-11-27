@@ -37,7 +37,7 @@ struct AppEventsScreen: View {
             if let error { Text(error).foregroundStyle(.secondary) }
             AnalyticsStatusRow(error: loader.error, isLoading: loader.isLoading, hasValue: loader.value != nil) { await load() }
         }
-        .navigationTitle("Sự kiện")
+        .appNavigationTitle("Sự kiện")
         .task { await load() }
         .refreshable { await load() }
         .confirmationDialog("Xóa sự kiện?", isPresented: Binding(get: { deleting != nil },

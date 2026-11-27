@@ -13,7 +13,8 @@ const { rangeOf } = require("./mobileAnalytics");
 const fields = ["refreshIntervalHours", "timezone", "notificationsEnabled", "digest", "digestHour", "digestLocale", "anomalyThreshold", "googlePackages"];
 const editable = fields.filter(key => !["timezone", "googlePackages"].includes(key));
 const settings = value => Object.fromEntries(fields.map(key => [key, value[key]]));
-const status = value => ({ status: value?.status || "idle", lastRun: value?.lastRun || null, appsChecked: value?.appsChecked ?? null });
+const status = value => ({ status: value?.status || "idle", lastRun: value?.lastRun || null,
+  appsChecked: value?.appsChecked ?? null, sources: value?.sources || {} });
 const eventDTO = item => ({ ...item, id: String(item.id) });
 const day = period => period === undefined || period === "daily" ? "daily" : period === "weekly" ? "weekly" : null;
 
@@ -56,7 +57,7 @@ module.exports = function registerOwner(router, authenticate, run, operations) {
   route("get", "/sync", async (req, res) => res.json(status(scheduler.getSchedulerStatus())));
   route("post", "/sync", async (req, res) => {
     if (sync?.state === "running") return res.status(202).json(sync);
-    const job = { id: randomUUID(), state: "running", appsChecked: null };
+    const job = { id: randomUUID(), state: "running", appsChecked: null, sources: {} };
     sync = job;
     Promise.resolve().then(() => {
       resolver.clearCache();
@@ -65,6 +66,7 @@ module.exports = function registerOwner(router, authenticate, run, operations) {
       job.state = result?.status === "skipped" ? "skipped"
         : result?.status === "completed" || result?.success === true ? "completed" : "failed";
       job.appsChecked = result?.appsChecked ?? null;
+      job.sources = result?.sources || {};
     }).catch(() => { job.state = "failed"; });
     res.status(202).json(job);
   });

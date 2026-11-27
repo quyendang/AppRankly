@@ -48,7 +48,7 @@ struct CompetitorScreen: View {
                 Button("Thử lại") { Task { await refresh() } }.disabled(busy)
             }
         }
-        .navigationTitle("Đối thủ")
+        .appNavigationTitle("Đối thủ")
         .searchable(text: $query, prompt: "Tìm đối thủ trên \(app.platform.title)")
         .onSubmit(of: .search) { Task { await search() } }
         .onChange(of: query) { results = nil }

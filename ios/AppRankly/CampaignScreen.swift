@@ -37,7 +37,7 @@ struct CampaignScreen: View {
             if let deleteError { Text(deleteError).foregroundStyle(.secondary) }
             AnalyticsStatusRow(error: loader.error, isLoading: loader.isLoading, hasValue: loader.value != nil) { await load() }
         }
-        .navigationTitle("Chiến dịch")
+        .appNavigationTitle("Chiến dịch")
         .toolbar { ToolbarItem(placement: .topBarTrailing) {
             Button("Tạo liên kết", systemImage: "plus") { adding = true }
         } }
@@ -90,7 +90,7 @@ struct AddCampaignSheet: View {
                 Button("Tạo liên kết") { Task { await create() } }
                     .disabled(!valid(name) || !valid(source) || busy)
             }
-            .navigationTitle("Chiến dịch mới")
+            .appNavigationTitle("Chiến dịch mới")
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Hủy") { dismiss() }.disabled(busy) } }
         }
         .interactiveDismissDisabled(busy)

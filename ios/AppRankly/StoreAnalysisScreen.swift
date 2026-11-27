@@ -81,7 +81,7 @@ struct StoreAnalysisScreen: View {
             if busy { ProgressView("Đang xử lý…") }
             if let error { Text(error).foregroundStyle(.secondary) }
         }
-        .navigationTitle("Phân tích AI")
+        .appNavigationTitle("Phân tích AI")
         .onChange(of: kind) { preview = nil; error = nil }
         .onChange(of: question) { preview = nil; error = nil }
         .onChange(of: includeMetrics) { preview = nil; error = nil }

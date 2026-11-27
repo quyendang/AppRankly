@@ -214,7 +214,7 @@ async function checkAndNotifyStats(
 
     if (!packages || packages.length === 0) {
       console.log("[Scheduler] No packages found to check.");
-      return { success: true, appsChecked: 0, notificationsSent: 0 };
+      return { success: true, appsChecked: 0, notificationsSent: 0, sources: {} };
     }
 
     const lastKnownStats = getLastKnownStats(DATA_DIR);
@@ -382,8 +382,13 @@ async function checkAndNotifyStats(
 
     const results = await Promise.allSettled(fetchPromises);
 
-    for (const res of results) {
+    const sources = {};
+    for (const [index, res] of results.entries()) {
+      const platform = packages[index].platform;
+      const source = sources[platform] ??= { attempted: 0, withReports: 0 };
+      source.attempted++;
       if (res.status === "fulfilled" && res.value) {
+        source.withReports++;
         appsChecked++;
         const item = res.value;
 
@@ -502,6 +507,7 @@ async function checkAndNotifyStats(
       status: "completed",
       lastRun: lastSchedulerRun.toISOString(),
       appsChecked,
+      sources,
       notificationsSent,
       hoursInterval,
       rangeDays,

@@ -36,7 +36,7 @@ struct ReviewTemplateScreen: View {
             if loading { ProgressView() }
             if let error { Text(error).foregroundStyle(.secondary) }
         }
-        .navigationTitle("Mẫu phản hồi")
+        .appNavigationTitle("Mẫu phản hồi")
         .task { await load() }
         .refreshable { await load() }
         .confirmationDialog("Xóa mẫu phản hồi?", isPresented: Binding(get: { removing != nil },

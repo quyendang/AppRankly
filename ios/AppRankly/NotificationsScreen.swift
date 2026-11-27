@@ -52,7 +52,7 @@ struct NotificationsScreen: View {
             if let error { Text(error).foregroundStyle(.secondary) }
             AnalyticsStatusRow(error: loader.error, isLoading: loader.isLoading, hasValue: loader.value != nil) { await load() }
         }
-        .navigationTitle("Thông báo")
+        .appNavigationTitle("Thông báo")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Đọc tất cả", systemImage: "checkmark.circle") { Task { await mark(nil) } }
@@ -152,7 +152,7 @@ struct NotificationDetail: View {
                 }
             }
         }
-        .navigationTitle("Thông báo")
+        .appNavigationTitle("Thông báo")
         .task { if item.read != true { await markRead() } }
     }
 
