@@ -58,6 +58,13 @@ struct AppAnalyticsScreen: View {
                     Label("Review", systemImage: "bubble.left")
                 }
             }
+            Section("ASO") {
+                NavigationLink {
+                    KeywordsScreen(session: session, appId: app.id)
+                } label: {
+                    Label("Từ khóa", systemImage: "magnifyingglass")
+                }
+            }
             Section("Báo cáo chi tiết") {
                 ForEach(AnalyticsBreakdownKind.allCases) { kind in
                     NavigationLink {

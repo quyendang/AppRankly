@@ -2,7 +2,7 @@
 
 App iPhone dùng riêng cho một chủ tài khoản. SwiftUI đọc và ghi qua backend AppRankly hiện tại. Đã chọn mẫu **A. Tổng quan** cho màn mở đầu. Batch 1 bắt đầu với router mobile và phiên đăng nhập thiết bị. Phạm vi parity lấy theo giao diện web hiện hành trong `app/frontend/src/App.jsx`, gồm cả các tác vụ ít dùng ở phần Cài đặt và menu thao tác.
 
-Batch 1 đến 3 đã qua kiểm thử local. Trên simulator đã kiểm tra phiên thiết bị, thống kê, Hộp việc và luồng duyệt bản xem trước AI rồi gửi phản hồi đến store giả lập. API được kiểm thử đối soát sau timeout, quyền phản hồi và lỗi từng dòng khi gửi hàng loạt. Xác minh gửi lên store thật và ký cài trên iPhone thật còn chờ. Xem [hướng dẫn chạy trong Xcode](../../ios/README.md) và [OpenAPI mobile](../../app/openapi/mobile-v1.yml).
+Batch 1 đến 4 có mã nguồn SwiftUI và API. Test local bao phủ phiên thiết bị, thống kê, Hộp việc, phản hồi và gợi ý AI với dữ liệu giả lập. Batch 4 dùng hạng theo từng thị trường, giữ hạng đã lưu khi nguồn lỗi và chỉ theo dõi những từ đã chọn. Xác minh gửi lên store thật và ký cài trên iPhone thật còn chờ. Xem [hướng dẫn chạy trong Xcode](../../ios/README.md) và [OpenAPI mobile](../../app/openapi/mobile-v1.yml).
 
 ## Kiểm kê backend
 

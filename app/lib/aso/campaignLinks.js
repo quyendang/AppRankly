@@ -70,8 +70,8 @@ function saveCampaignLink({
   if (!liveDb) throw new Error('Database unavailable');
 
   const { playUrl, appleUrl } = generateStoreUrls({
-    packageName,
-    appleAppId,
+    packageName: platform === 'apple' ? '' : packageName,
+    appleAppId: platform === 'google' ? null : appleAppId,
     appleProviderToken,
     utmSource,
     utmMedium,
@@ -119,9 +119,13 @@ function saveCampaignLink({
   };
 }
 
-function getCampaignLinks(packageName) {
+function getCampaignLinks(packageName, platform) {
   const liveDb = dbModule.db;
   if (!liveDb) return [];
+
+  if (packageName && platform)
+    return liveDb.prepare("SELECT * FROM campaign_links WHERE package_name=? AND platform=? ORDER BY created_at DESC,id DESC")
+      .all(packageName, platform);
 
   if (packageName) {
     return liveDb.prepare(`

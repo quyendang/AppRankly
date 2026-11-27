@@ -1,19 +1,15 @@
-const { randomBytes } = require("node:crypto");
 const { db } = require("../lib/db");
-const { redact } = require("../lib/runtime");
 const { createLimiter } = require("../lib/utils/concurrency");
 const store = require("../lib/portfolio");
 const reviews = require("../lib/storeReviews");
 const replies = require("../lib/reviewReplies");
 const templates = require("../lib/reviewTemplates");
-const draft = require("../lib/reviewDraft");
 const insights = require("../lib/insights");
 const resolver = require("../lib/resolver");
 const { appDTO, rangeOf } = require("./mobileAnalytics");
 
 const refresh = createLimiter(2);
 const refreshing = new Map();
-const previews = new Map();
 const dateKey = "COALESCE(json_extract(payload,'$.date'),'')";
 const replyKey = "COALESCE(json_extract(payload,'$.replyText'),'')";
 const writeCodes = new Set(["REVIEW_REPLY_IN_PROGRESS", "REVIEW_REPLY_UNCERTAIN", "REVIEW_REPLY_NOT_VERIFIED",
@@ -157,31 +153,4 @@ module.exports = function registerReviews(router, authenticate, run) {
     res.json({ tasks: tasks.map(task => ({ ...task, app: appDTO(task.app) })) });
   });
 
-  link("post", "/ai/previews", async (req, res) => {
-    const { kind, appId, reviewId } = req.body || {};
-    if (kind !== "reviewReply" || typeof appId !== "string") throw new Error("INVALID_INPUT");
-    const app = await store.ownedApp(appId);
-    const review = dto(app, reviews.archivedReview(app, reviewId));
-    const destination = draft.destination();
-    if (!destination) throw new Error("AI_NOT_CONFIGURED");
-    const payload = JSON.parse(JSON.stringify({
-      kind, app: app.name, replyLimit: review.replyLimit,
-      review: { text: review.text.slice(0, 5000), rating: review.rating, language: review.language },
-      instruction: draft.instruction,
-    }, (key, value) => redact(value)));
-    const now = Date.now(), expires = now + 600000;
-    for (const [key, entry] of previews) if (entry.expires <= now) previews.delete(key);
-    if (previews.size >= 20) previews.delete(previews.keys().next().value);
-    const previewId = randomBytes(24).toString("hex");
-    previews.set(previewId, { expires, session: req.mobileSessionID, payload, destination });
-    res.json({ previewId, expiresAt: new Date(expires).toISOString(), destination, payload });
-  });
-  link("post", "/ai/runs", async (req, res) => {
-    const entry = previews.get(req.body?.previewId);
-    if (req.body?.confirmed !== true || !entry || entry.expires <= Date.now() || entry.session !== req.mobileSessionID ||
-        JSON.stringify(entry.destination) !== JSON.stringify(draft.destination()))
-      throw new Error("PREVIEW_REQUIRED");
-    previews.delete(req.body.previewId);
-    res.json({ text: await draft.generate(entry.payload) });
-  });
 };

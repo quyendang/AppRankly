@@ -94,6 +94,8 @@ module.exports = function mobileRouter(loginLimit) {
 
   require("./mobileAnalytics")(router, authenticate, run);
   require("./mobileReviews")(router, authenticate, run);
+  require("./mobileASO")(router, authenticate, run);
+  require("./mobileAI")(router, authenticate, run);
 
   router.use((req, res) => fail(res, 404, "NOT_FOUND"));
   router.use((error, req, res, next) => {
@@ -102,14 +104,16 @@ module.exports = function mobileRouter(loginLimit) {
     if (error.status === 400) return fail(res, 400, "INVALID_INPUT");
     if (error.status === 415) return fail(res, 415, "UNSUPPORTED_MEDIA_TYPE");
     const code = error.message;
-    if (["APP_NOT_FOUND", "NO_REPORTS", "REVIEW_NOT_FOUND"].includes(code)) return fail(res, 404, code);
-    if (["INVALID_INPUT", "INVALID_DATE_RANGE", "INVALID_PLATFORM", "PREVIEW_REQUIRED", "INVALID_REVIEW_REPLY"].includes(code))
+    if (["APP_NOT_FOUND", "NO_REPORTS", "REVIEW_NOT_FOUND", "KEYWORD_NOT_FOUND", "RANK_CHECK_NOT_FOUND",
+      "COMPETITOR_NOT_FOUND", "LISTING_UNAVAILABLE", "CAMPAIGN_NOT_FOUND"].includes(code)) return fail(res, 404, code);
+    if (["INVALID_INPUT", "INVALID_DATE_RANGE", "INVALID_PLATFORM", "PREVIEW_REQUIRED", "INVALID_REVIEW_REPLY",
+      "INVALID_MARKET", "INVALID_KEYWORD"].includes(code))
       return fail(res, 400, code);
     if (["REVIEW_REPLY_CONFLICT", "IDEMPOTENCY_CONFLICT", "REVIEW_REPLY_UNCERTAIN",
       "REVIEW_REPLY_IN_PROGRESS", "REVIEW_REPLY_NOT_VERIFIED"].includes(code)) return fail(res, 409, code);
     if (code === "REVIEWS_PERMISSION_REQUIRED") return fail(res, 403, code);
-    if (code === "AI_NOT_CONFIGURED") return fail(res, 503, code);
-    if (["AI_INVALID_RESPONSE", "AI_EMPTY_RESPONSE", "AI_OUTPUT_TRUNCATED", "REVIEW_REPLY_FAILED"].includes(code))
+    if (["AI_NOT_CONFIGURED", "RANK_CHECK_BUSY"].includes(code)) return fail(res, 503, code);
+    if (["AI_INVALID_RESPONSE", "AI_EMPTY_RESPONSE", "AI_OUTPUT_TRUNCATED", "REVIEW_REPLY_FAILED", "RANK_SOURCE_FAILED"].includes(code))
       return fail(res, 502, code);
     return fail(res, 500, "OPERATION_FAILED");
   });

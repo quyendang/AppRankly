@@ -148,6 +148,7 @@ struct InboxTask: Decodable, Identifiable {
     struct Anomaly: Decodable {
         let change: Double
         let term: String?
+        let keywordId: Int?
         let country: String?
         let from: Int?
         let to: Int?

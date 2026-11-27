@@ -88,13 +88,17 @@ struct InboxDestination: View {
         case "reviews":
             ReviewListScreen(session: session, appId: task.app.id, filter: .unanswered)
         case "rankDrop", "rankRise":
-            List {
-                LabeledContent("Ứng dụng", value: task.app.name)
-                if let market = task.anomaly?.country { LabeledContent("Thị trường", value: market.uppercased()) }
-                LabeledContent("Hạng trước", value: task.anomaly?.from.map { "#\($0)" } ?? "Ngoài top 100")
-                LabeledContent("Hạng mới", value: task.anomaly?.to.map { "#\($0)" } ?? "Ngoài top 100")
+            if let id = task.anomaly?.keywordId, let country = task.anomaly?.country {
+                KeywordHistoryScreen(session: session, app: task.app, keywordId: id, term: task.label, country: country)
+            } else {
+                List {
+                    LabeledContent("Ứng dụng", value: task.app.name)
+                    if let market = task.anomaly?.country { LabeledContent("Thị trường", value: market.uppercased()) }
+                    LabeledContent("Hạng trước", value: task.anomaly?.from.map { "#\($0)" } ?? "Ngoài top 100")
+                    LabeledContent("Hạng mới", value: task.anomaly?.to.map { "#\($0)" } ?? "Ngoài top 100")
+                }
+                .navigationTitle(task.label)
             }
-            .navigationTitle(task.label)
         default:
             AppAnalyticsScreen(session: session, app: task.app, period: period)
         }

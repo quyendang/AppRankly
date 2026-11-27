@@ -85,9 +85,11 @@ function createApp() {
   app.get("/l/:slug", rateLimit({ windowMs: 60000, max: 60 }), (req, res) => {
     const link = campaigns.recordCampaignClick(req.params.slug);
     if (!link) return res.sendStatus(404);
-    const target = /android/i.test(req.headers["user-agent"] || "")
-      ? link.play_url || link.apple_url
-      : link.apple_url || link.play_url;
+    const target = link.platform === "apple" ? link.apple_url
+      : link.platform === "google" ? link.play_url
+        : /android/i.test(req.headers["user-agent"] || "")
+          ? link.play_url || link.apple_url
+          : link.apple_url || link.play_url;
     try {
       const url = new URL(target);
       if (

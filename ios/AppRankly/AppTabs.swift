@@ -17,7 +17,7 @@ struct AppTabs: View {
             }
             Tab("Từ khóa", systemImage: "magnifyingglass") {
                 NavigationStack {
-                    screen("Từ khóa", unavailable: "Chưa có dữ liệu từ khóa", icon: "magnifyingglass")
+                    KeywordsScreen(session: session)
                 }
             }
             Tab("Ứng dụng", systemImage: "square.grid.2x2.fill") {
@@ -28,8 +28,4 @@ struct AppTabs: View {
         }
     }
 
-    private func screen(_ title: String, unavailable: String, icon: String) -> some View {
-        ContentUnavailableView(unavailable, systemImage: icon)
-            .navigationTitle(title)
-    }
 }

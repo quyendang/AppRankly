@@ -543,19 +543,271 @@ paths:
                         lastDate: { type: string, format: date }
         '400': { $ref: '#/components/responses/Error' }
         '401': { $ref: '#/components/responses/Error' }
-  /ai/previews:
+  /apps/{appId}/keywords:
+    parameters:
+      - $ref: '#/components/parameters/AppId'
+    get:
+      operationId: listTrackedKeywords
+      summary: List keywords and the latest check for one store market
+      parameters:
+        - $ref: '#/components/parameters/KeywordCountry'
+      responses:
+        '200':
+          description: Market, supported markets and tracked keywords. A failed check retains the most recent valid position.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [market, markets, keywords, source]
+                properties:
+                  market: { $ref: '#/components/schemas/KeywordMarket' }
+                  markets: { type: array, items: { $ref: '#/components/schemas/KeywordMarket' } }
+                  keywords: { type: array, items: { $ref: '#/components/schemas/TrackedKeyword' } }
+                  source: { type: string, enum: [public_store_search] }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
     post:
-      operationId: previewAIDraft
-      summary: Preview the exact review data and provider before requesting a draft
+      operationId: trackKeywords
+      summary: Track a manual term or a list of selected suggestions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [term]
+                  properties:
+                    term: { type: string, minLength: 1, maxLength: 80 }
+                - type: object
+                  required: [terms]
+                  properties:
+                    terms: { type: array, minItems: 1, maxItems: 25, items: { type: string, minLength: 1, maxLength: 80 } }
+      responses:
+        '201':
+          description: Tracked terms after trimming and deduplication
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, added]
+                properties:
+                  success: { type: boolean }
+                  added: { type: integer }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /apps/{appId}/keywords/{keywordId}:
+    parameters:
+      - $ref: '#/components/parameters/AppId'
+      - $ref: '#/components/parameters/KeywordId'
+    delete:
+      operationId: untrackKeyword
+      summary: Remove a tracked keyword and its rank history
+      responses:
+        '200': { $ref: '#/components/responses/ASOMutation' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /apps/{appId}/keywords/{keywordId}/history:
+    parameters:
+      - $ref: '#/components/parameters/AppId'
+      - $ref: '#/components/parameters/KeywordId'
+      - $ref: '#/components/parameters/KeywordCountry'
+    get:
+      operationId: getKeywordRankHistory
+      summary: Latest successful result per UTC day for the past 90 days
+      responses:
+        '200':
+          description: Historical ranks for one market
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, term, market, points]
+                properties:
+                  id: { type: integer }
+                  term: { type: string }
+                  market: { $ref: '#/components/schemas/KeywordMarket' }
+                  points:
+                    type: array
+                    items:
+                      type: object
+                      required: [date, checkedAt, rank, topN]
+                      properties:
+                        date: { type: string, format: date }
+                        checkedAt: { type: string, format: date-time }
+                        rank: { type: integer, nullable: true }
+                        topN: { type: integer, minimum: 0 }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /apps/{appId}/rank-checks:
+    parameters:
+      - $ref: '#/components/parameters/AppId'
+    post:
+      operationId: startRankCheck
+      summary: Start or resume a check for up to 20 oldest or unchecked keywords in a market
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                country: { type: string, default: us, enum: [us, vn, gb, jp, kr, de, fr] }
+      responses:
+        '202': { $ref: '#/components/responses/RankCheck' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /apps/{appId}/rank-checks/{jobId}:
+    parameters:
+      - $ref: '#/components/parameters/AppId'
+      - { name: jobId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      operationId: getRankCheck
+      summary: Read the result of a rank check scoped to this app
+      responses:
+        '200': { $ref: '#/components/responses/RankCheck' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /apps/{appId}/listing:
+    parameters:
+      - $ref: '#/components/parameters/AppId'
+    get:
+      operationId: getPublicStoreListing
+      summary: Read public listing metadata for an owned application
+      responses:
+        '200':
+          description: Public store listing
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [title, subtitle, description, developer, rating, storeUrl, source]
+                properties:
+                  title: { type: string }
+                  subtitle: { type: string, nullable: true }
+                  description: { type: string, nullable: true }
+                  developer: { type: string, nullable: true }
+                  rating: { type: number, nullable: true }
+                  storeUrl: { type: string, format: uri, nullable: true }
+                  source: { type: string, enum: [public_listing] }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /apps/{appId}/competitors:
+    parameters:
+      - $ref: '#/components/parameters/AppId'
+    get:
+      operationId: listOrSearchCompetitors
+      summary: List pinned competitors or search the app's store
+      parameters:
+        - { name: q, in: query, schema: { type: string, minLength: 1, maxLength: 100 } }
+        - $ref: '#/components/parameters/KeywordCountry'
+      responses:
+        '200':
+          description: Competitor list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  competitors: { type: array, items: { $ref: '#/components/schemas/Competitor' } }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: pinCompetitor
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [kind, appId, reviewId]
+              required: [competitorId]
               properties:
-                kind: { type: string, enum: [reviewReply] }
+                competitorId: { type: string }
+      responses:
+        '201': { $ref: '#/components/responses/ASOMutation' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /apps/{appId}/competitors/{competitorId}:
+    parameters:
+      - $ref: '#/components/parameters/AppId'
+      - { name: competitorId, in: path, required: true, schema: { type: string } }
+    delete:
+      operationId: unpinCompetitor
+      responses:
+        '200': { $ref: '#/components/responses/ASOMutation' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /apps/{appId}/campaigns:
+    parameters:
+      - $ref: '#/components/parameters/AppId'
+    get:
+      operationId: listCampaigns
+      responses:
+        '200':
+          description: Campaign links for the owned app and store
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  campaigns: { type: array, items: { $ref: '#/components/schemas/Campaign' } }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createCampaign
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, source]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 100 }
+                source: { type: string, minLength: 1, maxLength: 100 }
+      responses:
+        '201':
+          description: New link. Resolve its path against the backend origin, outside /api/v1.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Campaign' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /apps/{appId}/campaigns/{campaignId}:
+    parameters:
+      - $ref: '#/components/parameters/AppId'
+      - { name: campaignId, in: path, required: true, schema: { type: integer, minimum: 1 } }
+    delete:
+      operationId: deleteCampaign
+      responses:
+        '200': { $ref: '#/components/responses/ASOMutation' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /ai/previews:
+    post:
+      operationId: previewAIDraft
+      summary: Preview the exact input and provider before requesting a review draft or keyword suggestions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind, appId]
+              properties:
+                kind: { type: string, enum: [reviewReply, keywords] }
+                country: { type: string, enum: [us, vn, gb, jp, kr, de, fr] }
+                count: { type: integer, minimum: 5, maximum: 25 }
+                locale: { type: string, enum: [vi, en] }
                 appId: { type: string }
                 reviewId: { type: string }
       responses:
@@ -578,9 +830,16 @@ paths:
                       model: { type: string }
                   payload:
                     type: object
-                    required: [app, review, replyLimit, instruction]
+                    required: [app, instruction]
                     properties:
-                      app: { type: string }
+                      app:
+                        oneOf:
+                          - { type: string }
+                          - type: object
+                            properties:
+                              name: { type: string }
+                              packageName: { type: string }
+                              platform: { type: string }
                       kind: { type: string }
                       review:
                         type: object
@@ -588,6 +847,13 @@ paths:
                           text: { type: string }
                           rating: { type: integer, nullable: true }
                           language: { type: string, nullable: true }
+                      locale: { type: string }
+                      market: { $ref: '#/components/schemas/KeywordMarket' }
+                      limit: { type: integer }
+                      maxTermLength: { type: integer }
+                      listing: { type: object, additionalProperties: { type: string } }
+                      keywords: { type: array, items: { type: string } }
+                      competitors: { type: array, items: { type: string } }
                       replyLimit: { type: integer }
                       instruction: { type: string }
         '400': { $ref: '#/components/responses/Error' }
@@ -597,7 +863,7 @@ paths:
   /ai/runs:
     post:
       operationId: generateAIDraft
-      summary: Generate an editable draft using a confirmed preview
+      summary: Generate an editable draft or suggestions using a confirmed preview
       requestBody:
         required: true
         content:
@@ -610,14 +876,21 @@ paths:
                 confirmed: { type: boolean, enum: [true] }
       responses:
         '200':
-          description: Draft text. This route never publishes a response.
+          description: Draft or suggestions. This route neither publishes replies nor tracks keywords.
           content:
             application/json:
               schema:
                 type: object
-                required: [text]
                 properties:
                   text: { type: string }
+                  suggestions:
+                    type: array
+                    items:
+                      type: object
+                      required: [term, reason]
+                      properties:
+                        term: { type: string }
+                        reason: { type: string }
         '400': { $ref: '#/components/responses/Error' }
         '401': { $ref: '#/components/responses/Error' }
         '502': { $ref: '#/components/responses/Error' }
@@ -659,6 +932,15 @@ components:
       name: limit
       in: query
       schema: { type: integer, minimum: 1, maximum: 100, default: 30 }
+    KeywordCountry:
+      name: country
+      in: query
+      schema: { type: string, default: us, enum: [us, vn, gb, jp, kr, de, fr] }
+    KeywordId:
+      name: keywordId
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
   securitySchemes:
     deviceToken:
       type: http
@@ -810,7 +1092,66 @@ components:
         id: { type: integer }
         name: { type: string }
         body: { type: string }
+    KeywordMarket:
+      type: object
+      required: [country, language]
+      properties:
+        country: { type: string, enum: [us, vn, gb, jp, kr, de, fr] }
+        language: { type: string }
+    TrackedKeyword:
+      type: object
+      required: [id, term, source, rank, topN, checkedAt, attemptedAt, status]
+      properties:
+        id: { type: integer }
+        term: { type: string }
+        source: { type: string }
+        addedAt: { type: string }
+        rank: { type: integer, nullable: true }
+        topN: { type: integer, nullable: true }
+        checkedAt: { type: string, format: date-time, nullable: true }
+        attemptedAt: { type: string, format: date-time, nullable: true }
+        status: { type: string, enum: [ranked, outside, no_results, source_failed, unchecked] }
+    Competitor:
+      type: object
+      required: [id, title, rating, pinned]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        rating: { type: number, nullable: true }
+        pinned: { type: boolean }
+    Campaign:
+      type: object
+      required: [id, name, source, path, clicks, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        source: { type: string }
+        path: { type: string, pattern: '^/l/[a-z0-9-]+$' }
+        clicks: { type: integer, minimum: 0 }
+        createdAt: { type: string, nullable: true }
   responses:
+    ASOMutation:
+      description: Change saved
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success: { type: boolean }
+    RankCheck:
+      description: Background check. A completed job can contain both successes and source failures.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [id, country, state, checked, failed, error]
+            properties:
+              id: { type: string, format: uuid }
+              country: { type: string }
+              state: { type: string, enum: [running, completed, failed] }
+              checked: { type: integer }
+              failed: { type: integer }
+              error: { type: string, nullable: true }
     ReviewPage:
       description: Newest reviews first, with stable paging across equal dates
       content:
@@ -849,5 +1190,5 @@ components:
                 properties:
                   code:
                     type: string
-                    enum: [INVALID_INPUT, HTTPS_REQUIRED, INVALID_LOGIN, AUTH_REQUIRED, REQUEST_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, LOGIN_RATE_LIMIT, RATE_LIMIT, NOT_FOUND, APP_NOT_FOUND, NO_REPORTS, INVALID_PLATFORM, INVALID_DATE_RANGE, REVIEW_NOT_FOUND, INVALID_REVIEW_REPLY, PREVIEW_REQUIRED, REVIEW_REPLY_CONFLICT, IDEMPOTENCY_CONFLICT, REVIEW_REPLY_UNCERTAIN, REVIEW_REPLY_IN_PROGRESS, REVIEW_REPLY_NOT_VERIFIED, REVIEWS_PERMISSION_REQUIRED, REVIEW_REPLY_FAILED, AI_NOT_CONFIGURED, AI_INVALID_RESPONSE, AI_EMPTY_RESPONSE, AI_OUTPUT_TRUNCATED, OPERATION_FAILED]
+                    enum: [INVALID_INPUT, HTTPS_REQUIRED, INVALID_LOGIN, AUTH_REQUIRED, REQUEST_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, LOGIN_RATE_LIMIT, RATE_LIMIT, NOT_FOUND, APP_NOT_FOUND, NO_REPORTS, INVALID_PLATFORM, INVALID_DATE_RANGE, REVIEW_NOT_FOUND, INVALID_REVIEW_REPLY, PREVIEW_REQUIRED, REVIEW_REPLY_CONFLICT, IDEMPOTENCY_CONFLICT, REVIEW_REPLY_UNCERTAIN, REVIEW_REPLY_IN_PROGRESS, REVIEW_REPLY_NOT_VERIFIED, REVIEWS_PERMISSION_REQUIRED, REVIEW_REPLY_FAILED, AI_NOT_CONFIGURED, AI_INVALID_RESPONSE, AI_EMPTY_RESPONSE, AI_OUTPUT_TRUNCATED, INVALID_MARKET, INVALID_KEYWORD, KEYWORD_NOT_FOUND, RANK_CHECK_NOT_FOUND, RANK_CHECK_BUSY, RANK_SOURCE_FAILED, LISTING_UNAVAILABLE, COMPETITOR_NOT_FOUND, CAMPAIGN_NOT_FOUND, OPERATION_FAILED]
                   requestId: { type: string, format: uuid }

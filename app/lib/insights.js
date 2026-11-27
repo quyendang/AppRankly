@@ -100,7 +100,7 @@ async function collectAnomalies(catalog) {
     } catch { /* app without reports yet */ }
     for (const m of appRankMoves(app))
       list.push({ appId: app.id, name: label(app), platform: app.platform, kind: "rank", date: m.date,
-        direction: m.move > 0 ? "up" : "down", change: m.move, term: m.term, country: m.country, from: m.from, to: m.to,
+        direction: m.move > 0 ? "up" : "down", change: m.move, keywordId: m.keywordId, term: m.term, country: m.country, from: m.from, to: m.to,
         key: [app.id, "rank", m.keywordId, m.country, m.date].join("|") });
   }
   return list;
