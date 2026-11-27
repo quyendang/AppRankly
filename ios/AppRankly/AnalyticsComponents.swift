@@ -85,6 +85,7 @@ struct InstallsChart: View {
     let report: AnalyticsReport
     let current: [AnalyticsReport.AppReport]
     let previous: [AnalyticsReport.AppReport]
+    var events: [AppEvents.Event] = []
 
     private func points(_ apps: [AnalyticsReport.AppReport], from range: ReportRange, alignedTo offset: Date, name: String) -> [Point] {
         guard let start = ReportRange.date(range.startDate), let end = ReportRange.date(range.endDate) else { return [] }
@@ -122,7 +123,8 @@ struct InstallsChart: View {
                 Text("Chưa có dữ liệu lượt cài.")
                     .foregroundStyle(.secondary)
             } else {
-                Chart(data) { point in
+                Chart {
+                    ForEach(data) { point in
                     LineMark(x: .value("Ngày", point.date), y: .value("Lượt cài", point.value),
                              series: .value("Đoạn dữ liệu", point.segment))
                         .foregroundStyle(by: .value("Kỳ", point.period))
@@ -130,6 +132,15 @@ struct InstallsChart: View {
                     PointMark(x: .value("Ngày", point.date), y: .value("Lượt cài", point.value))
                         .foregroundStyle(by: .value("Kỳ", point.period))
                         .symbolSize(9)
+                    }
+                    ForEach(events) { event in
+                        if let date = ReportRange.date(event.date), start...end ~= date {
+                            RuleMark(x: .value("Ngày sự kiện", date))
+                                .foregroundStyle(.secondary)
+                                .lineStyle(.init(lineWidth: 1, dash: [2, 4]))
+                                .accessibilityLabel(event.label)
+                        }
+                    }
                 }
                 .chartXScale(domain: start...max(end, start.addingTimeInterval(86400)))
                 .chartXAxis {

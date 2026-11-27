@@ -33,7 +33,7 @@ struct AppCatalogScreen: View {
         }
         .navigationTitle("Ứng dụng")
         .searchable(text: $search, prompt: "Tên hoặc mã ứng dụng")
-        .task { await load() }
+        .task(id: session.catalogGeneration) { await load() }
         .refreshable { await load() }
     }
 

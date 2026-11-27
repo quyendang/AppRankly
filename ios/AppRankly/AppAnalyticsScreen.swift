@@ -6,6 +6,7 @@ struct AppAnalyticsScreen: View {
 
     @State private var period: AnalyticsPeriod
     @State private var loader = AnalyticsLoad<AnalyticsReport>()
+    @State private var events: [AppEvents.Event] = []
     @State private var exchange: ExchangeRates?
 
     init(session: OwnerSession, app: StoreApp, period: AnalyticsPeriod) {
@@ -35,7 +36,7 @@ struct AppAnalyticsScreen: View {
             if let report = loader.value, report.range == period.range, let current = report.current.first {
                 Section {
                     InstallTotal(current: [current], previous: report.previous)
-                    InstallsChart(report: report, current: [current], previous: report.previous)
+                    InstallsChart(report: report, current: [current], previous: report.previous, events: events)
                 } header: {
                     Text("Lượt cài theo ngày")
                 } footer: {
@@ -66,6 +67,11 @@ struct AppAnalyticsScreen: View {
                 }
             }
             Section("Báo cáo chi tiết") {
+                NavigationLink {
+                    AppEventsScreen(session: session, app: app)
+                } label: {
+                    Label("Sự kiện", systemImage: "calendar")
+                }
                 ForEach(AnalyticsBreakdownKind.allCases) { kind in
                     NavigationLink {
                         AnalyticsBreakdownScreen(session: session, app: app, range: period.range, kind: kind)
@@ -82,16 +88,24 @@ struct AppAnalyticsScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .task(id: period) { await load() }
         .task { await loadRates() }
+        .onAppear { Task { await loadEvents() } }
         .refreshable {
             async let report: Void = load()
             async let rates: Void = loadRates()
-            _ = await (report, rates)
+            async let events: Void = loadEvents()
+            _ = await (report, rates, events)
         }
     }
 
     private func load() async {
         let range = period.range
         await loader.fetch { try await session.get(AnalyticsReport.self, at: ["apps", app.id, "analytics"], range: range) }
+    }
+
+    private func loadEvents() async {
+        if let result = try? await session.get(AppEvents.self, at: ["apps", app.id, "events"]) {
+            events = result.events
+        }
     }
 
     private func loadRates() async {

@@ -11,6 +11,7 @@ final class OwnerSession {
     private(set) var server = ""
     private(set) var message: String?
     private(set) var reviewGeneration = 0
+    private(set) var catalogGeneration = 0
     private(set) var dismissedInboxKeys: Set<String> = []
     private var reviewDrafts: [String: ReviewDraftRecord] = [:]
 
@@ -49,7 +50,7 @@ final class OwnerSession {
             do {
                 try SessionKeychain.clear()
                 phase = .signedOut
-                message = "Phiên đã hết hạn. Đăng nhập lại để tiếp tục."
+                message = AppLanguage.text("Phiên đã hết hạn. Đăng nhập lại để tiếp tục.")
             } catch {
                 phase = .locked
                 message = description(for: error)
@@ -63,7 +64,7 @@ final class OwnerSession {
     func login(server: String, password: String) async {
         guard !isWorking, phase == .signedOut else { return }
         guard let api = APIClient(server: server) else {
-            message = "Nhập địa chỉ HTTPS của máy chủ AppRankly."
+            message = AppLanguage.text("Nhập địa chỉ HTTPS của máy chủ AppRankly.")
             return
         }
 
@@ -132,6 +133,16 @@ final class OwnerSession {
     }
 
     func reviewsChanged() { reviewGeneration += 1 }
+    func catalogChanged() { catalogGeneration += 1 }
+
+    func exportReport(format: String, range: ReportRange, appId: String) async throws -> Data {
+        var query = range.query + [.init(name: "format", value: format)]
+        if !appId.isEmpty { query.append(.init(name: "appId", value: appId)) }
+        let parameters = query
+        return try await authorized { api, token in
+            try await api.send(to: ["export"], query: parameters, accessToken: token)
+        }
+    }
 
     func dismissInboxTask(_ key: String) {
         dismissedInboxKeys.insert(key)
@@ -197,7 +208,7 @@ final class OwnerSession {
                 return fresh
             } catch let error as APIClient.Failure where error.status == 401 {
                 try clearSession()
-                message = "Phiên đã hết hạn. Đăng nhập lại để tiếp tục."
+                message = AppLanguage.text("Phiên đã hết hạn. Đăng nhập lại để tiếp tục.")
                 throw error
             }
         }
@@ -247,12 +258,12 @@ final class OwnerSession {
     }
 
     private func description(for error: Error) -> String {
-        if error is SessionKeychain.Failure { return "Không truy cập được Keychain. Mở khóa iPhone rồi thử lại." }
+        if error is SessionKeychain.Failure { return AppLanguage.text("Không truy cập được Keychain. Mở khóa iPhone rồi thử lại.") }
         switch (error as? APIClient.Failure)?.code {
-        case "INVALID_LOGIN": return "Mật khẩu chưa đúng."
-        case "LOGIN_RATE_LIMIT", "RATE_LIMIT": return "Đã thử quá nhiều lần. Chờ một lúc rồi thử lại."
-        case "NOT_FOUND": return "Máy chủ chưa có API cho iOS. Kiểm tra địa chỉ và phiên bản backend."
-        default: return "Không hoàn tất được yêu cầu. Kiểm tra kết nối và địa chỉ máy chủ rồi thử lại."
+        case "INVALID_LOGIN": return AppLanguage.text("Mật khẩu chưa đúng.")
+        case "LOGIN_RATE_LIMIT", "RATE_LIMIT": return AppLanguage.text("Đã thử quá nhiều lần. Chờ một lúc rồi thử lại.")
+        case "NOT_FOUND": return AppLanguage.text("Máy chủ chưa có API cho iOS. Kiểm tra địa chỉ và phiên bản backend.")
+        default: return AppLanguage.text("Không hoàn tất được yêu cầu. Kiểm tra kết nối và địa chỉ máy chủ rồi thử lại.")
         }
     }
 }

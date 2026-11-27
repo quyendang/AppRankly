@@ -98,7 +98,7 @@ struct KeywordsScreen: View {
                 .accessibilityIdentifier("keyword-add-menu")
             }
         }
-        .task { await loadApps() }
+        .task(id: session.catalogGeneration) { await loadApps(); await load(scope) }
         .task(id: scope) { await load(scope) }
         .refreshable { await refresh() }
         .sheet(item: $editor) { editor in

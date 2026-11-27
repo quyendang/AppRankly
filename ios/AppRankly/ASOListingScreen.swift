@@ -29,6 +29,11 @@ struct ASOListingScreen: View {
                     Section("Mô tả") { Text(description).textSelection(.enabled) }
                 }
             }
+            NavigationLink {
+                StoreAnalysisScreen(session: session, app: app)
+            } label: {
+                Label("Phân tích AI", systemImage: "sparkles")
+            }
             AnalyticsStatusRow(error: loader.error, isLoading: loader.isLoading, hasValue: loader.value != nil) { await load() }
         }
         .navigationTitle("Trang store")

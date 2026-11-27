@@ -11,6 +11,7 @@ const axios = require("axios");
 axios.defaults.timeout = 15000;
 axios.defaults.maxRedirects = 0;
 const auth = require("./lib/auth");
+const ownerOperations = require("./lib/ownerOperations");
 const config = require("./lib/config");
 const { db } = require("./lib/db");
 const store = require("./lib/portfolio");
@@ -68,7 +69,10 @@ function createApp() {
       ? { error: { code: "LOGIN_RATE_LIMIT", requestId: res.locals.mobileRequestId } }
       : { error: "LOGIN_RATE_LIMIT" }),
   });
-  app.use("/api/v1", require("./routes/mobile")(loginLimit));
+  app.use("/api/v1", require("./routes/mobile")(loginLimit, {
+    sync: () => scheduler.checkAndNotifyStats(helpers, { force: true }),
+    settingsChanged: () => { if (require.main === module) scheduler.startPeriodicScheduler(helpers); },
+  }));
   app.use(express.json({ limit: "64kb" }));
   app.get("/healthz", (req, res) => res.json({ status: "ok" }));
   app.get("/readyz", (req, res) => {
@@ -135,15 +139,7 @@ function createApp() {
   app.post(
     "/api/apps/google",
     run(async (req, res) => {
-      const packageName = req.body.packageName;
-      if (!store.identifier(packageName) || !packageName.includes("."))
-        throw new Error("INVALID_PACKAGE");
-      const settings = config.getSettings();
-      config.saveSettings({
-        googlePackages: [
-          ...new Set([...(settings.googlePackages || []), packageName]),
-        ],
-      });
+      ownerOperations.updateGooglePackage(req.body.packageName);
       res.status(201).json({ success: true });
     }),
   );
@@ -162,39 +158,15 @@ function createApp() {
         .send(Buffer.from(icon.data));
     }),
   );
-  app.get("/api/integrations", (req, res) =>
-    res.json({
-      google: { configured: !!process.env.GOOGLE_SERVICE_ACCOUNT_JSON },
-      apple: { configured: !!process.env.APPLE_PRIVATE_KEY },
-      ai: require("./lib/ai").getAIStatus(),
-      notifications: {
-        configured: !!(
-          process.env.NTFY_TOPIC ||
-          process.env.DISCORD_WEBHOOK_URL ||
-          process.env.SLACK_WEBHOOK_URL ||
-          process.env.TELEGRAM_BOT_TOKEN
-        ),
-      },
-    }),
-  );
-  app.post(
-    "/api/integrations/:platform/test",
-    run(async (req, res) => {
-      if (!["google", "apple"].includes(req.params.platform))
-        return res.sendStatus(404);
-      try {
-        const cfg = config.getBaseConfig(),
-          viewer =
-            req.params.platform === "google"
-              ? viewers.buildGoogleViewer(cfg, "dummy")
-              : viewers.buildAppleViewer(cfg);
-        await viewer.listPackages();
-        res.json({ success: true });
-      } catch {
-        res.status(502).json({ error: "CONNECTION_FAILED" });
-      }
-    }),
-  );
+  app.get("/api/integrations", (req, res) => res.json(ownerOperations.integrations()));
+  app.post("/api/integrations/:platform/test", run(async (req, res) => {
+    if (!["google", "apple"].includes(req.params.platform)) return res.sendStatus(404);
+    try {
+      res.json(await ownerOperations.testIntegration(req.params.platform));
+    } catch {
+      res.status(502).json({ error: "CONNECTION_FAILED" });
+    }
+  }));
   app.get(
     "/api/projects",
     run(async (req, res) => res.json(await store.listApps())),

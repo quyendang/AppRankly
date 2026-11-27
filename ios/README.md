@@ -15,3 +15,7 @@ Batch 3 bổ sung tab Review và mục Cần xử lý trên Thống kê. Bấm *
 Batch 4 nối tab **Từ khóa**. Chọn ứng dụng và thị trường để xem hạng và lịch sử 90 ngày. Hạng lấy từ tìm kiếm công khai của store. Mỗi lần kiểm tra tối đa 20 từ, ưu tiên từ chưa kiểm tra hoặc kiểm tra lâu nhất. Gợi ý bằng AI có bước duyệt dữ liệu gửi và bước chọn từ để theo dõi. Trang store, đối thủ và liên kết chiến dịch nằm trong mục ASO. [Hợp đồng API mobile](../app/openapi/mobile-v1.yml).
 
 Access token hết hạn sau tối đa 15 phút. Refresh token có hạn tối đa 30 ngày kể từ lúc đăng nhập và đổi sau mỗi lần sử dụng. Khi phản hồi xoay token thất lạc sau khi server đã ghi kết quả, thiết bị có thể phải đăng nhập lại. Nút Đổi máy chủ ở trạng thái mất kết nối xóa phiên cục bộ. Phiên cũ trên máy chủ vẫn tuân theo hạn của nó nếu máy chủ chưa xác nhận đăng xuất.
+
+Batch 5 bổ sung **Cài đặt** để chọn giao diện và ngôn ngữ, kiểm tra kết nối store, quản lý mã gói Google Play và chạy đồng bộ. **Thông báo** và **Xuất báo cáo** nằm trên thanh công cụ của Thống kê. Báo cáo CSV hoặc JSON dùng ứng dụng và khoảng ngày đang chọn. Từ trang chi tiết ứng dụng, mở **Sự kiện** để thêm mốc lên biểu đồ. Trong ASO, mở **Phân tích AI** để duyệt dữ liệu sẽ gửi và xem lại kết quả đã lưu. Bản tin dùng các kênh đã cấu hình trên máy chủ.
+
+Cài riêng qua Xcode bằng **Signing & Capabilities → Automatically manage signing**, chọn team có quyền phát triển và chọn iPhone làm thiết bị chạy. Nếu iPhone yêu cầu Developer Mode, bật trong **Cài đặt → Quyền riêng tư & Bảo mật**.

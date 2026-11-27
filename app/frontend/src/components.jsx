@@ -1,3 +1,4 @@
+import { portfolioCSV } from "../../lib/portfolioCSV.mjs";
 import { trendSeries, sparkSegments } from "./series.js";
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -469,53 +470,11 @@ export async function api(url, { method = "GET", body, signal, keepalive } = {})
   return result;
 }
 export function csvDownload(apps, t) {
-  const rows = [
-    [
-      t("appColumn"),
-      t("platform"),
-      t("installs"),
-      t("revenue"),
-      t("originCurrency"),
-      t("revenueBasis"),
-    ],
-  ];
-  for (const app of apps) {
-    const entries = Object.entries((app.platform === "google" ? app.grossRevenueByCurrency : app.revenueByCurrency) || {});
-    const basis = t(app.platform === "google" ? "googleGrossRevenue" : "appleNetRevenue");
-    if (!entries.length)
-      rows.push([app.name, app.platform, app.installs ?? "", "", "", basis]);
-    else
-      for (const [currency, value] of entries)
-        rows.push([
-          app.name,
-          app.platform,
-          app.installs ?? "",
-          value,
-          currency,
-          basis,
-        ]);
-  }
-  download(
-    "apprankly.csv",
-    "\uFEFF" +
-      rows
-        .map((row) =>
-          row
-            .map(
-              (v) =>
-                '"' +
-                (typeof v === "string" && /^[=+@\-\t\r]/.test(v)
-                  ? "'" + v
-                  : String(v)
-                ).replace(/"/g, '""') +
-                '"',
-            )
-            .join(","),
-        )
-        .join("\r\n"),
-    "text/csv;charset=utf-8;",
-  );
+  const headers = ["appColumn", "platform", "installs", "revenue", "originCurrency", "revenueBasis"].map(key => t(key));
+  const csv = portfolioCSV(apps, headers, platform => t(platform === "google" ? "googleGrossRevenue" : "appleNetRevenue"));
+  download("apprankly.csv", csv, "text/csv;charset=utf-8;");
 }
+
 export function download(name, text, type = "application/json") {
   const url = URL.createObjectURL(new Blob([text], { type }));
   const a = document.createElement("a");

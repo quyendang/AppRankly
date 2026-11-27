@@ -5,9 +5,9 @@ enum ReviewFilter: String, CaseIterable, Identifiable {
     var id: Self { self }
     var title: String {
         switch self {
-        case .all: "Tất cả"
-        case .unanswered: "Chưa trả lời"
-        case .answered: "Đã trả lời"
+        case .all: AppLanguage.text("Tất cả")
+        case .unanswered: AppLanguage.text("Chưa trả lời")
+        case .answered: AppLanguage.text("Đã trả lời")
         }
     }
 }
@@ -29,12 +29,12 @@ struct MobileReview: Decodable, Identifiable {
     let revision: String
     let replyLimit: Int
 
-    var displayAuthor: String { author ?? "Người dùng" }
+    var displayAuthor: String { author ?? AppLanguage.text("Người dùng") }
     var statusTitle: String {
         switch replyState {
-        case "pending": "Chờ hiển thị"
-        case "published": "Đã trả lời"
-        default: "Chưa trả lời"
+        case "pending": AppLanguage.text("Chờ hiển thị")
+        case "published": AppLanguage.text("Đã trả lời")
+        default: AppLanguage.text("Chưa trả lời")
         }
     }
 }
@@ -165,13 +165,13 @@ struct InboxTask: Decodable, Identifiable {
 
     var label: String {
         switch kind {
-        case "lowReview": "\(count ?? 0) review 1–2 sao chưa trả lời"
-        case "reviews": "\(count ?? 0) review chưa trả lời"
-        case "lag": "Báo cáo đến chậm"
-        case "source": "Lỗi nguồn báo cáo"
-        case "rankDrop", "rankRise": anomaly?.term ?? "Thứ hạng từ khóa thay đổi"
-        case "revenueDrop", "revenueSpike": "Doanh thu biến động"
-        default: "Lượt cài biến động"
+        case "lowReview": AppLanguage.text("\(count ?? 0) review 1–2 sao chưa trả lời")
+        case "reviews": AppLanguage.text("\(count ?? 0) review chưa trả lời")
+        case "lag": AppLanguage.text("Báo cáo đến chậm")
+        case "source": AppLanguage.text("Lỗi nguồn báo cáo")
+        case "rankDrop", "rankRise": anomaly?.term ?? AppLanguage.text("Thứ hạng từ khóa thay đổi")
+        case "revenueDrop", "revenueSpike": AppLanguage.text("Doanh thu biến động")
+        default: AppLanguage.text("Lượt cài biến động")
         }
     }
 
@@ -193,15 +193,15 @@ enum ReviewMessage {
 
     static func text(_ code: String?) -> String {
         switch code {
-        case "REVIEW_REPLY_CONFLICT": "Review hoặc phản hồi đã thay đổi trên store. Mở lại review và kiểm tra trước khi gửi."
-        case "REVIEW_REPLY_NOT_VERIFIED": "Không tìm thấy phản hồi này trên store. Tải lại review trước khi xác nhận gửi mới."
-        case "REVIEW_REPLY_UNCERTAIN", "REVIEW_REPLY_IN_PROGRESS": "Chưa xác minh được kết quả. Kiểm tra lại để xem store đã nhận phản hồi chưa."
-        case "REVIEWS_PERMISSION_REQUIRED": "Store chưa cấp quyền trả lời review này."
-        case "REVIEW_NOT_FOUND": "Không tìm thấy review. Hãy tải lại danh sách."
-        case "AI_NOT_CONFIGURED": "Máy chủ chưa có nhà cung cấp AI."
-        case "PREVIEW_REQUIRED": "Bản xem trước đã hết hạn. Tạo bản xem trước mới để tiếp tục."
-        case "INVALID_REVIEW_REPLY", "INVALID_INPUT": "Kiểm tra nội dung và giới hạn ký tự rồi thử lại."
-        default: "Không hoàn tất được thao tác. Kiểm tra kết nối rồi thử lại."
+        case "REVIEW_REPLY_CONFLICT": AppLanguage.text("Review hoặc phản hồi đã thay đổi trên store. Mở lại review và kiểm tra trước khi gửi.")
+        case "REVIEW_REPLY_NOT_VERIFIED": AppLanguage.text("Không tìm thấy phản hồi này trên store. Tải lại review trước khi xác nhận gửi mới.")
+        case "REVIEW_REPLY_UNCERTAIN", "REVIEW_REPLY_IN_PROGRESS": AppLanguage.text("Chưa xác minh được kết quả. Kiểm tra lại để xem store đã nhận phản hồi chưa.")
+        case "REVIEWS_PERMISSION_REQUIRED": AppLanguage.text("Store chưa cấp quyền trả lời review này.")
+        case "REVIEW_NOT_FOUND": AppLanguage.text("Không tìm thấy review. Hãy tải lại danh sách.")
+        case "AI_NOT_CONFIGURED": AppLanguage.text("Máy chủ chưa có nhà cung cấp AI.")
+        case "PREVIEW_REQUIRED": AppLanguage.text("Bản xem trước đã hết hạn. Tạo bản xem trước mới để tiếp tục.")
+        case "INVALID_REVIEW_REPLY", "INVALID_INPUT": AppLanguage.text("Kiểm tra nội dung và giới hạn ký tự rồi thử lại.")
+        default: AppLanguage.text("Không hoàn tất được thao tác. Kiểm tra kết nối rồi thử lại.")
         }
     }
 

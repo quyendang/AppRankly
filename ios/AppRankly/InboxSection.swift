@@ -46,6 +46,7 @@ struct InboxSection: View {
             }
         }
         .task(id: period) { await load() }
+        .onChange(of: session.catalogGeneration) { _, _ in Task { await load() } }
         .onChange(of: session.reviewGeneration) { _, _ in Task { await load() } }
     }
 
@@ -94,8 +95,8 @@ struct InboxDestination: View {
                 List {
                     LabeledContent("Ứng dụng", value: task.app.name)
                     if let market = task.anomaly?.country { LabeledContent("Thị trường", value: market.uppercased()) }
-                    LabeledContent("Hạng trước", value: task.anomaly?.from.map { "#\($0)" } ?? "Ngoài top 100")
-                    LabeledContent("Hạng mới", value: task.anomaly?.to.map { "#\($0)" } ?? "Ngoài top 100")
+                    LabeledContent("Hạng trước", value: task.anomaly?.from.map { "#\($0)" } ?? AppLanguage.text("Ngoài top 100"))
+                    LabeledContent("Hạng mới", value: task.anomaly?.to.map { "#\($0)" } ?? AppLanguage.text("Ngoài top 100"))
                 }
                 .navigationTitle(task.label)
             }

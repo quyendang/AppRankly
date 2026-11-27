@@ -28,22 +28,22 @@ struct TrackedKeyword: Decodable, Identifiable {
 
     var position: String {
         switch status {
-        case "ranked": rank.map { "#\($0)" } ?? "Chưa rõ hạng"
-        case "outside": "Ngoài top \(topN ?? 0)"
-        case "no_results": "Không có kết quả"
-        case "source_failed": "Lỗi nguồn"
-        default: "Chưa kiểm tra"
+        case "ranked": rank.map { "#\($0)" } ?? AppLanguage.text("Chưa rõ hạng")
+        case "outside": AppLanguage.text("Ngoài top \(topN ?? 0)")
+        case "no_results": AppLanguage.text("Không có kết quả")
+        case "source_failed": AppLanguage.text("Lỗi nguồn")
+        default: AppLanguage.text("Chưa kiểm tra")
         }
     }
 
     var detail: String? {
         if status == "source_failed" {
-            if let rank, let checkedAt { return "Hạng đã lưu #\(rank) · \(ReviewDate.display(checkedAt))" }
+            if let rank, let checkedAt { return AppLanguage.text("Hạng đã lưu #\(rank) · \(ReviewDate.display(checkedAt))") }
             if let topN, let checkedAt {
-                let previous = topN > 0 ? "Ngoài top \(topN)" : "Không có kết quả"
-                return "Đã lưu \(previous.lowercased()) · \(ReviewDate.display(checkedAt))"
+                let previous = topN > 0 ? AppLanguage.text("Ngoài top \(topN)") : AppLanguage.text("Không có kết quả")
+                return AppLanguage.text("Đã lưu \(previous.lowercased()) · \(ReviewDate.display(checkedAt))")
             }
-            return attemptedAt.map { "Lần thử gần nhất \(ReviewDate.display($0))" }
+            return attemptedAt.map { AppLanguage.text("Lần thử gần nhất \(ReviewDate.display($0))") }
         }
         return checkedAt.map { ReviewDate.display($0) }
     }
@@ -58,7 +58,7 @@ struct KeywordHistory: Decodable {
 
         var position: String {
             if let rank { return "#\(rank)" }
-            return topN > 0 ? "Ngoài top \(topN)" : "Không có kết quả"
+            return topN > 0 ? AppLanguage.text("Ngoài top \(topN)") : AppLanguage.text("Không có kết quả")
         }
     }
 
@@ -88,7 +88,7 @@ struct KeywordSuggestionRequest: Encodable {
     let appId: String
     let country: String
     let count: Int
-    let locale = "vi"
+    let locale = AppLanguage.identifier
 }
 
 struct KeywordPreview: Decodable {
@@ -180,16 +180,16 @@ struct NewCampaign: Encodable {
 enum ASOMessage {
     static func text(_ error: Error) -> String {
         switch (error as? APIClient.Failure)?.code {
-        case "INVALID_KEYWORD": "Nhập từ khóa từ 1 đến 80 ký tự."
-        case "INVALID_MARKET": "Thị trường này chưa được hỗ trợ."
-        case "KEYWORD_NOT_FOUND": "Từ khóa đã bị xóa khỏi ứng dụng này."
-        case "RANK_CHECK_NOT_FOUND": "Lần kiểm tra đã hết hạn. Tải lại danh sách để xem hạng đã lưu."
-        case "RANK_CHECK_BUSY": "Máy chủ đang có nhiều lần kiểm tra. Thử lại sau."
-        case "RANK_SOURCE_FAILED": "Nguồn tìm kiếm chưa phản hồi. Hạng đã lưu vẫn có thể xem."
-        case "LISTING_UNAVAILABLE": "Chưa có thông tin trang store cho ứng dụng này."
-        case "COMPETITOR_NOT_FOUND": "Store chưa trả về thông tin đối thủ này."
-        case "CAMPAIGN_NOT_FOUND": "Chiến dịch đã bị xóa hoặc thuộc ứng dụng khác."
-        case "AI_INVALID_RESPONSE": "Không tìm được gợi ý mới phù hợp. Tạo bản xem trước mới để thử lại."
+        case "INVALID_KEYWORD": AppLanguage.text("Nhập từ khóa từ 1 đến 80 ký tự.")
+        case "INVALID_MARKET": AppLanguage.text("Thị trường này chưa được hỗ trợ.")
+        case "KEYWORD_NOT_FOUND": AppLanguage.text("Từ khóa đã bị xóa khỏi ứng dụng này.")
+        case "RANK_CHECK_NOT_FOUND": AppLanguage.text("Lần kiểm tra đã hết hạn. Tải lại danh sách để xem hạng đã lưu.")
+        case "RANK_CHECK_BUSY": AppLanguage.text("Máy chủ đang có nhiều lần kiểm tra. Thử lại sau.")
+        case "RANK_SOURCE_FAILED": AppLanguage.text("Nguồn tìm kiếm chưa phản hồi. Hạng đã lưu vẫn có thể xem.")
+        case "LISTING_UNAVAILABLE": AppLanguage.text("Chưa có thông tin trang store cho ứng dụng này.")
+        case "COMPETITOR_NOT_FOUND": AppLanguage.text("Store chưa trả về thông tin đối thủ này.")
+        case "CAMPAIGN_NOT_FOUND": AppLanguage.text("Chiến dịch đã bị xóa hoặc thuộc ứng dụng khác.")
+        case "AI_INVALID_RESPONSE": AppLanguage.text("Không tìm được gợi ý mới phù hợp. Tạo bản xem trước mới để thử lại.")
         default: ReviewMessage.text(error)
         }
     }

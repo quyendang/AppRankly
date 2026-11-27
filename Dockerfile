@@ -3,7 +3,7 @@ WORKDIR /app/frontend
 COPY app/frontend/package*.json ./
 RUN npm ci --ignore-scripts --no-audit --no-fund
 COPY app/frontend/ ./
-COPY app/lib/actionTasks.mjs /app/lib/actionTasks.mjs
+COPY app/lib/actionTasks.mjs app/lib/portfolioCSV.mjs /app/lib/
 RUN npm run build
 
 FROM node:22-alpine AS backend

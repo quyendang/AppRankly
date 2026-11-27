@@ -6,6 +6,7 @@ struct OverviewScreen: View {
     @State private var period = AnalyticsPeriod.month
     @State private var selectedApp = ""
     @State private var loader = AnalyticsLoad<AnalyticsReport>()
+    @State private var exporting = false
     @State private var exchange: ExchangeRates?
 
     var body: some View {
@@ -60,7 +61,14 @@ struct OverviewScreen: View {
         }
         .navigationTitle("Thống kê")
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button("Xuất báo cáo", systemImage: "square.and.arrow.up") { exporting = true }
+                    .disabled(loader.value?.current.isEmpty != false)
+                NavigationLink {
+                    NotificationsScreen(session: session)
+                } label: {
+                    Label("Thông báo", systemImage: "bell")
+                }
                 NavigationLink {
                     SettingsView(session: session)
                 } label: {
@@ -68,6 +76,10 @@ struct OverviewScreen: View {
                 }
             }
         }
+        .sheet(isPresented: $exporting) {
+            ExportReportSheet(session: session, range: period.range, appId: selectedApp)
+        }
+        .onChange(of: session.catalogGeneration) { Task { await load() } }
         .task(id: period) { await load() }
         .task { await loadRates() }
         .refreshable {

@@ -97,7 +97,7 @@ struct APIClient {
         var request = URLRequest(url: address)
         request.httpMethod = method
         request.timeoutInterval = path.first == "auth" ? 15 : 55
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue(path == ["export"] ? "application/json, text/csv" : "application/json", forHTTPHeaderField: "Accept")
         if let body {
             request.httpBody = body
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")

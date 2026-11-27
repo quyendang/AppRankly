@@ -442,6 +442,9 @@ paths:
                         required: [reviewId]
                         properties:
                           reviewId: { type: string }
+                question: { type: string, maxLength: 1000 }
+                includeMetrics: { type: boolean, default: false }
+                range: { type: object, properties: { startDate: { type: string, format: date }, endDate: { type: string, format: date } } }
       responses:
         '200':
           description: Individual outcomes in request order. A row failure does not roll back successes.
@@ -795,7 +798,7 @@ paths:
   /ai/previews:
     post:
       operationId: previewAIDraft
-      summary: Preview the exact input and provider before requesting a review draft or keyword suggestions
+      summary: Preview the exact input and provider before requesting a draft, keyword suggestions or store analysis
       requestBody:
         required: true
         content:
@@ -804,12 +807,15 @@ paths:
               type: object
               required: [kind, appId]
               properties:
-                kind: { type: string, enum: [reviewReply, keywords] }
+                kind: { type: string, enum: [reviewReply, keywords, audit, variants, reviews, ask] }
                 country: { type: string, enum: [us, vn, gb, jp, kr, de, fr] }
                 count: { type: integer, minimum: 5, maximum: 25 }
                 locale: { type: string, enum: [vi, en] }
                 appId: { type: string }
                 reviewId: { type: string }
+                question: { type: string, maxLength: 1000 }
+                includeMetrics: { type: boolean, default: false }
+                range: { type: object, properties: { startDate: { type: string, format: date }, endDate: { type: string, format: date } } }
       responses:
         '200':
           description: Single-use preview bound to the authenticated device session
@@ -828,9 +834,10 @@ paths:
                       provider: { type: string }
                       origin: { type: string }
                       model: { type: string }
+                  payloadJSON: { type: string, description: Formatted copy of the analysis payload }
                   payload:
                     type: object
-                    required: [app, instruction]
+                    required: [app, kind]
                     properties:
                       app:
                         oneOf:
@@ -863,7 +870,7 @@ paths:
   /ai/runs:
     post:
       operationId: generateAIDraft
-      summary: Generate an editable draft or suggestions using a confirmed preview
+      summary: Generate an editable draft, keyword suggestions or store analysis using a confirmed preview
       requestBody:
         required: true
         content:
@@ -876,13 +883,16 @@ paths:
                 confirmed: { type: boolean, enum: [true] }
       responses:
         '200':
-          description: Draft or suggestions. This route neither publishes replies nor tracks keywords.
+          description: Draft, suggestions or analysis. Store changes require separate endpoints.
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   text: { type: string }
+                  result: { type: object }
+                  provider: { type: string }
+                  model: { type: string }
                   suggestions:
                     type: array
                     items:
@@ -894,6 +904,327 @@ paths:
         '400': { $ref: '#/components/responses/Error' }
         '401': { $ref: '#/components/responses/Error' }
         '502': { $ref: '#/components/responses/Error' }
+  /settings:
+    get:
+      operationId: getSettings
+      summary: Read owner settings
+      responses:
+        '200':
+          description: Read owner settings
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OwnerSettings' }
+        '401': { $ref: '#/components/responses/Error' }
+    put:
+      operationId: updateSettings
+      summary: Update owner settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshIntervalHours: { type: integer, minimum: 1, maximum: 24 }
+                notificationsEnabled: { type: boolean }
+                digest: { type: string, enum: [off, daily, weekly] }
+                digestHour: { type: integer, minimum: 0, maximum: 23 }
+                digestLocale: { type: string, enum: [vi, en] }
+                anomalyThreshold: { type: integer, minimum: 10, maximum: 90 }
+      responses:
+        '200':
+          description: Update owner settings
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OwnerSettings' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+  /apps/google:
+    post:
+      operationId: addGooglePackage
+      summary: Track a Google Play package
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [packageName]
+              properties:
+                packageName: { type: string }
+      responses:
+        '201':
+          description: Track a Google Play package
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OwnerSettings' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+  /apps/google/{packageName}:
+    delete:
+      operationId: removeGooglePackage
+      summary: Stop tracking a Google Play package
+      parameters:
+        - { name: packageName, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Stop tracking a Google Play package
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OwnerSettings' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+  /integrations:
+    get:
+      operationId: getIntegrations
+      summary: Read integration availability and AI provider metadata
+      responses:
+        '200':
+          description: Read integration availability and AI provider metadata
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OwnerIntegrations' }
+        '401': { $ref: '#/components/responses/Error' }
+  /integrations/{platform}/test:
+    post:
+      operationId: testIntegration
+      summary: Test Google Play or App Store credentials
+      parameters:
+        - { name: platform, in: path, required: true, schema: { type: string, enum: [google, apple] } }
+      responses:
+        '200':
+          description: Test Google Play or App Store credentials
+          content:
+            application/json:
+              schema: { type: object, properties: { success: { type: boolean } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+  /sync:
+    get:
+      operationId: getSyncStatus
+      summary: Read the latest scheduler status
+      responses:
+        '200':
+          description: Read the latest scheduler status
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SyncStatus' }
+        '401': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: startSync
+      summary: Start or resume tracking an in-progress sync job
+      responses:
+        '202':
+          description: Start or resume tracking an in-progress sync job
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SyncJob' }
+        '401': { $ref: '#/components/responses/Error' }
+  /sync/{jobId}:
+    get:
+      operationId: getSyncJob
+      summary: Read the current sync job
+      parameters:
+        - { name: jobId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Read the current sync job
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SyncJob' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /notifications:
+    get:
+      operationId: getNotifications
+      summary: Read the owner notification feed
+      responses:
+        '200':
+          description: Read the owner notification feed
+          content:
+            application/json:
+              schema: { type: object, properties: { notifications: { type: array, items: { type: object } }, unreadCount: { type: integer } } }
+        '401': { $ref: '#/components/responses/Error' }
+  /notifications/read:
+    post:
+      operationId: markNotificationsRead
+      summary: Mark one notification or all notifications as read
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id: { type: string }
+      responses:
+        '200':
+          description: Mark one notification or all notifications as read
+          content:
+            application/json:
+              schema: { type: object, properties: { success: { type: boolean } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+  /notifications/{id}:
+    delete:
+      operationId: deleteNotification
+      summary: Delete a notification
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Delete a notification
+          content:
+            application/json:
+              schema: { type: object, properties: { success: { type: boolean } } }
+        '401': { $ref: '#/components/responses/Error' }
+  /notifications/test:
+    post:
+      operationId: sendTestNotification
+      summary: Send a confirmed test to configured notification channels
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirmed]
+              properties:
+                confirmed: { type: boolean, enum: [true] }
+      responses:
+        '200':
+          description: Send a confirmed test to configured notification channels
+          content:
+            application/json:
+              schema: { type: object, properties: { channels: { type: object, additionalProperties: { type: string, enum: [sent, skipped, failed] } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+  /digest:
+    get:
+      operationId: previewDigest
+      summary: Preview a digest
+      parameters:
+        - { name: period, in: query, schema: { type: string, enum: [daily, weekly] } }
+      responses:
+        '200':
+          description: Preview a digest
+          content:
+            application/json:
+              schema: { type: object, properties: { title: { type: string }, message: { type: string }, data: { type: object } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+  /digest/send:
+    post:
+      operationId: sendDigest
+      summary: Send a confirmed digest to configured notification channels
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirmed]
+              properties:
+                period: { type: string, enum: [daily, weekly] }
+                confirmed: { type: boolean, enum: [true] }
+      responses:
+        '200':
+          description: Send a confirmed digest to configured notification channels
+          content:
+            application/json:
+              schema: { type: object, properties: { channels: { type: object, additionalProperties: { type: string, enum: [sent, skipped, failed] } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+  /apps/{appId}/events:
+    get:
+      operationId: listAppEvents
+      summary: List manual events and store release and campaign markers
+      parameters:
+        - { $ref: '#/components/parameters/AppId' }
+      responses:
+        '200':
+          description: List manual events and store release and campaign markers
+          content:
+            application/json:
+              schema: { type: object, properties: { events: { type: array, items: { $ref: '#/components/schemas/OwnerEvent' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createAppEvent
+      summary: Add a manual app event
+      parameters:
+        - { $ref: '#/components/parameters/AppId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date, label]
+              properties:
+                date: { type: string, format: date }
+                label: { type: string, maxLength: 80 }
+      responses:
+        '201':
+          description: Add a manual app event
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OwnerEvent' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /apps/{appId}/events/{id}:
+    delete:
+      operationId: deleteAppEvent
+      summary: Delete a manual event from its owning app
+      parameters:
+        - { $ref: '#/components/parameters/AppId' }
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Delete a manual event from its owning app
+          content:
+            application/json:
+              schema: { type: object, properties: { success: { type: boolean } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /export:
+    get:
+      operationId: exportReport
+      summary: Download portfolio data for the selected date range
+      parameters:
+        - { $ref: '#/components/parameters/From' }
+        - { $ref: '#/components/parameters/To' }
+        - { name: format, in: query, schema: { type: string, enum: [json, csv] } }
+        - { name: appId, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Download portfolio data for the selected date range
+          content:
+            application/json:
+              schema: { type: object, properties: { range: { type: object }, apps: { type: array, items: { type: object } }, exchangeRates: { type: object } } }
+            text/csv:
+              schema: { type: string }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /apps/{appId}/ai/latest:
+    get:
+      operationId: getLatestAIAnalysis
+      summary: Read the latest saved analysis for an owned app
+      parameters:
+        - { $ref: '#/components/parameters/AppId' }
+      responses:
+        '200':
+          description: Read the latest saved analysis for an owned app
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AIAnalysis' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
 components:
   parameters:
     AppId:
@@ -946,6 +1277,51 @@ components:
       type: http
       scheme: bearer
   schemas:
+    OwnerSettings:
+      type: object
+      properties:
+        refreshIntervalHours: { type: integer, minimum: 1, maximum: 24 }
+        notificationsEnabled: { type: boolean }
+        digest: { type: string, enum: [off, daily, weekly] }
+        digestHour: { type: integer, minimum: 0, maximum: 23 }
+        digestLocale: { type: string, enum: [vi, en] }
+        anomalyThreshold: { type: integer, minimum: 10, maximum: 90 }
+        timezone: { type: string }
+        googlePackages: { type: array, items: { type: string } }
+    OwnerIntegrations:
+      type: object
+      properties:
+        google: { type: object, properties: { configured: { type: boolean } } }
+        apple: { type: object, properties: { configured: { type: boolean } } }
+        notifications: { type: object, properties: { configured: { type: boolean } } }
+        ai: { type: object }
+    SyncStatus:
+      type: object
+      properties:
+        status: { type: string }
+        lastRun: { type: string, format: date-time, nullable: true }
+        appsChecked: { type: integer, nullable: true }
+    SyncJob:
+      type: object
+      properties:
+        id: { type: string }
+        state: { type: string, enum: [running, completed, skipped, failed] }
+        appsChecked: { type: integer, nullable: true }
+    OwnerEvent:
+      type: object
+      properties:
+        id: { type: string }
+        date: { type: string, format: date }
+        type: { type: string }
+        label: { type: string }
+        source: { type: string }
+    AIAnalysis:
+      type: object
+      properties:
+        result: { type: object, nullable: true }
+        kind: { type: string, nullable: true }
+        provider: { type: string, nullable: true }
+        model: { type: string, nullable: true }
     OpaqueToken:
       type: string
       pattern: '^[A-Za-z0-9_-]{43}$'

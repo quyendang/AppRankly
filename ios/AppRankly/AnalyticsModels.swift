@@ -12,8 +12,8 @@ enum StorePlatform: String, Decodable {
 
     var revenueBasis: String {
         switch self {
-        case .apple: "Khoản thu ước tính của nhà phát triển"
-        case .google: "Tổng tiền người mua trả, gồm thuế"
+        case .apple: AppLanguage.text("Khoản thu ước tính của nhà phát triển")
+        case .google: AppLanguage.text("Tổng tiền người mua trả, gồm thuế")
         }
     }
 }
@@ -40,7 +40,7 @@ struct AppCatalog: Decodable {
     let warnings: [SourceWarning]
 }
 
-struct ReportRange: Decodable, Equatable, Hashable {
+struct ReportRange: Codable, Equatable, Hashable {
     let startDate: String
     let endDate: String
 
@@ -71,6 +71,14 @@ struct ReportRange: Decodable, Equatable, Hashable {
             startDate: formatter.string(from: today.addingTimeInterval(Double(-days) * 86400)),
             endDate: formatter.string(from: today.addingTimeInterval(-86400))
         )
+    }
+
+    static func localDay(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
     }
 
     static func date(_ value: String) -> Date? {

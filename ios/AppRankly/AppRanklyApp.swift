@@ -3,6 +3,8 @@ import SwiftUI
 @main
 struct AppRanklyApp: App {
     @State private var session = OwnerSession()
+    @AppStorage("language") private var language = "vi"
+    @AppStorage("appearance") private var appearance = "system"
 
     var body: some Scene {
         WindowGroup {
@@ -14,7 +16,7 @@ struct AppRanklyApp: App {
                     ContentUnavailableView {
                         Label("Chưa mở được phiên", systemImage: "lock")
                     } description: {
-                        Text(session.message ?? "Kiểm tra kết nối rồi thử lại.")
+                        Text(session.message ?? AppLanguage.text("Kiểm tra kết nối rồi thử lại."))
                     } actions: {
                         Button("Thử lại") { Task { await session.restore() } }
                             .buttonStyle(.borderedProminent)
@@ -30,6 +32,8 @@ struct AppRanklyApp: App {
                 }
             }
             .tint(Color("AccentColor"))
+            .environment(\.locale, Locale(identifier: language))
+            .preferredColorScheme(appearance == "light" ? .light : appearance == "dark" ? .dark : nil)
             .onChange(of: session.message) { _, message in
                 if let message { AccessibilityNotification.Announcement(message).post() }
             }
