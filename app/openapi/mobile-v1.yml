@@ -307,6 +307,320 @@ paths:
                         rate: { type: number, minimum: 0, exclusiveMinimum: true }
                         date: { type: string, format: date, nullable: true }
         '401': { $ref: '#/components/responses/Error' }
+  /reviews:
+    get:
+      operationId: listReviews
+      summary: Read saved reviews across owned applications
+      parameters:
+        - { name: appId, in: query, schema: { type: string } }
+        - $ref: '#/components/parameters/ReviewStatus'
+        - $ref: '#/components/parameters/ReviewStars'
+        - $ref: '#/components/parameters/ReviewCursor'
+        - $ref: '#/components/parameters/ReviewPageSize'
+      responses:
+        '200': { $ref: '#/components/responses/ReviewPage' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /reviews/refresh:
+    post:
+      operationId: refreshReviews
+      summary: Refresh archive data from one or all owned stores
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                appId: { type: string }
+      responses:
+        '200':
+          description: Per-app source results. Saved rows remain readable during provider failures.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sources]
+                properties:
+                  sources: { type: array, items: { $ref: '#/components/schemas/ReviewSource' } }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /apps/{appId}/reviews:
+    parameters:
+      - $ref: '#/components/parameters/AppId'
+    get:
+      operationId: listAppReviews
+      summary: Read the saved review archive for one owned app
+      parameters:
+        - $ref: '#/components/parameters/ReviewStatus'
+        - $ref: '#/components/parameters/ReviewStars'
+        - $ref: '#/components/parameters/ReviewCursor'
+        - $ref: '#/components/parameters/ReviewPageSize'
+      responses:
+        '200': { $ref: '#/components/responses/ReviewPage' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /apps/{appId}/reviews/{reviewId}:
+    parameters:
+      - $ref: '#/components/parameters/AppId'
+      - $ref: '#/components/parameters/ReviewId'
+    get:
+      operationId: getReview
+      summary: Read one review and its archive source status
+      responses:
+        '200':
+          description: Saved review and source status
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [review, source]
+                properties:
+                  review: { $ref: '#/components/schemas/Review' }
+                  source: { $ref: '#/components/schemas/ReviewSource' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /apps/{appId}/reviews/{reviewId}/reply:
+    parameters:
+      - $ref: '#/components/parameters/AppId'
+      - $ref: '#/components/parameters/ReviewId'
+    put:
+      operationId: setReviewReply
+      summary: Publish or edit one confirmed store response
+      description: Preserve the exact operation ID, revision, and text across connection retries. An ambiguous operation is reconciled by reading the official store. After an unresolved attempt settles, obtain a fresh revision and confirmation before making a different request.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ReviewReplyInput'
+                - type: object
+                  required: [confirmed]
+                  properties:
+                    confirmed: { type: boolean, enum: [true] }
+      responses:
+        '200':
+          description: Store accepted or confirmed the reply. Apple can report pending visibility.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [review]
+                properties:
+                  review: { $ref: '#/components/schemas/Review' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+  /apps/{appId}/reviews/bulk-replies:
+    parameters:
+      - $ref: '#/components/parameters/AppId'
+    post:
+      operationId: publishBulkReplies
+      summary: Publish up to 20 unique, explicitly confirmed replies for one app
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirmed, items]
+              properties:
+                confirmed: { type: boolean, enum: [true] }
+                items:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  items:
+                    allOf:
+                      - $ref: '#/components/schemas/ReviewReplyInput'
+                      - type: object
+                        required: [reviewId]
+                        properties:
+                          reviewId: { type: string }
+      responses:
+        '200':
+          description: Individual outcomes in request order. A row failure does not roll back successes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [results]
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      required: [reviewId, review, error]
+                      properties:
+                        reviewId: { type: string, nullable: true }
+                        review: { type: object, nullable: true, allOf: [{ $ref: '#/components/schemas/Review' }] }
+                        error: { type: string, nullable: true }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /review-templates:
+    get:
+      operationId: listReviewTemplates
+      responses:
+        '200':
+          description: Saved templates shared with web
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [templates]
+                properties:
+                  templates: { type: array, items: { $ref: '#/components/schemas/ReviewTemplate' } }
+        '401': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createReviewTemplate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, body]
+              properties:
+                name: { type: string, maxLength: 60 }
+                body: { type: string, maxLength: 5970 }
+      responses:
+        '201':
+          description: Saved template
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReviewTemplate' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+  /review-templates/{templateId}:
+    delete:
+      operationId: deleteReviewTemplate
+      parameters:
+        - { name: templateId, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        '200':
+          description: Template deleted or already removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, enum: [true] }
+        '401': { $ref: '#/components/responses/Error' }
+  /inbox:
+    get:
+      operationId: listInboxTasks
+      summary: Prioritized review, source and analytics tasks for the selected range
+      parameters:
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+      responses:
+        '200':
+          description: Tasks use the same ordering rules as web
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tasks]
+                properties:
+                  tasks:
+                    type: array
+                    items:
+                      type: object
+                      required: [key, kind, app]
+                      properties:
+                        key: { type: string }
+                        kind: { type: string }
+                        app: { $ref: '#/components/schemas/StoreApp' }
+                        count: { type: integer }
+                        sample: { type: object, nullable: true, additionalProperties: true }
+                        anomaly: { type: object, additionalProperties: true }
+                        lastDate: { type: string, format: date }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+  /ai/previews:
+    post:
+      operationId: previewAIDraft
+      summary: Preview the exact review data and provider before requesting a draft
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind, appId, reviewId]
+              properties:
+                kind: { type: string, enum: [reviewReply] }
+                appId: { type: string }
+                reviewId: { type: string }
+      responses:
+        '200':
+          description: Single-use preview bound to the authenticated device session
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [previewId, expiresAt, destination, payload]
+                properties:
+                  previewId: { type: string }
+                  expiresAt: { type: string, format: date-time }
+                  destination:
+                    type: object
+                    required: [provider]
+                    properties:
+                      provider: { type: string }
+                      origin: { type: string }
+                      model: { type: string }
+                  payload:
+                    type: object
+                    required: [app, review, replyLimit, instruction]
+                    properties:
+                      app: { type: string }
+                      kind: { type: string }
+                      review:
+                        type: object
+                        properties:
+                          text: { type: string }
+                          rating: { type: integer, nullable: true }
+                          language: { type: string, nullable: true }
+                      replyLimit: { type: integer }
+                      instruction: { type: string }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /ai/runs:
+    post:
+      operationId: generateAIDraft
+      summary: Generate an editable draft using a confirmed preview
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [previewId, confirmed]
+              properties:
+                previewId: { type: string }
+                confirmed: { type: boolean, enum: [true] }
+      responses:
+        '200':
+          description: Draft text. This route never publishes a response.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [text]
+                properties:
+                  text: { type: string }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
 components:
   parameters:
     AppId:
@@ -323,6 +637,28 @@ components:
       name: to
       in: query
       schema: { type: string, format: date }
+    ReviewId:
+      name: reviewId
+      in: path
+      required: true
+      schema: { type: string, maxLength: 500 }
+    ReviewStatus:
+      name: status
+      in: query
+      schema: { type: string, enum: [all, unanswered, answered], default: all }
+    ReviewStars:
+      name: stars
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 5 }
+    ReviewCursor:
+      name: cursor
+      in: query
+      schema: { type: string }
+      description: Opaque token from the preceding page for the same filters
+    ReviewPageSize:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 30 }
   securitySchemes:
     deviceToken:
       type: http
@@ -434,7 +770,58 @@ components:
         purchases: { type: integer }
         refunds: { type: integer }
         revenueByCurrency: { $ref: '#/components/schemas/Amounts' }
+    Review:
+      type: object
+      required: [app, id, text, source, canReply, replyState, revision, replyLimit]
+      properties:
+        app: { $ref: '#/components/schemas/StoreApp' }
+        id: { type: string }
+        author: { type: string, nullable: true }
+        text: { type: string }
+        rating: { type: integer, nullable: true }
+        date: { type: string, nullable: true }
+        territory: { type: string, nullable: true }
+        language: { type: string, nullable: true }
+        source: { type: string, enum: [official, public, report] }
+        canReply: { type: boolean }
+        replyText: { type: string, nullable: true }
+        replyDate: { type: string, nullable: true }
+        replyState: { type: string, enum: [unanswered, pending, published] }
+        revision: { type: string, pattern: '^[0-9a-f]{64}$' }
+        replyLimit: { type: integer, enum: [350, 5970] }
+    ReviewReplyInput:
+      type: object
+      required: [text, expectedRevision, operationId]
+      properties:
+        text: { type: string }
+        expectedRevision: { type: string, pattern: '^[0-9a-f]{64}$' }
+        operationId: { type: string, format: uuid }
+    ReviewSource:
+      type: object
+      required: [appId, status, checkedAt]
+      properties:
+        appId: { type: string }
+        status: { type: string, enum: [available, unavailable, unknown] }
+        checkedAt: { type: string, format: date-time, nullable: true }
+    ReviewTemplate:
+      type: object
+      required: [id, name, body]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        body: { type: string }
   responses:
+    ReviewPage:
+      description: Newest reviews first, with stable paging across equal dates
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [reviews, sources, nextCursor]
+            properties:
+              reviews: { type: array, items: { $ref: '#/components/schemas/Review' } }
+              sources: { type: array, items: { $ref: '#/components/schemas/ReviewSource' } }
+              nextCursor: { type: string, nullable: true }
     Analytics:
       description: Current and previous periods. A source can fail while other apps remain available.
       content:
@@ -462,5 +849,5 @@ components:
                 properties:
                   code:
                     type: string
-                    enum: [INVALID_INPUT, HTTPS_REQUIRED, INVALID_LOGIN, AUTH_REQUIRED, REQUEST_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, LOGIN_RATE_LIMIT, RATE_LIMIT, NOT_FOUND, APP_NOT_FOUND, NO_REPORTS, INVALID_PLATFORM, INVALID_DATE_RANGE, OPERATION_FAILED]
+                    enum: [INVALID_INPUT, HTTPS_REQUIRED, INVALID_LOGIN, AUTH_REQUIRED, REQUEST_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, LOGIN_RATE_LIMIT, RATE_LIMIT, NOT_FOUND, APP_NOT_FOUND, NO_REPORTS, INVALID_PLATFORM, INVALID_DATE_RANGE, REVIEW_NOT_FOUND, INVALID_REVIEW_REPLY, PREVIEW_REQUIRED, REVIEW_REPLY_CONFLICT, IDEMPOTENCY_CONFLICT, REVIEW_REPLY_UNCERTAIN, REVIEW_REPLY_IN_PROGRESS, REVIEW_REPLY_NOT_VERIFIED, REVIEWS_PERMISSION_REQUIRED, REVIEW_REPLY_FAILED, AI_NOT_CONFIGURED, AI_INVALID_RESPONSE, AI_EMPTY_RESPONSE, AI_OUTPUT_TRUNCATED, OPERATION_FAILED]
                   requestId: { type: string, format: uuid }

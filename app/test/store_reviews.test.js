@@ -8,6 +8,9 @@ const appleRequests = [];
 require.cache[axiosPath].exports = async options => {
   appleRequests.push(options);
   if (options.method === "POST") return { data: { data: { attributes: { state: "PENDING_PUBLISH" } } } };
+  if (options.url.endsWith("/response")) return { data: { data: {
+    attributes: { responseBody: "Existing Apple reply", state: "PUBLISHED" },
+  } } };
   return { data: { data: [{ id: "apple-review", attributes: { reviewerNickname: "Apple user", body: "Useful timer", rating: 5, createdDate: "2026-10-30" },
     relationships: { response: { data: { id: "apple-response" } } } }],
     included: [{ id: "apple-response", type: "customerReviewResponses", attributes: { responseBody: "Existing Apple reply" } }] } };
@@ -25,7 +28,7 @@ GoogleAuth.prototype.request = async function(options) {
   ] };
   return { data: options.url.endsWith("/reviews") ? { reviews: [review] } : options.method === "POST" ? {} : review };
 };
-const { loadReviews, replyReview } = require("../lib/storeReviews");
+const { loadReviews, replyReview, revision } = require("../lib/storeReviews");
 const { db } = require("../lib/db");
 (async () => {
   const app = { id: "google:com.example.reviews", packageName: "com.example.reviews", platform: "google" };
@@ -50,6 +53,9 @@ const { db } = require("../lib/db");
   const apple = { id: "apple:com.example.reviews", packageName: "com.example.reviews", appId: "123", platform: "apple" };
   const appleLoaded = await loadReviews(apple);
   assert.equal(appleLoaded.reviews[0].replyText, "Existing Apple reply");
+  await assert.rejects(replyReview(apple, "apple-review", "Stale Apple response",
+    revision({ ...appleLoaded.reviews[0], replyText: "An older response" })), /REVIEW_REPLY_CONFLICT/);
+  assert.ok(!appleRequests.some(request => request.method === "POST"));
   const appleReply = await replyReview(apple, "apple-review", "Thank you for your Apple review!");
   assert.equal(appleReply.responseState, "PENDING_PUBLISH");
   assert.equal(appleRequests.at(-1).data.data.relationships.review.data.id, "apple-review");

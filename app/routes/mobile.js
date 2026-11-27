@@ -47,7 +47,13 @@ module.exports = function mobileRouter(loginLimit) {
     legacyHeaders: false,
     handler: (req, res) => fail(res, 429, "RATE_LIMIT"),
   }));
-  router.use(express.json({ limit: "64kb" }));
+  const parseJSON = express.json({ limit: "64kb" });
+  const parseBulkJSON = express.json({ limit: "768kb" });
+  router.use((req, res, next) => {
+    if (req.method === "POST" && /^\/apps\/[^/]+\/reviews\/bulk-replies\/?$/i.test(req.path))
+      return authenticate(req, res, () => parseBulkJSON(req, res, next));
+    return parseJSON(req, res, next);
+  });
 
   router.post("/auth/login", loginLimit, run(async (req, res) => {
     const version = credentialVersion();
@@ -87,6 +93,7 @@ module.exports = function mobileRouter(loginLimit) {
   });
 
   require("./mobileAnalytics")(router, authenticate, run);
+  require("./mobileReviews")(router, authenticate, run);
 
   router.use((req, res) => fail(res, 404, "NOT_FOUND"));
   router.use((error, req, res, next) => {
@@ -94,10 +101,16 @@ module.exports = function mobileRouter(loginLimit) {
     if (error.type === "entity.too.large") return fail(res, 413, "REQUEST_TOO_LARGE");
     if (error.status === 400) return fail(res, 400, "INVALID_INPUT");
     if (error.status === 415) return fail(res, 415, "UNSUPPORTED_MEDIA_TYPE");
-    if (error.message === "APP_NOT_FOUND") return fail(res, 404, "APP_NOT_FOUND");
-    if (error.message === "NO_REPORTS") return fail(res, 404, "NO_REPORTS");
-    if (["INVALID_DATE_RANGE", "INVALID_PLATFORM"].includes(error.message))
-      return fail(res, 400, error.message);
+    const code = error.message;
+    if (["APP_NOT_FOUND", "NO_REPORTS", "REVIEW_NOT_FOUND"].includes(code)) return fail(res, 404, code);
+    if (["INVALID_INPUT", "INVALID_DATE_RANGE", "INVALID_PLATFORM", "PREVIEW_REQUIRED", "INVALID_REVIEW_REPLY"].includes(code))
+      return fail(res, 400, code);
+    if (["REVIEW_REPLY_CONFLICT", "IDEMPOTENCY_CONFLICT", "REVIEW_REPLY_UNCERTAIN",
+      "REVIEW_REPLY_IN_PROGRESS", "REVIEW_REPLY_NOT_VERIFIED"].includes(code)) return fail(res, 409, code);
+    if (code === "REVIEWS_PERMISSION_REQUIRED") return fail(res, 403, code);
+    if (code === "AI_NOT_CONFIGURED") return fail(res, 503, code);
+    if (["AI_INVALID_RESPONSE", "AI_EMPTY_RESPONSE", "AI_OUTPUT_TRUNCATED", "REVIEW_REPLY_FAILED"].includes(code))
+      return fail(res, 502, code);
     return fail(res, 500, "OPERATION_FAILED");
   });
   return router;

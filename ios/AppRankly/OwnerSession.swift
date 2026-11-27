@@ -10,6 +10,9 @@ final class OwnerSession {
     private(set) var isWorking = false
     private(set) var server = ""
     private(set) var message: String?
+    private(set) var reviewGeneration = 0
+    private(set) var dismissedInboxKeys: Set<String> = []
+    private var reviewDrafts: [String: ReviewDraftRecord] = [:]
 
     private var client: APIClient?
     private var tokens: APIClient.Tokens?
@@ -94,6 +97,7 @@ final class OwnerSession {
                 }
             }
             try clearSession()
+            reviewDrafts.removeAll()
         } catch {
             message = description(for: error)
         }
@@ -103,6 +107,39 @@ final class OwnerSession {
         try await authorized { api, token in
             try await api.decode(type, at: path, query: range?.query ?? [], accessToken: token)
         }
+    }
+
+    func get<Value: Decodable & Sendable>(_ type: Value.Type, at path: [String], query: [URLQueryItem]) async throws -> Value {
+        try await authorized { api, token in
+            try await api.decode(type, at: path, query: query, accessToken: token)
+        }
+    }
+
+    func write<Value: Decodable & Sendable>(_ type: Value.Type, at path: [String], method: String = "POST",
+        body: some Encodable) async throws -> Value {
+        let encoded = try JSONEncoder().encode(body)
+        return try await authorized { api, token in
+            try await api.decode(type, at: path, method: method, body: encoded, accessToken: token)
+        }
+    }
+
+    func reviewDraft(for reviews: [MobileReview]) -> ReviewDraftRecord? {
+        reviewDrafts[draftKey(for: reviews)]
+    }
+
+    func saveReviewDraft(_ draft: ReviewDraftRecord?, for reviews: [MobileReview]) {
+        reviewDrafts[draftKey(for: reviews)] = draft
+    }
+
+    func reviewsChanged() { reviewGeneration += 1 }
+
+    func dismissInboxTask(_ key: String) {
+        dismissedInboxKeys.insert(key)
+        UserDefaults.standard.set(Array(dismissedInboxKeys), forKey: "inbox-dismissed:\(server)")
+    }
+
+    private func draftKey(for reviews: [MobileReview]) -> String {
+        "\(server)|\(reviews.map(\.key).sorted().joined(separator: "\n"))"
     }
 
     func icon(for app: StoreApp) async throws -> Data {
@@ -202,6 +239,10 @@ final class OwnerSession {
         }
         client = api
         tokens = pair
+        if server != api.origin.absoluteString || phase != .signedIn {
+            let key = "inbox-dismissed:\(api.origin.absoluteString)"
+            dismissedInboxKeys = Set(UserDefaults.standard.stringArray(forKey: key) ?? [])
+        }
         server = api.origin.absoluteString
     }
 

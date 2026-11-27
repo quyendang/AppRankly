@@ -53,6 +53,7 @@ struct OverviewScreen: View {
                 }
                 SourceWarningsSection(warnings: report.warnings, reports: current, range: report.range)
             }
+            InboxSection(session: session, period: period, selectedApp: selectedApp)
             AnalyticsStatusRow(error: loader.error, isLoading: loader.isLoading, hasValue: loader.value?.range == period.range) {
                 await load()
             }

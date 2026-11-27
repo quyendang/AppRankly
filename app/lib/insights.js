@@ -91,9 +91,9 @@ async function statsFor(app, days) {
   const end = isoDay(Date.now() - DAY);
   return appStats(app, { startDate: isoDay(Date.now() - days * DAY), endDate: end });
 }
-async function collectAnomalies() {
+async function collectAnomalies(catalog) {
   const threshold = getSettings().anomalyThreshold, list = [];
-  const { apps } = await listApps();
+  const { apps } = catalog || await listApps();
   for (const app of apps) {
     try {
       list.push(...appAnomalies(app, (await statsFor(app, 16)).dailyTrends, threshold));
@@ -193,11 +193,11 @@ async function listEvents(app) {
   return events.sort((a, b) => a.date.localeCompare(b.date));
 }
 // Unanswered, replyable reviews per app from the saved archive (no store request).
-function openReviewSummary() {
+function openReviewSummary({ officialOnly = false } = {}) {
   const out = new Map();
   for (const row of db.prepare("SELECT app_id, payload FROM review_archive").all()) {
     const r = JSON.parse(row.payload);
-    if (r.replyText || !r.canReply) continue;
+    if (r.replyText || !r.canReply || (officialOnly && r.source !== "official")) continue;
     const item = out.get(row.app_id) || { appId: row.app_id, open: 0, low: 0, latest: null, sample: null };
     item.open++;
     const low = Number(r.rating) > 0 && Number(r.rating) <= 2;

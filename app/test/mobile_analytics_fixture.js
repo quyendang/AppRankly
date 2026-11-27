@@ -1,6 +1,3 @@
-const fs = require("node:fs");
-const path = require("node:path");
-
 const apple = { id: "apple:example.ledger", name: "Sổ Chi Tiêu", platform: "apple", packageName: "example.ledger", rating: 4.7, version: "3.8", iconAvailable: true };
 const google = { id: "google:example.focus", name: "Chậm", platform: "google", packageName: "example.focus", version: "2.4" };
 const missing = { id: "google:example.missing", name: "Đổi Đơn Vị", platform: "google", packageName: "example.missing" };
@@ -21,7 +18,8 @@ function install() {
   };
   store.metadata = async app => app.iconAvailable ? { icon: "https://is1-ssl.mzstatic.com/sample.png" } : null;
   require("../lib/appIcon").fetchIcon = async () => ({
-    type: "image/png", data: fs.readFileSync(path.join(__dirname, "../public/favicon.png")),
+    type: "image/png",
+    data: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aQtoAAAAASUVORK5CYII=", "base64"),
   });
   store.appStats = async (app, dateRange) => {
     if (app.id === missing.id) throw new Error("NO_REPORTS");

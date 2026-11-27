@@ -11,26 +11,36 @@
 		0C8DACEA239AD56954079BE3 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F5A38A179F0C03DAF06D5F3 /* APIClient.swift */; };
 		0CCC1433D6AED6A1C59A78CF /* OwnerSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 518B29D6D3D498249276E85E /* OwnerSession.swift */; };
 		10374B19236123D667ACF76B /* OverviewScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D2C434A781959FBF0BD911 /* OverviewScreen.swift */; };
+		27393F713A205FD00BF69486 /* ReviewComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71561658518B6C958E6FF9C2 /* ReviewComposer.swift */; };
 		28104EF4273C09F0B31F2343 /* AnalyticsComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = E510188198B1AFFB9E03DDDF /* AnalyticsComponents.swift */; };
 		2A1AB7B4D36E92F14EBACED5 /* SessionKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = B07411886D71CF836B2D9AD2 /* SessionKeychain.swift */; };
 		40CD60317420026F3EA6CF24 /* AppAnalyticsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12189F7D9148F38479156A62 /* AppAnalyticsScreen.swift */; };
 		56486F7727A9988CB4377A49 /* AppCatalogScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCFC8171238A5FBD50040E77 /* AppCatalogScreen.swift */; };
 		58C63A4488C5F1207220FD91 /* AppRanklyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25DF905153B1B9078DA3886C /* AppRanklyApp.swift */; };
+		63F5F6F05FA080F63680B0B3 /* InboxSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3059459E9E58D81BFB6B3106 /* InboxSection.swift */; };
+		64F1C7B1C7F797369D29AE2A /* ReviewListScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73791B4251CA62E16F9A33D6 /* ReviewListScreen.swift */; };
+		7567A06A368AFA48D2EDF264 /* ReviewTemplateScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3436EB5E21A6216C5068F89D /* ReviewTemplateScreen.swift */; };
 		7C05363D7EA977A46614D523 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FB420F18D8ECD7EE6C95B7A /* LoginView.swift */; };
+		83F310C1F585EDF4E441DD9F /* ReviewModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA21704DB742353E562AD100 /* ReviewModels.swift */; };
 		967C1702616F933130BB16B3 /* AppTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = E25AD573F9F431705EB2F2B1 /* AppTabs.swift */; };
 		B855C39E799B1105BBBCC81F /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E35A27AF8A547E9F18829E8E /* SettingsView.swift */; };
 		BEEB562AF6355F754E10DD85 /* AnalyticsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 932C42A8E2EDDAD5B84A9D4B /* AnalyticsModels.swift */; };
 		C95C822D2ECB507F5D87B1B7 /* AnalyticsBreakdownScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06CEF957AB5FFDB887868045 /* AnalyticsBreakdownScreen.swift */; };
 		E1F9D5AFA835C0FDBE32A887 /* AnalyticsLoad.swift in Sources */ = {isa = PBXBuildFile; fileRef = E530153689E6FF3AA061C978 /* AnalyticsLoad.swift */; };
+		ED6B1BDFA17FE79CEB7A7D85 /* ReviewDetailScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50D26DA3AA9A5319B6D0704 /* ReviewDetailScreen.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		06CEF957AB5FFDB887868045 /* AnalyticsBreakdownScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsBreakdownScreen.swift; sourceTree = "<group>"; };
 		12189F7D9148F38479156A62 /* AppAnalyticsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppAnalyticsScreen.swift; sourceTree = "<group>"; };
 		25DF905153B1B9078DA3886C /* AppRanklyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRanklyApp.swift; sourceTree = "<group>"; };
+		3059459E9E58D81BFB6B3106 /* InboxSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxSection.swift; sourceTree = "<group>"; };
+		3436EB5E21A6216C5068F89D /* ReviewTemplateScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewTemplateScreen.swift; sourceTree = "<group>"; };
 		36D2C434A781959FBF0BD911 /* OverviewScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverviewScreen.swift; sourceTree = "<group>"; };
 		4FB420F18D8ECD7EE6C95B7A /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		518B29D6D3D498249276E85E /* OwnerSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnerSession.swift; sourceTree = "<group>"; };
+		71561658518B6C958E6FF9C2 /* ReviewComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewComposer.swift; sourceTree = "<group>"; };
+		73791B4251CA62E16F9A33D6 /* ReviewListScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewListScreen.swift; sourceTree = "<group>"; };
 		7F5A38A179F0C03DAF06D5F3 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		932C42A8E2EDDAD5B84A9D4B /* AnalyticsModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsModels.swift; sourceTree = "<group>"; };
 		B07411886D71CF836B2D9AD2 /* SessionKeychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionKeychain.swift; sourceTree = "<group>"; };
@@ -38,9 +48,11 @@
 		CEC1556BDA03543D9F82E55A /* AppRankly.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AppRankly.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E25AD573F9F431705EB2F2B1 /* AppTabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTabs.swift; sourceTree = "<group>"; };
 		E35A27AF8A547E9F18829E8E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		E50D26DA3AA9A5319B6D0704 /* ReviewDetailScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewDetailScreen.swift; sourceTree = "<group>"; };
 		E510188198B1AFFB9E03DDDF /* AnalyticsComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsComponents.swift; sourceTree = "<group>"; };
 		E530153689E6FF3AA061C978 /* AnalyticsLoad.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsLoad.swift; sourceTree = "<group>"; };
 		E6625EB2E3186B7C0FC51BA4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		FA21704DB742353E562AD100 /* ReviewModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewModels.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -57,9 +69,15 @@
 				25DF905153B1B9078DA3886C /* AppRanklyApp.swift */,
 				E25AD573F9F431705EB2F2B1 /* AppTabs.swift */,
 				E6625EB2E3186B7C0FC51BA4 /* Assets.xcassets */,
+				3059459E9E58D81BFB6B3106 /* InboxSection.swift */,
 				4FB420F18D8ECD7EE6C95B7A /* LoginView.swift */,
 				36D2C434A781959FBF0BD911 /* OverviewScreen.swift */,
 				518B29D6D3D498249276E85E /* OwnerSession.swift */,
+				71561658518B6C958E6FF9C2 /* ReviewComposer.swift */,
+				E50D26DA3AA9A5319B6D0704 /* ReviewDetailScreen.swift */,
+				73791B4251CA62E16F9A33D6 /* ReviewListScreen.swift */,
+				FA21704DB742353E562AD100 /* ReviewModels.swift */,
+				3436EB5E21A6216C5068F89D /* ReviewTemplateScreen.swift */,
 				B07411886D71CF836B2D9AD2 /* SessionKeychain.swift */,
 				E35A27AF8A547E9F18829E8E /* SettingsView.swift */,
 			);
@@ -158,9 +176,15 @@
 				56486F7727A9988CB4377A49 /* AppCatalogScreen.swift in Sources */,
 				58C63A4488C5F1207220FD91 /* AppRanklyApp.swift in Sources */,
 				967C1702616F933130BB16B3 /* AppTabs.swift in Sources */,
+				63F5F6F05FA080F63680B0B3 /* InboxSection.swift in Sources */,
 				7C05363D7EA977A46614D523 /* LoginView.swift in Sources */,
 				10374B19236123D667ACF76B /* OverviewScreen.swift in Sources */,
 				0CCC1433D6AED6A1C59A78CF /* OwnerSession.swift in Sources */,
+				27393F713A205FD00BF69486 /* ReviewComposer.swift in Sources */,
+				ED6B1BDFA17FE79CEB7A7D85 /* ReviewDetailScreen.swift in Sources */,
+				64F1C7B1C7F797369D29AE2A /* ReviewListScreen.swift in Sources */,
+				83F310C1F585EDF4E441DD9F /* ReviewModels.swift in Sources */,
+				7567A06A368AFA48D2EDF264 /* ReviewTemplateScreen.swift in Sources */,
 				2A1AB7B4D36E92F14EBACED5 /* SessionKeychain.swift in Sources */,
 				B855C39E799B1105BBBCC81F /* SettingsView.swift in Sources */,
 			);

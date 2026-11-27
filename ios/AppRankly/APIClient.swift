@@ -96,7 +96,7 @@ struct APIClient {
         let address = query.isEmpty ? endpoint : endpoint.appending(queryItems: query)
         var request = URLRequest(url: address)
         request.httpMethod = method
-        request.timeoutInterval = method == "GET" ? 55 : 15
+        request.timeoutInterval = path.first == "auth" ? 15 : 55
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let body {
             request.httpBody = body

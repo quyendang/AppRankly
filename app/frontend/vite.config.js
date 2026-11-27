@@ -25,6 +25,7 @@ export default defineConfig({
     },
   },
   server: {
+    fs: { allow: [__dirname, path.resolve(__dirname, "../lib/actionTasks.mjs")] },
     proxy: {
       '/api': {
         target: `http://localhost:${process.env.VITE_API_PORT || process.env.PORT || 3000}`,

@@ -12,7 +12,7 @@ struct AppTabs: View {
             }
             Tab("Review", systemImage: "bubble.left.fill") {
                 NavigationStack {
-                    screen("Review", unavailable: "Chưa có dữ liệu review", icon: "bubble.left")
+                    ReviewListScreen(session: session)
                 }
             }
             Tab("Từ khóa", systemImage: "magnifyingglass") {

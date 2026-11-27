@@ -51,6 +51,13 @@ struct AppAnalyticsScreen: View {
                 }
                 SourceWarningsSection(warnings: report.warnings, reports: [current], range: report.range)
             }
+            Section("Quản lý store") {
+                NavigationLink {
+                    ReviewListScreen(session: session, appId: app.id)
+                } label: {
+                    Label("Review", systemImage: "bubble.left")
+                }
+            }
             Section("Báo cáo chi tiết") {
                 ForEach(AnalyticsBreakdownKind.allCases) { kind in
                     NavigationLink {

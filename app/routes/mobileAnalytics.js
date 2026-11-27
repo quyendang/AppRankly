@@ -115,3 +115,5 @@ module.exports = function registerAnalytics(router, authenticate, run) {
     res.json({ releases: releases.map(release => ({ ...release, id: String(release.id) })) });
   }));
 };
+module.exports.appDTO = appDTO;
+module.exports.rangeOf = rangeOf;
