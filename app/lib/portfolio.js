@@ -184,9 +184,9 @@ async function appStats(app, range) {
     },
   );
 }
-async function portfolio(input = {}) {
+async function portfolio(input = {}, catalog) {
   const range = dateRange(input),
-    { apps: all, warnings } = await listApps();
+    { apps: all, warnings } = catalog || await listApps();
   // Optional per-store request so the UI can show each store as soon as it arrives.
   const apps = ["apple", "google"].includes(input.platform) ? all.filter((app) => app.platform === input.platform) : all;
   const results = await Promise.all(
@@ -218,6 +218,15 @@ async function portfolio(input = {}) {
     generatedAt: new Date().toISOString(),
   };
 }
+async function dimensionStats(app, range, dimension) {
+  if (!["country", "app_version", "os_version", "device"].includes(dimension))
+    throw new Error("INVALID_DIMENSION");
+  const cfg = getBaseConfig();
+  const viewer = app.platform === "apple"
+    ? buildAppleViewer(cfg, app.packageName)
+    : buildGoogleViewer(cfg, app.packageName);
+  return viewer.getDimensionStats(dimension, range.startDate, range.endDate);
+}
 module.exports = {
   listApps,
   ownedApp,
@@ -226,4 +235,5 @@ module.exports = {
   dateRange,
   identifier,
   metadata,
+  dimensionStats,
 };

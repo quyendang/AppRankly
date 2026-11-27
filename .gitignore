@@ -33,6 +33,7 @@ Thumbs.db
 !**/package.json
 !**/package-lock.json
 !app/frontend/src/**/*.json
+!ios/AppRankly/Assets.xcassets/**/Contents.json
 !example.config.json
 !config/example.config.json
 
@@ -41,6 +42,7 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+xcuserdata/
 
 # Project specific
 implementation.md

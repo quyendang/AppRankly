@@ -61,13 +61,12 @@ function authenticate(req, res, next) {
     res.status(401).json({ error: "AUTH_REQUIRED" });
   }
 }
+async function verifyOwnerPassword(password) {
+  return typeof password === "string" && password.length <= 256 &&
+    await bcrypt.compare(password, process.env.ADMIN_PASSWORD_HASH);
+}
 async function loginOwner(req, res) {
-  const p = req.body?.password;
-  if (
-    typeof p !== "string" ||
-    p.length > 256 ||
-    !(await bcrypt.compare(p, process.env.ADMIN_PASSWORD_HASH))
-  )
+  if (!(await verifyOwnerPassword(req.body?.password)))
     return res.status(401).json({ error: "INVALID_LOGIN" });
   const token = jwt.sign({}, signingKey(), {
     subject: "owner",
@@ -96,6 +95,8 @@ function sameOrigin(req, res, next) {
 module.exports = {
   validateAuth,
   authenticate,
+  signingKey,
+  verifyOwnerPassword,
   login: loginOwner,
   logout,
   sameOrigin,

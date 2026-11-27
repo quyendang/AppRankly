@@ -55,11 +55,21 @@ function createApp() {
       },
     }),
   );
-  app.use(express.json({ limit: "64kb" }));
   app.use("/api", (req, res, next) => {
     res.set("Cache-Control", "no-store");
     next();
   });
+  const loginLimit = rateLimit({
+    windowMs: 900000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (req, res) => res.status(429).json(res.locals.mobileRequestId
+      ? { error: { code: "LOGIN_RATE_LIMIT", requestId: res.locals.mobileRequestId } }
+      : { error: "LOGIN_RATE_LIMIT" }),
+  });
+  app.use("/api/v1", require("./routes/mobile")(loginLimit));
+  app.use(express.json({ limit: "64kb" }));
   app.get("/healthz", (req, res) => res.json({ status: "ok" }));
   app.get("/readyz", (req, res) => {
     try {
@@ -95,13 +105,7 @@ function createApp() {
   app.use("/api", auth.sameOrigin);
   app.post(
     "/api/auth/login",
-    rateLimit({
-      windowMs: 900000,
-      max: 10,
-      standardHeaders: true,
-      legacyHeaders: false,
-      message: { error: "LOGIN_RATE_LIMIT" },
-    }),
+    loginLimit,
     run(auth.login),
   );
   app.use("/api", auth.authenticate);
@@ -203,22 +207,7 @@ function createApp() {
       const app = await store.ownedApp(req.body.appId),
         range = store.dateRange(req.body),
         dimension = req.body.dimension;
-      if (
-        !["country", "app_version", "os_version", "device"].includes(dimension)
-      )
-        throw new Error("INVALID_DIMENSION");
-      const cfg = config.getBaseConfig(),
-        viewer =
-          app.platform === "apple"
-            ? viewers.buildAppleViewer(cfg, app.packageName)
-            : viewers.buildGoogleViewer(cfg, app.packageName);
-      res.json(
-        await viewer.getDimensionStats(
-          dimension,
-          range.startDate,
-          range.endDate,
-        ),
-      );
+      res.json(await store.dimensionStats(app, range, dimension));
     }),
   );
   app.post(

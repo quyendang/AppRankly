@@ -7,6 +7,7 @@ The Today interface opens on a to-do list (low-rated unanswered reviews, install
 ## Quick links
 
 - [Railway deployment guide](DEPLOYMENT.md)
+- [Personal iPhone app setup](ios/README.md)
 - [Environment variable template](.env.example)
 - [Security model and limitations](SECURITY.md)
 - [Implementation verification](designs/apprankly-redesign/PRODUCTION-VERIFICATION.md)

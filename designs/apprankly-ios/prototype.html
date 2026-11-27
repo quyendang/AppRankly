@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AppRankly">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAIAAAB7GkOtAAAJNUlEQVR42u3VwQmAMBQFwXRhZfZofZ5y0yIEA9mBqeBp/o7rOAEIGiYAEAAABAAAAQBAAAAQAAAEAAABAEAAABAAAAQAAAEAQAAAEAAABAAAAQBAAAAQAAAEAAABAEAAABAAAAQAAAEAEAAABAAAAQBAAAAQAAAEAAABAEAAABAAAAQAAAEAQAAAEAAABAAAAQBAAAAQAAAEAAABAEAAABAAAAQAAAEAEAArAAgAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAAAgAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAAAiAFQAEAAABAEAAABAAAAQAAAEAQAAAEAAABAAAAQBAAAAQAAAEAAABAEAAABAAAAQAAAEAQAAAEAAABAAAAQBAAAAEAAABAEAAABAAAAQAAAEAQAAAEAAABAAAAQBAAAAQAAAEAAABAEAAABAA4Kvnnv8zuwAAoaMvBgIAOP0yIACA668BAgDEr78GCADQvf4aIACAACAAQOz6a4AAAAKAAAACgAAAAoAAANtefw0QAEAAEABAABAAQAAQAEAAEABAABAAQAAQAEAAEAAQAAFAAEAABAABAAEQAAQABEAAEAAQAAEQAEAABEAAAAEQAAEABEAABAAQAAEQAEAABEAAAAEQAAEABEAABAAQAAEQAEAABEAAAAEQAAEABEAABAAQAB9OAAABQAAAAUAAAAFAAAABQAAAAUAAAAFAAEAABAABAAEQAAQABEAAEAAQAAFAAEAABEAAAAEQAAEABEAABAAQAAEQAEAABEAAAAEQAAEABEAABAAQAAEQAEAABEAAAAEQAAEABEAABAAQAAEQAEAABEAAAAFAAAABQAAAAUAAAAFAAAABQAAAAUAAAAFAAEAABAABAAEQAAQABEAAEAAQAAFAAEAABEAAAAEQAAEABEAABAAQAAEQAEAABEAAAAEQAAEABEAABAAQAAEQAEAABEAAAAEQAAEABEAABAAQAAEQAEAAfDsBAAQAAQAEAAEABAABAAQAAQAEAAHA1XOzBAABwNGP3y8BQABw+qNXTAAQAFz/6CETAAQA1z96ywQAAcD1j54zAUAAEAABEAAEANe/dNEEAAFAAATAXAgAAiAA5kIAEAABMBcCgOu/51GzFQKAAAiArRAABEAAbIUAIAACYCsEAAEQAAEQACsgAAIgAAIAAiAAAiAAIAACIAACAAIgAAIgAOCoCYAACAA4agIgAAIAjpoACIAAgKMmAAIgAOCo2UoABAAcNVsJgACAo2YrARAAcNRsJQACAI6arRAAcNRshQCAo2YrBAABcNRshQAgAI6arRAABMBRsxUCgAA4arZCABAAAbAVAoAACICtEAAEQABshQAgAAJgKwQAARAAARAAEAABEAABAAEQAAEQABAAARAAAQABEAABEABw1ARAAAQAHDUBEAABAEdNAARAAMBREwABEABw1GwlAAIAjpqtBEAAwFGzlQAIADhqthIAAQBHzVYIADhqtkIAwFGzFQKAADhqtkIAEABHzVYIAALgqNkKAUAABMBWCAACIAC2QgAQAAGwFQKAAAiArRAABEAABEAArIAACIAACAAIgAAIgACAAAiAAAgACIAACIAAsPtLNoUA+PEEAJdumkUABEAASL9b4wiAAAgA3UdrHwEQAAGg+2JNJAACIAB0n6uVBEAABAABsJIACIAAEHurhhIAARAABMBQAiAAAoAAGEoABEAAEABDCYAACAAeqq1sJQACgIdqK1sJgADgodrKVgIgAHiotrKVAAiAAHiotrKVmyAAAuCh2spWCIAAeKi2shUCIACOmq1shQAIgKNmK1shAALgqNnKVgiAADhqtrIVAiAAjpqtbIUACICjZitbIQAC4KjZylYIgAA4arayFQIgAI6arQRAAPBQHTVbCYAA4KE6arYSAAHAQ3XUbCUAAoCH6qjZSgAEAA/VVrYSAAHAQ7WVrQRAAPBQbWUrARAAPFRb2UoABAAP1Va2EgABwEO1la0EQADwUG1lKwEQAAHwUG1lKwEQAAHwUG1lKwRAADxUW9kKARAAD9VWtkIABMBRs5WtEAABcNRsZSsEQAAcNVvZCgEQAEfNVrZCAATAUbOVrRAAAXDUbGUrBEAAHDVb2QoBEABHzVa2QgAEwFGzlQAIAB6qo2YrARAAPFRHzVYCIAB4qI6arQRAAPBQHTVbCYAA4KHaylYCIAB4qLaylQAIAB6qrWwlAAKAh2orWwmAAOCh2spWAiAAeKi2spUACAAeqq1sJQACIAAeqq1s5SYIgAB4qLayFQIgAB6qrWyFAAiAo2YrWyEAAuCo2cpWCIAAOGq2shUCIACOmq1shQAIgKNmK1shAALgqNnKVgiAADhqtrIVAiAAjpqtbIUACICjZisBEAA8VEfNVgIgAHiojpqtBEAA8FAdNVsJgADgrS5+pbayFQIgAI6arWyFAAiAo2YrWyEAAuCo2cpWCIAGbPtKbWUrBEAAHDVb2QoB0IDYK7WVrRAADei+UlvZCgHQgO4rtZWtEAAZSD9RW9kKARADj9NWtkIAABAAAAQAAAEAQAAABMAKAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAAAIAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAAAIAgAAAsMAL6s8x7lXB6YAAAAAASUVORK5CYII=">
+<link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAIAAAB7GkOtAAAJNUlEQVR42u3VwQmAMBQFwXRhZfZofZ5y0yIEA9mBqeBp/o7rOAEIGiYAEAAABAAAAQBAAAAQAAAEAAABAEAAABAAAAQAAAEAQAAAEAAABAAAAQBAAAAQAAAEAAABAEAAABAAAAQAAAEAEAAABAAAAQBAAAAQAAAEAAABAEAAABAAAAQAAAEAQAAAEAAABAAAAQBAAAAQAAAEAAABAEAAABAAAAQAAAEAEAArAAgAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAAAgAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAAAiAFQAEAAABAEAAABAAAAQAAAEAQAAAEAAABAAAAQBAAAAQAAAEAAABAEAAABAAAAQAAAEAQAAAEAAABAAAAQBAAAAEAAABAEAAABAAAAQAAAEAQAAAEAAABAAAAQBAAAAQAAAEAAABAEAAABAA4Kvnnv8zuwAAoaMvBgIAOP0yIACA668BAgDEr78GCADQvf4aIACAACAAQOz6a4AAAAKAAAACgAAAAoAAANtefw0QAEAAEABAABAAQAAQAEAAEABAABAAQAAQAEAAEAAQAAFAAEAABAABAAEQAAQABEAAEAAQAAEQAEAABEAAAAEQAAEABEAABAAQAAEQAEAABEAAAAEQAAEABEAABAAQAAEQAEAABEAAAAEQAAEABEAABAAQAB9OAAABQAAAAUAAAAFAAAABQAAAAUAAAAFAAEAABAABAAEQAAQABEAAEAAQAAFAAEAABEAAAAEQAAEABEAABAAQAAEQAEAABEAAAAEQAAEABEAABAAQAAEQAEAABEAAAAEQAAEABEAABAAQAAEQAEAABEAAAAFAAAABQAAAAUAAAAFAAAABQAAAAUAAAAFAAEAABAABAAEQAAQABEAAEAAQAAFAAEAABEAAAAEQAAEABEAABAAQAAEQAEAABEAAAAEQAAEABEAABAAQAAEQAEAABEAAAAEQAAEABEAABAAQAAEQAEAAfDsBAAQAAQAEAAEABAABAAQAAQAEAAHA1XOzBAABwNGP3y8BQABw+qNXTAAQAFz/6CETAAQA1z96ywQAAcD1j54zAUAAEAABEAAEANe/dNEEAAFAAATAXAgAAiAA5kIAEAABMBcCgOu/51GzFQKAAAiArRAABEAAbIUAIAACYCsEAAEQAAEQACsgAAIgAAIAAiAAAiAAIAACIAACAAIgAAIgAOCoCYAACAA4agIgAAIAjpoACIAAgKMmAAIgAOCo2UoABAAcNVsJgACAo2YrARAAcNRsJQACAI6arRAAcNRshQCAo2YrBAABcNRshQAgAI6arRAABMBRsxUCgAA4arZCABAAAbAVAoAACICtEAAEQABshQAgAAJgKwQAARAAARAAEAABEAABAAEQAAEQABAAARAAAQABEAABEABw1ARAAAQAHDUBEAABAEdNAARAAMBREwABEABw1GwlAAIAjpqtBEAAwFGzlQAIADhqthIAAQBHzVYIADhqtkIAwFGzFQKAADhqtkIAEABHzVYIAALgqNkKAUAABMBWCAACIAC2QgAQAAGwFQKAAAiArRAABEAABEAArIAACIAACAAIgAAIgACAAAiAAAgACIAACIAAsPtLNoUA+PEEAJdumkUABEAASL9b4wiAAAgA3UdrHwEQAAGg+2JNJAACIAB0n6uVBEAABAABsJIACIAAEHurhhIAARAABMBQAiAAAoAAGEoABEAAEABDCYAACAAeqq1sJQACgIdqK1sJgADgodrKVgIgAHiotrKVAAiAAHiotrKVmyAAAuCh2spWCIAAeKi2shUCIACOmq1shQAIgKNmK1shAALgqNnKVgiAADhqtrIVAiAAjpqtbIUACICjZitbIQAC4KjZylYIgAA4arayFQIgAI6arQRAAPBQHTVbCYAA4KE6arYSAAHAQ3XUbCUAAoCH6qjZSgAEAA/VVrYSAAHAQ7WVrQRAAPBQbWUrARAAPFRb2UoABAAP1Va2EgABwEO1la0EQADwUG1lKwEQAAHwUG1lKwEQAAHwUG1lKwRAADxUW9kKARAAD9VWtkIABMBRs5WtEAABcNRsZSsEQAAcNVvZCgEQAEfNVrZCAATAUbOVrRAAAXDUbGUrBEAAHDVb2QoBEABHzVa2QgAEwFGzlQAIAB6qo2YrARAAPFRHzVYCIAB4qI6arQRAAPBQHTVbCYAA4KHaylYCIAB4qLaylQAIAB6qrWwlAAKAh2orWwmAAOCh2spWAiAAeKi2spUACAAeqq1sJQACIAAeqq1s5SYIgAB4qLayFQIgAB6qrWyFAAiAo2YrWyEAAuCo2cpWCIAAOGq2shUCIACOmq1shQAIgKNmK1shAALgqNnKVgiAADhqtrIVAiAAjpqtbIUACICjZisBEAA8VEfNVgIgAHiojpqtBEAA8FAdNVsJgADgrS5+pbayFQIgAI6arWyFAAiAo2YrWyEAAuCo2cpWCIAGbPtKbWUrBEAAHDVb2QoB0IDYK7WVrRAADei+UlvZCgHQgO4rtZWtEAAZSD9RW9kKARADj9NWtkIAABAAAAQAAAEAQAAABMAKAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAAAIAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAAAIAgAAAsMAL6s8x7lXB6YAAAAAASUVORK5CYII=">
+<title>AppRankly iOS</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --paper: #f8f5f7; --surface: #fffcfe; --ink: #211820; --muted: #635662;
+  --line: #e5dce2; --accent: #a81755; --selected: #f8e2eb; --on: #fff8fc;
+  --glass: #fffcfeeb; --good: #21633e; --bad: #9a372e;
+  font: 100%/1.4 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+:root[data-mode="inbox"] {
+  --paper: #eef4ef; --surface: #f9fcf9; --ink: #15241e; --muted: #486158;
+  --line: #d6e3db; --accent: #08614f; --selected: #d9efe4; --on: #f6fff9;
+  --glass: #f9fcf9ed; --good: #21633e; --bad: #9a372e;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #1c161a; --surface: #262026; --ink: #fbf0f6; --muted: #c2aebb;
+    --line: #483941; --accent: #ff9dc3; --selected: #4c2639; --on: #321020;
+    --glass: #262026ed; --good: #a4dfb5; --bad: #ffaca3;
+  }
+  :root[data-mode="inbox"] {
+    --paper: #151e1a; --surface: #1f2b25; --ink: #edf8f0; --muted: #b4c9bd;
+    --line: #384740; --accent: #95e4ca; --selected: #243e34; --on: #102821;
+    --glass: #1f2b25ed; --good: #a4dfb5; --bad: #ffaca3;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); }
+button, input, select, textarea { font: inherit; color: inherit; }
+button, select, a { touch-action: manipulation; }
+button { border: 0; background: none; cursor: pointer; }
+button:disabled { opacity: .48; cursor: default; }
+button:enabled:active, a:active { opacity: .75; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+h1, h2, h3, p, figure { margin: 0; }
+h1 { font-size: 2.125rem; letter-spacing: -.035em; line-height: 1.12; }
+h2 { font-size: 1.25rem; letter-spacing: -.02em; }
+h3 { font-size: 1rem; }
+p + p { margin-top: 8px; }
+svg { width: 21px; height: 21px; vertical-align: middle; flex: none; }
+small, .muted { color: var(--muted); font-size: .8125rem; }
+#app { position: relative; display: flex; flex-direction: column; height: 100dvh; max-width: 460px; margin: auto; isolation: isolate; }
+header { min-height: calc(54px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 20px 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--surface); }
+header strong { font-size: .9375rem; letter-spacing: -.02em; }
+header small { display: block; font-size: .6875rem; }
+header .icon-button { margin-right: -7px; }
+.icon-button { min-width: 44px; height: 44px; color: var(--accent); }
+main { flex: 1; min-height: 0; overflow: auto; scrollbar-width: thin; padding: 17px 20px calc(94px + env(safe-area-inset-bottom)); scroll-padding-bottom: 95px; }
+.title { margin-bottom: 17px; }
+.title p { margin-top: 5px; }
+.stack { display: grid; gap: 20px; }
+.group { min-width: 0; }
+.group > .head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
+.surface { background: var(--surface); border-radius: 15px; }
+.pad { padding: 15px; }
+.row { display: flex; width: 100%; align-items: center; gap: 11px; text-align: left; min-height: 58px; padding: 10px 13px; }
+.row + .row { border-top: 1px solid var(--line); }
+.row .grow { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.row strong, .row small { display: block; }
+.row svg.chevron { width: 14px; color: var(--muted); }
+.end { text-align: right; font-variant-numeric: tabular-nums; }
+.positive { color: var(--good); }
+.negative { color: var(--bad); }
+.app-icon { display: grid; place-items: center; width: 39px; height: 39px; border-radius: 11px; color: #fff; background: #3c547c; flex: none; }
+.app-icon[data-app="2"] { background: #506648; }
+.app-icon[data-app="3"] { background: #775037; }
+.text-button { color: var(--accent); padding: 5px 0; min-height: 44px; font-weight: 600; }
+.control, .primary { min-height: 44px; padding: 8px 13px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); }
+.primary { background: var(--accent); color: var(--on); border-color: transparent; font-weight: 650; }
+.filters { display: flex; gap: 7px; flex-wrap: wrap; }
+.filters > * { max-width: 100%; min-width: 0; }
+.segment { display: flex; gap: 2px; background: var(--selected); padding: 3px; border-radius: 11px; }
+.segment button { flex: 1; min-height: 44px; padding: 4px 5px; border-radius: 8px; font-size: .8125rem; }
+.segment button[aria-pressed="true"] { background: var(--surface); font-weight: 640; }
+figcaption { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.chart { color: var(--accent); height: 119px; width: 100%; display: block; overflow: visible; }
+.chart line { stroke: var(--line); }
+.chart path.area { fill: var(--selected); }
+.chart path.series { fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.chart circle { fill: var(--accent); }
+.axis { display: flex; justify-content: space-between; padding-top: 5px; }
+.summary { display: flex; gap: 14px; flex-wrap: wrap; border-top: 1px solid var(--line); margin-top: 12px; padding-top: 11px; }
+.summary span { flex: 1 1 105px; }
+.summary small { display: block; }
+.summary strong { display: block; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.queue-lead { background: var(--selected); border-radius: 15px; padding: 15px 15px 8px; }
+.queue-lead h2 { margin-bottom: 3px; }
+.queue-lead .text-button { display: inline-flex; align-items: center; gap: 5px; }
+.starline { color: var(--accent); font-size: .8125rem; font-weight: 650; }
+.starline svg { width: 14px; height: 14px; fill: currentColor; }
+.review-row { min-height: 82px; }
+.review-row .excerpt { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: .875rem; margin-top: 3px; }
+.reply { background: var(--selected); border-radius: 12px; padding: 12px; overflow-wrap: anywhere; }
+.stretch { width: 100%; }
+label { font-size: .875rem; font-weight: 650; }
+textarea { display: block; resize: vertical; width: 100%; min-height: 126px; margin-top: 5px; }
+.editor-meta, .sheet-actions { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.editor-meta { margin-top: 5px; }
+.tabbar { position: absolute; bottom: calc(9px + env(safe-area-inset-bottom)); left: 10px; right: 10px; display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 2px; padding: 4px; border: 1px solid var(--line); border-radius: 29px; background: var(--glass); backdrop-filter: blur(18px); }
+.tabbar button { display: grid; place-content: center; justify-items: center; gap: 2px; min-height: 52px; padding: 3px 1px; border-radius: 24px; font-size: .6875rem; font-weight: 610; line-height: 1.12; overflow-wrap: anywhere; }
+.tabbar button[aria-current="page"] { color: var(--accent); background: var(--selected); }
+dialog { position: fixed; inset: auto 0 0; width: min(100%,460px); max-width: none; max-height: 88dvh; border: 1px solid var(--line); border-radius: 24px 24px 0 0; margin: 0 auto; padding: 18px 20px calc(18px + env(safe-area-inset-bottom)); background: var(--surface); color: var(--ink); }
+dialog::backdrop { background: #19171875; }
+dialog h2 { margin: 8px 0 15px; }
+dialog form { display: grid; gap: 12px; }
+.sheet-review { max-height: 135px; overflow-y: auto; overflow-wrap: anywhere; }
+.feedback { background: var(--selected); border-radius: 10px; padding: 9px 11px; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .8rem; }
+@media (min-width: 700px) {
+  body { display: grid; place-items: center; min-height: 100dvh; background: var(--selected); }
+  #app { width: 390px; height: min(844px, calc(100dvh - 26px)); border: 1px solid var(--line); border-radius: 34px; overflow: hidden; background: var(--paper); }
+  dialog { bottom: 13px; width: 388px; border-radius: 24px 24px 31px 31px; }
+}
+@media (prefers-reduced-transparency: reduce) { .tabbar { backdrop-filter: none; background: var(--surface); } }
+
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+</style>
+<script>
+if (new URLSearchParams(location.search).get('mode') === 'inbox') document.documentElement.dataset.mode = 'inbox';
+</script>
+</head>
+<body>
+<div id="app">
+  <header><div><strong>AppRankly</strong><small>Prototype · Dữ liệu minh họa</small></div><button type="button" class="icon-button" data-action="settings" aria-label="Cài đặt"></button></header>
+  <main></main>
+  <nav class="tabbar" aria-label="Điều hướng chính"></nav>
+  <span id="announcement" class="visually-hidden" role="status"></span>
+</div>
+<dialog aria-labelledby="sheet-title"></dialog>
+<!-- ISC License
+
+Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as part of Feather (MIT). All other copyright (c) for Lucide are held by Lucide Contributors 2022.
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ -->
+<script>
+// Icons reused from the repository's Lucide set.
+const paths = {"settings":"<path d=\"M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/>","bar-chart-3":"<path d=\"M3 3v18h18\"/><path d=\"M18 17V9\"/><path d=\"M13 17V5\"/><path d=\"M8 17v-3\"/>","search":"<circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.3-4.3\"/>","layout-grid":"<rect width=\"7\" height=\"7\" x=\"3\" y=\"3\" rx=\"1\"/><rect width=\"7\" height=\"7\" x=\"14\" y=\"3\" rx=\"1\"/><rect width=\"7\" height=\"7\" x=\"14\" y=\"14\" rx=\"1\"/><rect width=\"7\" height=\"7\" x=\"3\" y=\"14\" rx=\"1\"/>","chevron-right":"<path d=\"m9 18 6-6-6-6\"/>","star":"<polygon points=\"12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2\"/>","notebook-pen":"<path d=\"M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4\"/><path d=\"M2 6h4\"/><path d=\"M2 10h4\"/><path d=\"M2 14h4\"/><path d=\"M2 18h4\"/><path d=\"M18.4 2.6a2.17 2.17 0 0 1 3 3L16 11l-4 1 1-4Z\"/>","leaf":"<path d=\"M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z\"/><path d=\"M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12\"/>","layers":"<path d=\"m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z\"/><path d=\"m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65\"/><path d=\"m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65\"/>","inbox":"<polyline points=\"22 12 16 12 14 15 10 15 8 12 2 12\"/><path d=\"M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z\"/>","arrow-right":"<path d=\"M5 12h14\"/><path d=\"m12 5 7 7-7 7\"/>","trending-up":"<polyline points=\"22 7 13.5 15.5 8.5 10.5 2 17\"/><polyline points=\"16 7 22 7 22 13\"/>","arrow-left":"<path d=\"m12 19-7-7 7-7\"/><path d=\"M19 12H5\"/>","plus":"<path d=\"M5 12h14\"/><path d=\"M12 5v14\"/>","message-square":"<path d=\"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\"/>","refresh-cw":"<path d=\"M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8\"/><path d=\"M21 3v5h-5\"/><path d=\"M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16\"/><path d=\"M8 16H3v5\"/>","download":"<path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\"/><polyline points=\"7 10 12 15 17 10\"/><line x1=\"12\" x2=\"12\" y1=\"15\" y2=\"3\"/>","bubble":"<path d=\"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\"/>"};
+const icon = (name, cls = "") => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name]}</svg>`;
+const inboxFirst = document.documentElement.dataset.mode === 'inbox';
+const apps = [
+  { id: 1, name: 'Sổ Chi Tiêu', store: 'App Store', icon: 'notebook-pen', installs: 6391, delta: 18.4, revenue: 273.18, rating: '4,7', release: '3.8' },
+  { id: 2, name: 'Chậm', store: 'Google Play', icon: 'leaf', installs: 4830, delta: -4.2, revenue: null, rating: '4,5', release: '2.4' },
+  { id: 3, name: 'Đổi Đơn Vị', store: 'App Store', icon: 'layers', installs: 1521, delta: 9.1, revenue: 45.49, rating: '4,8', release: '1.6' }
+];
+const reviews = [
+  { id: 1, app: 1, author: 'Minh Thảo', country: 'Việt Nam', date: '26/11', stars: 2, title: 'Không xuất được CSV', text: 'Mình bấm xuất tháng 11 thì app đứng ở màn hình tải. iPhone 15, bản 3.8. Tháng trước vẫn xuất được.', reply: '', canReply: true, draft: 'Chào Thảo, cảm ơn bạn đã ghi rõ phiên bản và thời điểm gặp lỗi. Bạn cho mình biết lỗi có xảy ra khi xuất một tháng khác không? Thông tin này sẽ giúp mình kiểm tra.' },
+  { id: 2, app: 2, author: '林 宛庭', country: 'Đài Loan', date: '25/11', stars: 1, title: '提醒時間不正確', text: '我設定了晚上十點的提醒，但是時間總是不對。', reply: '', canReply: true, draft: '謝謝你告訴我提醒時間的問題。請問提醒實際上是在什麼時間出現的？這會幫助我確認問題。' },
+  { id: 3, app: 1, author: 'Mộc An', country: 'Việt Nam', date: '24/11', stars: 5, title: 'Mục chia khoản chi rất tiện', text: 'Mình ghi lại tiền nhà và điện nước theo từng người được luôn. Ước gì có phần tìm kiếm trong danh mục.', reply: 'Cảm ơn bạn đã góp ý về tìm kiếm trong danh mục. Mình đã ghi lại đề xuất này.', canReply: true },
+  { id: 4, app: 3, author: 'Marina Bell', country: 'Hoa Kỳ', date: '23/11', stars: 4, title: 'Works offline', text: 'I use it on camping trips. An option to pin the last conversion would help.', reply: '', canReply: false }
+];
+const keywords = [
+  { id: 1, app: 1, market: 'VN', term: 'sổ chi tiêu', history: [16, 14, 13, 12, 9, 10, 8] },
+  { id: 2, app: 1, market: 'VN', term: 'quản lý chi tiêu', history: [14, 15, 14, 13, 17, 16, 17] },
+  { id: 3, app: 1, market: 'US', term: 'daily expense tracker', history: [37, 39, 33, 37, 33, 34, 29] },
+  { id: 4, app: 2, market: 'VN', term: 'hẹn giờ tập trung', history: [22, 19, 17, 16, 14, 15, 12] },
+  { id: 5, app: 3, market: 'US', term: 'unit converter offline', history: [27, 22, 23, 20, 20, 19, 18] }
+];
+const state = { tab: inboxFirst ? 'inbox' : 'stats', app: 0, reviewApp: 0, keywordApp: 1, range: 7, filter: 'open', market: 'VN', detail: null };
+const main = document.querySelector('main');
+const nav = document.querySelector('nav');
+const dialog = document.querySelector('dialog');
+const rows = ['stats', 'inbox', 'keywords', 'apps'];
+const tabs = {
+  stats: ['Thống kê', 'bar-chart-3'], inbox: ['Review', 'bubble'], keywords: ['Từ khóa', 'search'], apps: ['Ứng dụng', 'layout-grid']
+};
+if (inboxFirst) rows.splice(0, 2, 'inbox', 'stats');
+const label = (tag, body, cls = '') => `<${tag} class="${cls}">${body}</${tag}>`;
+const item = id => apps.find(a => a.id === Number(id));
+const num = value => value.toLocaleString('vi-VN');
+const money = value => value === null ? 'Chưa có dữ liệu' : `${value.toLocaleString('vi-VN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
+const change = value => `<small class="${value < 0 ? 'negative' : 'positive'}">${value > 0 ? '+' : ''}${num(value)}%</small>`;
+const title = (name, detail = '') => `<div class="title"><h1>${name}</h1>${detail ? label('p', detail, 'muted') : ''}</div>`;
+const button = (name, action, cls = 'text-button') => `<button type="button" class="${cls}" data-action="${action}">${name}</button>`;
+const section = (name, body, extra = '') => `<section class="group">${name ? `<div class="head"><h2>${name}</h2>${extra}</div>` : ''}${body}</section>`;
+const surface = (body, extra = '') => label('div', body, `surface ${extra}`);
+const chevron = () => icon('chevron-right', 'chevron');
+const appIcon = a => `<span class="app-icon" data-app="${a.id}">${icon(a.icon)}</span>`;
+const esc = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const row = (body, action, cls = '') => action ? button(body, action, `row ${cls}`) : label('div', body, `row ${cls}`);
+const split = (heading, meta = '') => `<span class="grow"><strong>${heading}</strong>${meta ? label('small', meta) : ''}</span>`;
+const stars = count => `<span class="starline">${icon('star')} ${count} sao</span>`;
+const openCount = (appId = 0) => reviews.filter(r => !r.reply && (!appId || r.app === appId)).length;
+const select = (field, name, options) => `<select class="control" data-field="${field}" aria-label="${name}">${options.map(([value, text]) => `<option value="${value}" ${String(state[field]) === String(value) ? 'selected' : ''}>${text}</option>`).join('')}</select>`;
+const appOptions = (all = true) => [...(all ? [[0, 'Tất cả ứng dụng']] : []), ...apps.map(a => [a.id, a.name])];
+const segmented = (field, options) => `<div class="segment">${options.map(([value, text]) => `<button type="button" aria-pressed="${state[field] === value}" data-action="${field}:${value}">${text}</button>`).join('')}</div>`;
+const localMessage = message => `<p class="feedback" role="status">${message}</p>`;
+
+function chart(series, name, rank = false) {
+  const max = Math.max(...series), min = Math.min(...series);
+  const points = series.map((n, i) => [8 + (304 * i) / (series.length - 1), (rank ? 14 : 110) + (rank ? 1 : -1) * (96 * (n - min)) / (max - min || 1)]);
+  const line = points.map(([x, y], i) => `${i ? 'L' : 'M'}${x} ${y}`).join(' ');
+  const [x, y] = points.at(-1);
+  const dates = state.range === 30 && !rank ? ['28 thg 10', '12 thg 11', '26 thg 11'] : ['20 thg 11', '23 thg 11', '26 thg 11'];
+  return `<svg class="chart" viewBox="0 0 320 123" role="img" aria-label="${name}. ${series.map(num).join(', ')}">
+  <line x1="8" y1="14" x2="312" y2="14"/><line x1="8" y1="62" x2="312" y2="62"/><line x1="8" y1="110" x2="312" y2="110"/>
+  <path class="area" d="${line} L312 115 H8 Z"/><path class="series" d="${line}"/><circle cx="${x}" cy="${y}" r="4"/>
+  </svg><div class="axis" aria-hidden="true">${dates.map(d => label('small', d)).join('')}</div>`;
+}
+
+function performance() {
+  const scoped = state.app ? [item(state.app)] : apps;
+  const installs = scoped.reduce((sum, a) => sum + a.installs, 0);
+  const revenue = scoped.some(a => a.revenue !== null) ? scoped.reduce((sum, a) => sum + (a.revenue || 0), 0) : null;
+  const daily = [1460, 1552, 1382, 1823, 1695, 2187, 2643];
+  const blocks = [902, 1160, 1008, 1143, 1211, 1498, 1388, 1552, 1317, 1547, 1327, 1764, 1404, 1659, 1468, 1452, 1882, 1851, 2191, 1947, 1811, 1790, 1663, ...daily];
+  const weights = state.range === 7 ? daily : blocks;
+  const values = weights.map(weight => {
+    const ratio = installs / 12742;
+    return Math.round(weight * ratio);
+  });
+  values[values.length - 1] += (state.range === 7 ? installs : Math.round(blocks.reduce((sum, n) => sum + n, 0) * installs / 12742)) - values.reduce((sum, n) => sum + n, 0);
+  const total = values.reduce((sum, n) => sum + n, 0);
+  return title('Thống kê', 'Đồng bộ mẫu lúc 08:42, 27 thg 11') + label('div',
+    `<div class="filters">${select('app', 'Ứng dụng', appOptions())}${select('range', 'Khoảng ngày', [[7, '7 ngày'], [30, '30 ngày']])}</div>
+    <figure class="surface pad"><figcaption><h2>Lượt cài theo ngày</h2><strong class="end">${num(total)}</strong></figcaption>
+    ${chart(values, 'Lượt cài theo ngày')}
+    <div class="summary"><span><small>Doanh thu mẫu · ${state.range} ngày</small><strong>${money(revenue === null ? null : revenue * (state.range === 7 ? 1 : 4.12))}</strong></span><span><small>Lượt cài so với kỳ trước</small>${change(state.app ? scoped[0].delta : (state.range === 7 ? 8.6 : 12.2))}</span></div></figure>
+    ${section('Theo ứng dụng', surface(scoped.map(a => row(appIcon(a) + split(a.name, a.store) + label('span', `<strong>${num(state.range === 7 ? a.installs : Math.round(a.installs * total / installs))}</strong>${change(a.delta)}`, 'end') + chevron(), 'app:' + a.id)).join('')))}
+    ${section('Cần xử lý', surface(row(icon('inbox') + split(`${openCount()} review chưa trả lời`) + chevron(), 'tab:inbox')))}`, 'stack');
+}
+
+function reviewRow(r) {
+  return row(`<span class="grow">${stars(r.stars)}<strong>${r.title}</strong><span class="excerpt">${r.text}</span><small>${item(r.app).name} · ${r.date}</small></span>${chevron()}`, 'review:' + r.id, 'review-row');
+}
+function inbox() {
+  let visible = reviews.filter(r => !state.reviewApp || r.app === state.reviewApp);
+  if (state.filter !== 'all') visible = visible.filter(r => Boolean(r.reply) === (state.filter === 'answered'));
+  const urgent = visible.filter(r => !r.reply && r.canReply && r.stars <= 2).sort((a, b) => a.stars - b.stars)[0];
+  const lead = inboxFirst && urgent ? `<div class="queue-lead"><h2>${openCount(state.reviewApp)} review chưa trả lời</h2><p>${item(urgent.app).name} · ${urgent.title}</p>${button('Mở review ' + icon('arrow-right'), 'review:' + urgent.id)}</div>` : '';
+  return title(inboxFirst ? 'Hộp việc' : 'Review', 'App Store và Google Play') + label('div', lead +
+    `<div class="filters">${select('reviewApp', 'Lọc review theo ứng dụng', appOptions())}</div>
+    ${segmented('filter', [['open', 'Chưa trả lời'], ['answered', 'Đã trả lời'], ['all', 'Tất cả']])}
+    ${section(state.filter === 'open' ? 'Hàng chờ' : 'Kết quả', visible.length ? surface(visible.map(reviewRow).join('')) : surface('Không có review khớp bộ lọc. Chọn Tất cả để xem các review khác.', 'pad'))}
+    ${inboxFirst ? section('Biến động', surface(row(icon('trending-up') + split('Lượt cài tăng 18,4%', 'Sổ Chi Tiêu · 7 ngày') + chevron(), 'tab:stats') + row(icon('search') + split('“sổ chi tiêu” lên hạng 8', 'Việt Nam') + chevron(), 'keyword:1'))) : ''}`, 'stack');
+}
+
+function reviewDetail(r) {
+  const a = item(r.app);
+  const status = r.reply ? (r.pending ? 'Đã gửi, chờ hiển thị (mô phỏng)' : 'Đã trả lời') : 'Chưa trả lời';
+  return button(icon('arrow-left') + ' Quay lại', 'back') + title('Chi tiết review', a.name + ' · ' + a.store) +
+    label('div', `<article class="surface pad"><small>${r.author} · ${r.country} · ${r.date}</small><p>${stars(r.stars)}</p><h2>${r.title}</h2><p>${r.text}</p></article>
+    ${r.reply ? label('div', `<small>${status}</small><p>${esc(r.reply)}</p>`, 'reply') : ''}
+    ${r.canReply ? button(r.reply ? 'Sửa phản hồi' : 'Soạn phản hồi', 'compose:' + r.id, 'primary stretch') : localMessage('Review từ nguồn công khai. Cần review có quyền trả lời từ store.') }`, 'stack');
+}
+
+function keywordList() {
+  const visible = keywords.filter(k => k.app === state.keywordApp && k.market === state.market);
+  return title('Từ khóa', 'Vị trí tìm kiếm theo thị trường') + label('div',
+    `<div class="filters">${select('keywordApp', 'Ứng dụng theo dõi từ khóa', appOptions(false))}${select('market', 'Thị trường', [['VN', 'Việt Nam'], ['US', 'Hoa Kỳ']])}</div>
+    ${section('Đang theo dõi', visible.length ? surface(visible.map(k => {
+      const now = k.history.at(-1);
+      const delta = k.history.at(-2) - now;
+      return row(split(esc(k.term), k.history.length ? 'Kiểm tra 26 thg 11' : 'Chưa kiểm tra') +
+        `<span class="end"><strong>${now === undefined ? 'Chưa xếp hạng' : '#' + now}</strong>${delta ? label('small', delta > 0 ? 'Lên ' + delta : 'Giảm ' + -delta, delta > 0 ? 'positive' : 'negative') : ''}</span>${chevron()}`, 'keyword:' + k.id);
+    }).join('')) : surface('Chưa theo dõi từ khóa ở thị trường này.', 'pad'), button(icon('plus') + ' Thêm', 'add-keyword'))}`, 'stack');
+}
+function keywordDetail(k) {
+  const now = k.history.at(-1);
+  return button(icon('arrow-left') + ' Quay lại', 'back') + title(esc(k.term), item(k.app).name + ' · ' + (k.market === 'VN' ? 'Việt Nam' : 'Hoa Kỳ')) +
+    (k.history.length ? `<figure class="surface pad"><figcaption><h2>Lịch sử thứ hạng</h2><strong>#${now}</strong></figcaption>${chart(k.history, 'Hạng từ khóa theo ngày', true)}</figure>` : surface('Chưa có lượt kiểm tra cho từ khóa này.', 'pad'));
+}
+
+function appList() {
+  return title('Ứng dụng', 'Danh mục của bạn') + surface(apps.map(a => row(appIcon(a) + split(a.name, a.store) + `<span class="end">${a.rating} ★</span>${chevron()}`, 'app:' + a.id)).join(''));
+}
+function appDetail(a) {
+  return button(icon('arrow-left') + ' Quay lại', 'back') + title(a.name, a.store + ' · Bản ' + a.release) +
+    label('div', section('Hiệu suất', surface(row(split('Lượt cài 7 ngày', num(a.installs)) + change(a.delta)) + row(split('Doanh thu 7 ngày', money(a.revenue))) + row(split('Mở thống kê ứng dụng') + chevron(), 'app-stats:' + a.id))) +
+    section('Quản lý store', surface(row(icon('bubble') + split('Review') + chevron(), 'app-reviews:' + a.id) + row(icon('search') + split('Từ khóa') + chevron(), 'app-keywords:' + a.id))), 'stack');
+}
+function settings() {
+  return button(icon('arrow-left') + ' Quay lại', 'back') + title('Cài đặt') + label('div',
+    section('Tích hợp', surface(row(split('App Store Connect', 'Đã kết nối · mẫu')) + row(split('Google Play', 'Đã kết nối · mẫu')))) +
+    section('Dữ liệu', surface(row(split('Đồng bộ danh mục', 'Mô phỏng trên thiết bị') + icon('refresh-cw'), 'sync') + row(split('Xuất CSV', 'Tổng lượt cài mẫu trong 7 ngày') + icon('download'), 'export'))) +
+    label('p', 'Các thao tác trên mẫu chỉ dùng dữ liệu minh họa.', 'muted'), 'stack');
+}
+
+function render(focus = false, preserve = false) {
+  const scroll = main.scrollTop;
+  const current = state.detail;
+  const views = { stats: performance, inbox, keywords: keywordList, apps: appList };
+  const details = { review: () => reviewDetail(reviews.find(r => r.id === current.id)), keyword: () => keywordDetail(keywords.find(k => k.id === current.id)), app: () => appDetail(item(current.id)), settings };
+  main.innerHTML = current ? details[current.kind]() : views[state.tab]();
+  nav.innerHTML = rows.map(key => {
+    const [name, symbol] = tabs[key];
+    return `<button type="button" data-action="tab:${key}" ${key === state.tab ? 'aria-current="page"' : ''}>${icon(symbol)}${inboxFirst && key === 'inbox' ? 'Hộp việc' : name}</button>`;
+  }).join('');
+  if (focus) {
+    const heading = main.querySelector('h1');
+    heading.tabIndex = -1;
+    heading.focus({ preventScroll: true });
+  }
+  main.scrollTop = preserve ? scroll : 0;
+}
+
+function showSheet(content) {
+  dialog.innerHTML = content;
+  if (!dialog.open) dialog.showModal();
+}
+function compose(r, phase = 'edit') {
+  const a = item(r.app);
+  const limit = a.store === 'Google Play' ? 350 : 5970;
+  const draft = r.draftText ?? r.reply;
+  if (phase === 'confirm') {
+    showSheet(`<h2 id="sheet-title">Gửi phản hồi?</h2><p>Phản hồi sẽ xuất hiện công khai trên ${a.store} khi gửi thật.</p><p class="reply">${esc(draft.trim())}</p>
+    <div class="sheet-actions">${button('Quay lại sửa', 'compose:' + r.id)}${button('Gửi mô phỏng', 'publish:' + r.id, 'primary')}</div>`);
+    return;
+  }
+  showSheet(`<h2 id="sheet-title">Soạn phản hồi</h2><form data-form="reply" data-id="${r.id}">
+    <div class="sheet-review"><small>${a.name} · ${r.author}</small><p>${r.text}</p></div>
+    <div><label for="reply-text">Phản hồi công khai</label><textarea id="reply-text" class="control" required maxlength="${limit}">${esc(draft)}</textarea>
+    <div class="editor-meta">${r.draft ? button('Dùng bản nháp AI mẫu', 'draft:' + r.id) : ''}<small id="count">${draft.length}/${limit}</small></div></div>
+    <div class="sheet-actions">${button('Hủy', 'close')}<button class="primary" type="submit" ${draft.trim() ? '' : 'disabled'}>Xem trước</button></div></form>`);
+}
+function addKeyword() {
+  showSheet(`<h2 id="sheet-title">Theo dõi từ khóa</h2><form data-form="keyword">
+    <p class="muted">${item(state.keywordApp).name} · ${state.market === 'VN' ? 'Việt Nam' : 'Hoa Kỳ'}</p>
+    <label for="new-term">Từ khóa</label><input class="control" id="new-term" name="term" required maxlength="80" autocomplete="off">
+    <p id="term-error" role="status" class="negative" hidden></p>
+    <div class="sheet-actions">${button('Hủy', 'close')}<button class="primary" type="submit">Theo dõi</button></div></form>`);
+}
+function setTab(tab) { state.tab = tab; state.detail = null; }
+function announce(message) { document.querySelector('#announcement').textContent = message; }
+
+document.addEventListener('change', e => {
+  const field = e.target.dataset.field;
+  if (!field) return;
+  state[field] = field === 'market' ? e.target.value : Number(e.target.value);
+  render(false, true);
+  main.querySelector('select[data-field="' + field + '"]')?.focus({ preventScroll: true });
+});
+dialog.addEventListener('input', e => {
+  if (e.target.id !== 'reply-text') return;
+  const text = e.target.value;
+  reviews.find(r => r.id === Number(e.target.form.dataset.id)).draftText = text;
+  dialog.querySelector('#count').textContent = `${text.length}/${e.target.maxLength}`;
+  dialog.querySelector('[type=submit]').disabled = !text.trim();
+});
+dialog.addEventListener('submit', e => {
+  e.preventDefault();
+  if (e.target.dataset.form === 'reply') {
+    const r = reviews.find(r => r.id === Number(e.target.dataset.id));
+    if (r && (r.draftText ?? r.reply).trim()) compose(r, 'confirm');
+  } else {
+    const term = e.target.elements.term.value.trim();
+    const duplicate = keywords.some(k => k.app === state.keywordApp && k.market === state.market && k.term.toLocaleLowerCase() === term.toLocaleLowerCase());
+    if (!term || duplicate) {
+      const error = dialog.querySelector('#term-error');
+      error.hidden = false;
+      error.textContent = term ? 'Từ khóa này đã được theo dõi.' : 'Nhập từ khóa để tiếp tục.';
+      return;
+    }
+    keywords.push({ id: Math.max(...keywords.map(k => k.id)) + 1, app: state.keywordApp, market: state.market, term, history: [] });
+    dialog.close();
+    render(true, true);
+    announce('Đã thêm từ khóa mẫu.');
+  }
+});
+
+document.addEventListener('click', e => {
+  const target = e.target.closest('[data-action]');
+  if (!target) return;
+  const [action, value] = target.dataset.action.split(':');
+  const id = Number(value);
+  const r = reviews.find(review => review.id === id);
+  switch (action) {
+    case 'tab': setTab(value); break;
+    case 'review': case 'keyword': case 'app': case 'settings': state.detail = { kind: action, id }; break;
+    case 'back': state.detail = null; break;
+    case 'filter':
+      state.filter = value;
+      render(false, true);
+      main.querySelector('[aria-pressed="true"]')?.focus({ preventScroll: true });
+      return;
+    case 'compose': compose(r); return;
+    case 'draft': r.draftText = r.draft; compose(r); dialog.querySelector('textarea').focus(); return;
+    case 'publish':
+      r.reply = (r.draftText ?? r.reply).trim();
+      r.pending = item(r.app).store === 'App Store';
+      delete r.draftText;
+      dialog.close();
+      render(true);
+      announce('Đã gửi phản hồi mô phỏng.');
+      return;
+    case 'close': dialog.close(); return;
+    case 'add-keyword': addKeyword(); return;
+    case 'app-stats': state.app = id; setTab('stats'); break;
+    case 'app-reviews': state.reviewApp = id; state.filter = 'all'; setTab('inbox'); break;
+    case 'app-keywords': state.keywordApp = id; setTab('keywords'); break;
+    case 'sync':
+      target.disabled = true;
+      target.querySelector('small').textContent = 'Đang đồng bộ mẫu…';
+      setTimeout(() => {
+        target.disabled = false;
+        target.querySelector('small').textContent = 'Vừa đồng bộ mẫu';
+        announce('Đã đồng bộ dữ liệu mẫu.');
+      }, 500);
+      return;
+    case 'export': {
+      const csv = 'App,Store,Installs\n' + apps.map(a => [a.name, a.store, a.installs].join(',')).join('\n');
+      const url = URL.createObjectURL(new Blob(['\uFEFF' + csv], { type: 'text/csv' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'apprankly-mau.csv';
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      return;
+    }
+    default: return;
+  }
+  render(true);
+});
+
+document.querySelector('header button').innerHTML = icon('settings');
+render();
+</script>
+</body>
+</html>

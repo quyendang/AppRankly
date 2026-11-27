@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chọn giao diện AppRankly iOS</title>
+<style>
+:root { color-scheme: light dark; --base:#f3f2f0; --ink:#222321; --muted:#525753; --line:#d3d5cf; --link:#31584c; font:100%/1.5 system-ui,sans-serif; }
+@media (prefers-color-scheme: dark) { :root { --base:#171b19; --ink:#f0f4f0; --muted:#b3c0b7; --line:#3a4840; --link:#a2dfc7; } }
+* { box-sizing:border-box; }
+body { margin:0; color:var(--ink); background:var(--base); }
+main { max-width:1004px; margin:auto; padding:28px 24px 38px; }
+h1 { margin:0; font-size:clamp(1.85rem,4vw,3rem); letter-spacing:-.035em; line-height:1.12; }
+p { margin:8px 0 0; color:var(--muted); }
+header { margin-bottom:24px; display:flex; justify-content:space-between; align-items:start; gap:10px 20px; flex-wrap:wrap; }
+select { min-height:44px; font:inherit; color:var(--ink); background:var(--base); border:1px solid var(--line); border-radius:10px; padding:6px 10px; }
+body:has(option[value="light"]:checked) iframe { color-scheme:light; }
+body:has(option[value="dark"]:checked) iframe { color-scheme:dark; }
+.gallery { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px; }
+article { min-width:0; border-top:1px solid var(--line); padding-top:11px; }
+.heading { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+h2 { margin:0; font-size:1.2rem; letter-spacing:-.02em; }
+a { color:var(--link); text-underline-offset:4px; min-height:44px; display:inline-flex; align-items:center; }
+a:focus-visible { outline:2px solid var(--link); outline-offset:3px; }
+iframe { display:block; border:1px solid var(--line); border-radius:27px; width:100%; max-width:430px; height:720px; margin:14px 0 0; background:var(--base); }
+footer { margin-top:18px; }
+@media (max-width: 720px) { .gallery { grid-template-columns:1fr; } main { padding:22px 18px; } iframe { height: min(720px, 82dvh); } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div><h1>AppRankly trên iPhone</h1><p>Thử cùng ba việc ở mỗi mẫu: đổi khoảng thống kê, trả lời một review và theo dõi một từ khóa.</p></div>
+    <select aria-label="Giao diện prototype"><option value="system">Theo hệ thống</option><option value="light">Sáng</option><option value="dark">Tối</option></select>
+  </header>
+  <section class="gallery" aria-label="So sánh hai prototype">
+    <article>
+      <div class="heading"><h2>A. Tổng quan <small style="font-weight: 500; color: var(--muted)">· Đã chọn</small></h2><a href="prototype.html?mode=stats" aria-label="Mở toàn màn hình mẫu Tổng quan">Mở toàn màn hình ↗</a></div>
+      <p>Mở vào biểu đồ lượt cài và hiệu suất từng app.</p>
+      <iframe src="prototype.html?mode=stats" title="Prototype A. Tổng quan"></iframe>
+    </article>
+    <article>
+      <div class="heading"><h2>B. Hộp việc</h2><a href="prototype.html?mode=inbox" aria-label="Mở toàn màn hình mẫu Hộp việc">Mở toàn màn hình ↗</a></div>
+      <p>Mở vào review cần trả lời và các biến động gần đây.</p>
+      <iframe src="prototype.html?mode=inbox" title="Prototype B. Hộp việc"></iframe>
+    </article>
+  </section>
+  <footer><p>Các thao tác dùng dữ liệu minh họa và được đặt lại khi tải lại trang.</p></footer>
+</main>
+</body>
+</html>

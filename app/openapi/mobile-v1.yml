@@ -1,0 +1,466 @@
+openapi: 3.0.3
+info:
+  title: AppRankly mobile API
+  version: 1.0.0
+servers:
+  - url: /api/v1
+security:
+  - deviceToken: []
+paths:
+  /auth/login:
+    post:
+      operationId: login
+      summary: Start an owner device session
+      description: Requires HTTPS in production. Shares the owner's web login rate limit.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string, format: password, maxLength: 256 }
+      responses:
+        '200': { $ref: '#/components/responses/Tokens' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '413': { $ref: '#/components/responses/Error' }
+        '415': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+        '500': { $ref: '#/components/responses/Error' }
+  /auth/refresh:
+    post:
+      operationId: refresh
+      summary: Exchange a refresh token for a new token pair
+      description: A successful exchange invalidates both old tokens. The refresh session has a fixed 30-day lifetime.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { $ref: '#/components/schemas/OpaqueToken' }
+      responses:
+        '200': { $ref: '#/components/responses/Tokens' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '413': { $ref: '#/components/responses/Error' }
+        '415': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+        '500': { $ref: '#/components/responses/Error' }
+  /auth/me:
+    get:
+      operationId: getOwner
+      summary: Verify the current device session
+      responses:
+        '200':
+          description: Owner session
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [owner]
+                properties:
+                  owner: { type: boolean, enum: [true] }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+        '500': { $ref: '#/components/responses/Error' }
+  /auth/logout:
+    post:
+      operationId: logout
+      summary: Revoke the current device session
+      responses:
+        '204':
+          description: Both device tokens have been revoked
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+        '500': { $ref: '#/components/responses/Error' }
+  /apps:
+    get:
+      operationId: listApps
+      summary: List owned apps and store discovery warnings
+      responses:
+        '200':
+          description: App catalog
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AppCatalog' }
+        '401': { $ref: '#/components/responses/Error' }
+  /apps/{appId}/icon:
+    parameters:
+      - $ref: '#/components/parameters/AppId'
+    get:
+      operationId: getAppIcon
+      summary: Load an owned app icon through the server's store-image proxy
+      responses:
+        '200':
+          description: Store icon
+          content:
+            'image/*':
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /overview:
+    parameters:
+      - $ref: '#/components/parameters/From'
+      - $ref: '#/components/parameters/To'
+    get:
+      operationId: getOverview
+      summary: Load the portfolio for a reporting period and the immediately preceding period
+      description: Dates are inclusive. Supply both bounds for a custom range, or omit them for 30 days ending yesterday UTC.
+      parameters:
+        - name: platform
+          in: query
+          schema: { type: string, enum: [apple, google] }
+      responses:
+        '200': { $ref: '#/components/responses/Analytics' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+  /apps/{appId}/analytics:
+    parameters:
+      - $ref: '#/components/parameters/AppId'
+      - $ref: '#/components/parameters/From'
+      - $ref: '#/components/parameters/To'
+    get:
+      operationId: getAppAnalytics
+      summary: Load current and previous metrics for one owned app
+      responses:
+        '200': { $ref: '#/components/responses/Analytics' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /apps/{appId}/analytics/countries:
+    parameters:
+      - $ref: '#/components/parameters/AppId'
+      - $ref: '#/components/parameters/From'
+      - $ref: '#/components/parameters/To'
+    get:
+      operationId: getCountryBreakdown
+      summary: Country-level installations and original currency values
+      responses:
+        '200':
+          description: Country breakdown
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rows]
+                properties:
+                  installStatus: { type: string, enum: [available, unavailable], description: Present for Google Play }
+                  revenueStatus: { $ref: '#/components/schemas/SourceCoverage' }
+                  rows:
+                    type: array
+                    items:
+                      type: object
+                      required: [country, installs, revenueByCurrency]
+                      properties:
+                        country: { type: string, description: ISO 3166-1 alpha-2 territory }
+                        installs: { type: integer, nullable: true }
+                        revenueByCurrency: { $ref: '#/components/schemas/Amounts' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /apps/{appId}/analytics/versions:
+    parameters:
+      - $ref: '#/components/parameters/AppId'
+      - $ref: '#/components/parameters/From'
+      - $ref: '#/components/parameters/To'
+    get:
+      operationId: getVersionBreakdown
+      summary: Installations by app version
+      responses:
+        '200':
+          description: Version breakdown
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rows]
+                properties:
+                  rows:
+                    type: array
+                    items:
+                      type: object
+                      required: [label, installs]
+                      properties:
+                        label: { type: string }
+                        installs: { type: integer, nullable: true }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /apps/{appId}/analytics/purchases:
+    parameters:
+      - $ref: '#/components/parameters/AppId'
+      - $ref: '#/components/parameters/From'
+      - $ref: '#/components/parameters/To'
+    get:
+      operationId: getPurchaseBreakdown
+      summary: In-app purchases, subscriptions and refunds by day and product
+      responses:
+        '200':
+          description: Purchase breakdown. Missing reports can also return NO_REPORTS.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [available, purchases]
+                properties:
+                  available: { type: boolean }
+                  purchases:
+                    type: object
+                    nullable: true
+                    required: [daily, products, totals]
+                    properties:
+                      daily:
+                        type: array
+                        items:
+                          type: object
+                          required: [date, iap, subscription, refunds]
+                          properties:
+                            date: { type: string, format: date }
+                            iap: { type: integer }
+                            subscription: { type: integer }
+                            refunds: { type: integer }
+                      products:
+                        type: array
+                        items:
+                          allOf:
+                            - $ref: '#/components/schemas/PurchaseTotal'
+                            - type: object
+                              required: [kind, sku, title]
+                              properties:
+                                kind: { type: string, enum: [iap, subscription] }
+                                sku: { type: string }
+                                title: { type: string }
+                      totals:
+                        type: object
+                        required: [iap, subscription]
+                        properties:
+                          iap: { $ref: '#/components/schemas/PurchaseTotal' }
+                          subscription: { $ref: '#/components/schemas/PurchaseTotal' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /apps/{appId}/analytics/releases:
+    parameters:
+      - $ref: '#/components/parameters/AppId'
+    get:
+      operationId: getReleaseImpact
+      summary: Impact of recent releases using the server's rolling window
+      responses:
+        '200':
+          description: Recent releases and before/after metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [releases]
+                properties:
+                  releases:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, date, label, days, before, after, change, rpiChange, reviews, low]
+                      properties:
+                        id: { type: string }
+                        date: { type: string, format: date }
+                        label: { type: string }
+                        days: { type: integer }
+                        before: { type: number, nullable: true }
+                        after: { type: number, nullable: true }
+                        change: { type: number, nullable: true, description: Install change percent }
+                        rpiChange: { type: number, nullable: true, description: Revenue per installation change percent }
+                        reviews: { type: integer }
+                        low: { type: integer }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /exchange-rates:
+    get:
+      operationId: getExchangeRates
+      summary: USD conversion rates and their source
+      responses:
+        '200':
+          description: A rate is the USD value of one unit of the original currency
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [base, source, status, rates]
+                properties:
+                  base: { type: string, enum: [USD] }
+                  source: { type: string }
+                  status: { type: string, enum: [available, stale, unavailable] }
+                  fetchedAt: { type: string, format: date-time }
+                  rates:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      required: [rate, date]
+                      properties:
+                        rate: { type: number, minimum: 0, exclusiveMinimum: true }
+                        date: { type: string, format: date, nullable: true }
+        '401': { $ref: '#/components/responses/Error' }
+components:
+  parameters:
+    AppId:
+      name: appId
+      in: path
+      required: true
+      schema: { type: string }
+      description: Opaque ID from GET /apps
+    From:
+      name: from
+      in: query
+      schema: { type: string, format: date }
+    To:
+      name: to
+      in: query
+      schema: { type: string, format: date }
+  securitySchemes:
+    deviceToken:
+      type: http
+      scheme: bearer
+  schemas:
+    OpaqueToken:
+      type: string
+      pattern: '^[A-Za-z0-9_-]{43}$'
+    TokenPair:
+      type: object
+      required: [accessToken, refreshToken, expiresIn]
+      properties:
+        accessToken: { $ref: '#/components/schemas/OpaqueToken' }
+        refreshToken: { $ref: '#/components/schemas/OpaqueToken' }
+        expiresIn: { type: integer, minimum: 1, maximum: 900, description: Access token lifetime in seconds }
+    StoreApp:
+      type: object
+      required: [id, name, platform, packageName, rating, version, storeUrl, iconAvailable, metadataError]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        platform: { type: string, enum: [apple, google] }
+        packageName: { type: string }
+        rating: { type: number, nullable: true }
+        version: { type: string, nullable: true }
+        storeUrl: { type: string, format: uri, nullable: true }
+        iconAvailable: { type: boolean }
+        metadataError: { type: string, nullable: true }
+    SourceWarning:
+      type: object
+      required: [platform, error]
+      properties:
+        platform: { type: string, enum: [apple, google] }
+        error: { type: string }
+    AppCatalog:
+      type: object
+      required: [apps, warnings]
+      properties:
+        apps:
+          type: array
+          items: { $ref: '#/components/schemas/StoreApp' }
+        warnings:
+          type: array
+          items: { $ref: '#/components/schemas/SourceWarning' }
+    Range:
+      type: object
+      required: [startDate, endDate]
+      properties:
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+    Amounts:
+      type: object
+      description: Values denominated in the ISO 4217 currency named by each key
+      additionalProperties: { type: number }
+    SourceCoverage:
+      type: string
+      enum: [available, partial, unavailable]
+    AppReport:
+      type: object
+      required: [app, installs, activeDevices, retention, lastDate, error, sourceStatus, revenue, daily]
+      properties:
+        app: { $ref: '#/components/schemas/StoreApp' }
+        installs: { type: integer, nullable: true }
+        activeDevices: { type: integer, nullable: true }
+        retention: { type: number, nullable: true }
+        lastDate: { type: string, format: date, nullable: true }
+        error: { type: string, nullable: true }
+        sourceStatus: { type: integer, nullable: true }
+        revenue:
+          type: object
+          required: [basis, status, byCurrency]
+          properties:
+            basis:
+              type: string
+              enum: [estimated_developer_proceeds, gross_buyer_payments_including_tax]
+            status: { $ref: '#/components/schemas/SourceCoverage' }
+            byCurrency: { $ref: '#/components/schemas/Amounts' }
+        daily:
+          type: array
+          items:
+            type: object
+            required: [date, installs, uninstalls, upgrades, revenueByCurrency]
+            properties:
+              date: { type: string, format: date }
+              installs: { type: integer, nullable: true }
+              uninstalls: { type: integer, nullable: true }
+              upgrades: { type: integer, nullable: true }
+              revenueByCurrency: { $ref: '#/components/schemas/Amounts' }
+    Analytics:
+      type: object
+      required: [range, previousRange, generatedAt, warnings, current, previous]
+      properties:
+        range: { $ref: '#/components/schemas/Range' }
+        previousRange: { $ref: '#/components/schemas/Range' }
+        generatedAt: { type: string, format: date-time }
+        warnings:
+          type: array
+          items: { $ref: '#/components/schemas/SourceWarning' }
+        current:
+          type: array
+          items: { $ref: '#/components/schemas/AppReport' }
+        previous:
+          type: array
+          items: { $ref: '#/components/schemas/AppReport' }
+    PurchaseTotal:
+      type: object
+      required: [purchases, refunds, revenueByCurrency]
+      properties:
+        purchases: { type: integer }
+        refunds: { type: integer }
+        revenueByCurrency: { $ref: '#/components/schemas/Amounts' }
+  responses:
+    Analytics:
+      description: Current and previous periods. A source can fail while other apps remain available.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Analytics' }
+    Tokens:
+      description: Device session credentials
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/TokenPair' }
+    Error:
+      description: Request failed
+      headers:
+        X-Request-Id:
+          schema: { type: string, format: uuid }
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error]
+            properties:
+              error:
+                type: object
+                required: [code, requestId]
+                properties:
+                  code:
+                    type: string
+                    enum: [INVALID_INPUT, HTTPS_REQUIRED, INVALID_LOGIN, AUTH_REQUIRED, REQUEST_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, LOGIN_RATE_LIMIT, RATE_LIMIT, NOT_FOUND, APP_NOT_FOUND, NO_REPORTS, INVALID_PLATFORM, INVALID_DATE_RANGE, OPERATION_FAILED]
+                  requestId: { type: string, format: uuid }
