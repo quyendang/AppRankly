@@ -14,16 +14,19 @@ struct AppTabs: View {
                 NavigationStack {
                     ReviewListScreen(session: session)
                 }
+                .id(session.visibilityGeneration)
             }
             Tab("Từ khóa", systemImage: "magnifyingglass") {
                 NavigationStack {
                     KeywordsScreen(session: session)
                 }
+                .id(session.visibilityGeneration)
             }
             Tab("Ứng dụng", systemImage: "square.grid.2x2.fill") {
                 NavigationStack {
                     AppCatalogScreen(session: session)
                 }
+                .id(session.visibilityGeneration)
             }
         }
     }

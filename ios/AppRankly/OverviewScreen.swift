@@ -14,10 +14,8 @@ struct OverviewScreen: View {
             Section {
                 AnalyticsPeriodPicker(selection: $period)
                 if let report = loader.value, !report.current.isEmpty {
-                    Picker("Ứng dụng", selection: $selectedApp) {
-                        Text("Tất cả ứng dụng").tag("")
-                        ForEach(report.current) { Text($0.app.name).tag($0.id) }
-                    }
+                    AppPicker(apps: report.current.map(\.app).filter { !session.hiddenAppIDs.contains($0.id) },
+                              includesAll: true, selection: $selectedApp)
                 }
             }
 
@@ -79,7 +77,10 @@ struct OverviewScreen: View {
         .sheet(isPresented: $exporting) {
             ExportReportSheet(session: session, range: period.range, appId: selectedApp)
         }
-        .onChange(of: session.catalogGeneration) { Task { await load() } }
+        .onChange(of: session.catalogGeneration) {
+            if session.hiddenAppIDs.contains(selectedApp) { selectedApp = "" }
+            Task { await load() }
+        }
         .task(id: period) { await load() }
         .task { await loadRates() }
         .refreshable {
@@ -90,7 +91,9 @@ struct OverviewScreen: View {
     }
 
     private func scoped(_ reports: [AnalyticsReport.AppReport]) -> [AnalyticsReport.AppReport] {
-        selectedApp.isEmpty ? reports : reports.filter { $0.id == selectedApp }
+        reports.filter { report in
+            !session.hiddenAppIDs.contains(report.id) && (selectedApp.isEmpty || selectedApp == report.id)
+        }
     }
 
     private func load() async {

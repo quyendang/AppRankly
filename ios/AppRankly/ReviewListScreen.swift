@@ -29,10 +29,7 @@ struct ReviewListScreen: View {
     var body: some View {
         List {
             Section {
-                Picker("Ứng dụng", selection: $selection.appId) {
-                    Text("Tất cả ứng dụng").tag("")
-                    ForEach(apps) { Text($0.name).tag($0.id) }
-                }
+                AppPicker(apps: apps, includesAll: true, selection: $selection.appId)
                 Picker("Phản hồi", selection: $selection.filter) {
                     ForEach(ReviewFilter.allCases) { Text($0.title).tag($0) }
                 }

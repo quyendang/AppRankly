@@ -14,6 +14,7 @@
 		0C8DACEA239AD56954079BE3 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F5A38A179F0C03DAF06D5F3 /* APIClient.swift */; };
 		0CCC1433D6AED6A1C59A78CF /* OwnerSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 518B29D6D3D498249276E85E /* OwnerSession.swift */; };
 		10374B19236123D667ACF76B /* OverviewScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36D2C434A781959FBF0BD911 /* OverviewScreen.swift */; };
+		1D23137B8BA4F761A6553A71 /* AppPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 704F1B7F5579785AF319A8B9 /* AppPicker.swift */; };
 		27393F713A205FD00BF69486 /* ReviewComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71561658518B6C958E6FF9C2 /* ReviewComposer.swift */; };
 		28104EF4273C09F0B31F2343 /* AnalyticsComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = E510188198B1AFFB9E03DDDF /* AnalyticsComponents.swift */; };
 		28A1049AB7EF639064DDA974 /* CompetitorScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93D25ED03E1916816A6C5E5D /* CompetitorScreen.swift */; };
@@ -22,6 +23,7 @@
 		34A2898E8909DE1937C71520 /* StoreAnalysisScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78C15E1E9421C3F4B7630CC8 /* StoreAnalysisScreen.swift */; };
 		3EE78FF4613EC8F823D0B804 /* AppEventsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 527EAD2803548CB2EEB50658 /* AppEventsScreen.swift */; };
 		40CD60317420026F3EA6CF24 /* AppAnalyticsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12189F7D9148F38479156A62 /* AppAnalyticsScreen.swift */; };
+		4AB809523DCA7CA873C97561 /* AppVisibilityScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73D439699A6C2FB837CCEB28 /* AppVisibilityScreen.swift */; };
 		56486F7727A9988CB4377A49 /* AppCatalogScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCFC8171238A5FBD50040E77 /* AppCatalogScreen.swift */; };
 		58C63A4488C5F1207220FD91 /* AppRanklyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25DF905153B1B9078DA3886C /* AppRanklyApp.swift */; };
 		63F5F6F05FA080F63680B0B3 /* InboxSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3059459E9E58D81BFB6B3106 /* InboxSection.swift */; };
@@ -59,9 +61,11 @@
 		4FB420F18D8ECD7EE6C95B7A /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		518B29D6D3D498249276E85E /* OwnerSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnerSession.swift; sourceTree = "<group>"; };
 		527EAD2803548CB2EEB50658 /* AppEventsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEventsScreen.swift; sourceTree = "<group>"; };
+		704F1B7F5579785AF319A8B9 /* AppPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPicker.swift; sourceTree = "<group>"; };
 		7053BADE790C8F3449FC532F /* ASOListingScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASOListingScreen.swift; sourceTree = "<group>"; };
 		71561658518B6C958E6FF9C2 /* ReviewComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewComposer.swift; sourceTree = "<group>"; };
 		73791B4251CA62E16F9A33D6 /* ReviewListScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewListScreen.swift; sourceTree = "<group>"; };
+		73D439699A6C2FB837CCEB28 /* AppVisibilityScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppVisibilityScreen.swift; sourceTree = "<group>"; };
 		7775225D3B9163E1F4FF5437 /* CampaignScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CampaignScreen.swift; sourceTree = "<group>"; };
 		78C15E1E9421C3F4B7630CC8 /* StoreAnalysisScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreAnalysisScreen.swift; sourceTree = "<group>"; };
 		7A6C0B0B617784AE9CC8A1BC /* ExportReportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportReportSheet.swift; sourceTree = "<group>"; };
@@ -96,8 +100,10 @@
 				CCFC8171238A5FBD50040E77 /* AppCatalogScreen.swift */,
 				527EAD2803548CB2EEB50658 /* AppEventsScreen.swift */,
 				AFE93CA1C3C41F82A508D76B /* AppLanguage.swift */,
+				704F1B7F5579785AF319A8B9 /* AppPicker.swift */,
 				25DF905153B1B9078DA3886C /* AppRanklyApp.swift */,
 				E25AD573F9F431705EB2F2B1 /* AppTabs.swift */,
+				73D439699A6C2FB837CCEB28 /* AppVisibilityScreen.swift */,
 				7053BADE790C8F3449FC532F /* ASOListingScreen.swift */,
 				1AFB5A8C054B77B746774F58 /* ASOModels.swift */,
 				E6625EB2E3186B7C0FC51BA4 /* Assets.xcassets */,
@@ -222,8 +228,10 @@
 				56486F7727A9988CB4377A49 /* AppCatalogScreen.swift in Sources */,
 				3EE78FF4613EC8F823D0B804 /* AppEventsScreen.swift in Sources */,
 				E14E2B66B5A2F9B518E590F8 /* AppLanguage.swift in Sources */,
+				1D23137B8BA4F761A6553A71 /* AppPicker.swift in Sources */,
 				58C63A4488C5F1207220FD91 /* AppRanklyApp.swift in Sources */,
 				967C1702616F933130BB16B3 /* AppTabs.swift in Sources */,
+				4AB809523DCA7CA873C97561 /* AppVisibilityScreen.swift in Sources */,
 				FB145E0F06C873631DD13E74 /* CampaignScreen.swift in Sources */,
 				28A1049AB7EF639064DDA974 /* CompetitorScreen.swift in Sources */,
 				01F94A4F65F220EF32DF09F4 /* ExportReportSheet.swift in Sources */,

@@ -3,6 +3,7 @@ const { db } = require("../lib/db");
 const { redact } = require("../lib/runtime");
 const ai = require("../lib/ai");
 const store = require("../lib/portfolio");
+const mobileCatalog = require("../lib/mobileCatalog");
 const reviews = require("../lib/storeReviews");
 const draft = require("../lib/reviewDraft");
 const catalog = require("../lib/aso/catalog");
@@ -40,7 +41,7 @@ module.exports = function registerAI(router, authenticate, run) {
     const { kind, appId, reviewId, country, count, locale = "vi" } = req.body || {};
     if (!["reviewReply", "keywords", ...analysisKinds].includes(kind) || typeof appId !== "string" || !["vi", "en"].includes(locale))
       throw new Error("INVALID_INPUT");
-    const app = await store.ownedApp(appId);
+    const app = await mobileCatalog.ownedApp(appId);
     const destination = draft.destination();
     if (!destination) throw new Error("AI_NOT_CONFIGURED");
     let context;
@@ -72,6 +73,7 @@ module.exports = function registerAI(router, authenticate, run) {
     if (req.body?.confirmed !== true || !entry || entry.expires <= Date.now() || entry.session !== req.mobileSessionID ||
         JSON.stringify(entry.destination) !== JSON.stringify(draft.destination()))
       throw new Error("PREVIEW_REQUIRED");
+    mobileCatalog.assertVisible(entry.app.id);
     previews.delete(req.body.previewId);
     if (entry.payload.kind === "reviewReply") return res.json({ text: await draft.generate(entry.payload) });
     const prompt = JSON.stringify(entry.payload);
@@ -93,7 +95,7 @@ module.exports = function registerAI(router, authenticate, run) {
   }));
 
   router.get("/apps/:appId/ai/latest", authenticate, run(async (req, res) => {
-    const app = await store.ownedApp(req.params.appId);
+    const app = await mobileCatalog.ownedApp(req.params.appId);
     const row = db.prepare(`SELECT payload,kind,provider,model FROM aso_ai_run
       WHERE package_name=? AND platform=? AND kind IN ('audit','variants','reviews','ask') ORDER BY id DESC LIMIT 1`)
       .get(app.packageName, app.platform);

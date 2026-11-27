@@ -3,12 +3,13 @@ const { DATA_DIR } = require("../lib/runtime");
 const { db } = require("../lib/db");
 const config = require("../lib/config");
 const store = require("../lib/portfolio");
+const mobileCatalog = require("../lib/mobileCatalog");
 const operationsApi = require("../lib/ownerOperations");
 const scheduler = require("../lib/scheduler");
 const resolver = require("../lib/resolver");
 const notifier = require("../lib/notifier");
 const insights = require("../lib/insights");
-const { rangeOf } = require("./mobileAnalytics");
+const { appDTO, rangeOf } = require("./mobileAnalytics");
 
 const fields = ["refreshIntervalHours", "timezone", "notificationsEnabled", "digest", "digestHour", "digestLocale", "anomalyThreshold", "googlePackages"];
 const editable = fields.filter(key => !["timezone", "googlePackages"].includes(key));
@@ -38,6 +39,14 @@ function checkNotificationSettings() {
 module.exports = function registerOwner(router, authenticate, run, operations) {
   let sync;
   const route = (method, path, handler) => router[method](path, authenticate, run(handler));
+  route("get", "/apps/visibility", async (req, res) => {
+    const catalog = await mobileCatalog.listApps();
+    res.json({ apps: catalog.apps.map(appDTO), hidden: mobileCatalog.hiddenApps(), warnings: catalog.warnings });
+  });
+  route("put", "/apps/:appId/visibility", async (req, res) => {
+    await mobileCatalog.setHidden(req.params.appId, req.body?.hidden);
+    res.json({ success: true });
+  });
   route("get", "/settings", async (req, res) => res.json(settings(config.getSettings())));
   route("put", "/settings", async (req, res) => {
     const input = req.body;
@@ -75,18 +84,18 @@ module.exports = function registerOwner(router, authenticate, run, operations) {
     res.json(sync);
   });
 
-  route("get", "/notifications", async (req, res) => res.json(await notifier.syncNtfyTopicMessages()));
+  route("get", "/notifications", async (req, res) => res.json(mobileCatalog.visibleNotifications(await notifier.syncNtfyTopicMessages())));
   route("post", "/notifications/read", async (req, res) => {
     const id = req.body?.id;
     if (id !== undefined && (typeof id !== "string" || !id || id.length > 200)) throw new Error("INVALID_INPUT");
     res.json(notifier.markNotificationsRead(DATA_DIR, id));
   });
   route("delete", "/notifications/:id", async (req, res) => res.json(notifier.clearNotifications(DATA_DIR, req.params.id)));
-  route("get", "/digest", async (req, res) => res.json(await insights.buildDigest(digestPeriod(req.query.period))));
+  route("get", "/digest", async (req, res) => res.json(await insights.buildDigest(digestPeriod(req.query.period), await mobileCatalog.listApps())));
   route("post", "/digest/send", async (req, res) => {
     if (req.body?.confirmed !== true) throw new Error("PREVIEW_REQUIRED");
     checkNotificationSettings();
-    const digest = await insights.buildDigest(digestPeriod(req.body.period));
+    const digest = await insights.buildDigest(digestPeriod(req.body.period), await mobileCatalog.listApps());
     res.json({ channels: channelResults(await notifier.broadcastAlert({ title: digest.title, message: digest.message, data: digest.data })) });
   });
   route("post", "/notifications/test", async (req, res) => {
@@ -96,15 +105,15 @@ module.exports = function registerOwner(router, authenticate, run, operations) {
   });
 
   route("get", "/apps/:appId/events", async (req, res) => {
-    const app = await store.ownedApp(req.params.appId);
+    const app = await mobileCatalog.ownedApp(req.params.appId);
     res.json({ events: (await insights.listEvents(app)).map(eventDTO) });
   });
   route("post", "/apps/:appId/events", async (req, res) => {
-    const app = await store.ownedApp(req.params.appId);
+    const app = await mobileCatalog.ownedApp(req.params.appId);
     res.status(201).json(eventDTO(insights.addEvent(app, req.body?.date, req.body?.label)));
   });
   route("delete", "/apps/:appId/events/:id", async (req, res) => {
-    const app = await store.ownedApp(req.params.appId), id = Number(req.params.id);
+    const app = await mobileCatalog.ownedApp(req.params.appId), id = Number(req.params.id);
     if (!Number.isSafeInteger(id) || id < 1) throw new Error("EVENT_NOT_FOUND");
     const deleted = db.prepare("DELETE FROM app_event WHERE id=? AND app_id=? AND source='manual'").run(id, app.id);
     if (!deleted.changes) throw new Error("EVENT_NOT_FOUND");
@@ -114,7 +123,7 @@ module.exports = function registerOwner(router, authenticate, run, operations) {
     const { format = "json", appId } = req.query;
     if (format !== "json" && format !== "csv") throw new Error("INVALID_INPUT");
     const range = rangeOf(req.query);
-    const catalog = appId === undefined ? undefined : { apps: [await store.ownedApp(appId)], warnings: [] };
+    const catalog = appId === undefined ? await mobileCatalog.listApps() : { apps: [await mobileCatalog.ownedApp(appId)], warnings: [] };
     const data = await store.portfolio(range, catalog);
     if (format === "json") return res.json({
       range, apps: data.apps, exchangeRates: await require("../lib/exchangeRates").getExchangeRates(),

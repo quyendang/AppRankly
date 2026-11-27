@@ -1,6 +1,6 @@
 const { randomUUID } = require("node:crypto");
 const { db } = require("../lib/db");
-const store = require("../lib/portfolio");
+const mobileCatalog = require("../lib/mobileCatalog");
 const keywords = require("../lib/aso/keywords");
 const catalog = require("../lib/aso/catalog");
 const ranks = require("../lib/aso/rankTracker");
@@ -62,7 +62,7 @@ function startRankCheck(app, country) {
 
 module.exports = function registerASO(router, authenticate, run) {
   const route = (method, suffix, fn) => router[method]("/apps/:appId" + suffix, authenticate, run(async (req, res) =>
-    fn(req, res, await store.ownedApp(req.params.appId))
+    fn(req, res, await mobileCatalog.ownedApp(req.params.appId))
   ));
 
   route("get", "/keywords", async (req, res, app) => {

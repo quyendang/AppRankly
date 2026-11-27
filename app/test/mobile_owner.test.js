@@ -25,7 +25,11 @@ const { db } = require("../lib/db");
 const { createApp } = require("../server");
 const scheduler = require("../lib/scheduler");
 
-require("../lib/insights").buildDigest = async period => ({ title: "Example digest", message: period });
+let digestApps;
+require("../lib/insights").buildDigest = async (period, catalog) => {
+  digestApps = catalog.apps.map(app => app.id);
+  return { title: "Example digest", message: period };
+};
 require("../lib/aso/catalog").listing = async () => ({ title: "Fixture listing" });
 drafts.destination = () => ({ provider: "fixture", model: "fixture-model" });
 let forwarded;
@@ -60,7 +64,7 @@ notifier.broadcastAlert = async () => { assert.fail("No real notifications shoul
     const apples = "/apps/" + encodeURIComponent(apple.id);
     const googles = "/apps/" + encodeURIComponent(google.id);
 
-    for (const route of ["/settings", "/integrations", "/sync", "/notifications", "/digest", "/export", apples + "/events", apples + "/ai/latest"])
+    for (const route of ["/settings", "/apps/visibility", "/integrations", "/sync", "/notifications", "/digest", "/export", apples + "/events", apples + "/ai/latest"])
       assert.equal((await request(route)).status, 401, route);
 
     assert.equal((await send("/settings", 400, "PUT", { googlePackages: [] })).error.code, "INVALID_SETTINGS");
@@ -115,7 +119,51 @@ notifier.broadcastAlert = async () => { assert.fail("No real notifications shoul
     assert.deepEqual((await send(apples + "/ai/latest")).result, result.result);
     assert.equal((await send(googles + "/ai/latest")).result, null);
     await send("/ai/runs", 400, "POST", { previewId: preview.previewId, confirmed: true });
-    console.log("PASS mobile owner settings, sync, notifications, digest, scoped events and export, AI consent and persistence");
+    const laterPreview = await send("/ai/previews", 200, "POST", { kind: "audit", appId: apple.id });
+    const visibility = apples + "/visibility";
+    assert.equal((await request(visibility, "PUT", { hidden: true })).status, 401);
+    assert.equal((await send(visibility, 400, "PUT", { hidden: "true" })).error.code, "INVALID_INPUT");
+    await send("/apps/apple%3Aexample.unknown/visibility", 404, "PUT", { hidden: true });
+    await send(visibility, 200, "PUT", { hidden: true });
+    await send(visibility, 200, "PUT", { hidden: true });
+    const catalog = await send("/apps/visibility");
+    assert.deepEqual(catalog.hidden.map(row => row.id), [apple.id]);
+    assert.equal(catalog.apps.some(row => row.id === apple.id), false);
+    assert.equal((await send("/apps")).apps.some(row => row.id === apple.id), false);
+    assert.equal((await send("/overview" + query)).current.some(row => row.app.id === apple.id), false);
+    assert.equal((await send("/overview" + query)).previous.some(row => row.app.id === apple.id), false);
+    assert.equal((await send("/export" + query)).apps.some(row => row.id === apple.id), false);
+    assert.doesNotMatch(await send("/export" + query + "&format=csv"), /Sổ Chi Tiêu/);
+    await send(apples + "/analytics" + query, 404);
+    await send(apples + "/keywords", 404);
+    await send("/reviews?appId=" + encodeURIComponent(apple.id), 404);
+    await send("/ai/runs", 404, "POST", { previewId: laterPreview.previewId, confirmed: true });
+    await send("/digest");
+    assert.equal(digestApps.includes(apple.id), false);
+    notifier.addNotificationRecord(directory, { title: "Hidden report", message: "Example",
+      data: { kind: "stats", items: [{ appId: apple.id, name: apple.name, platform: apple.platform }] } });
+    notifier.addNotificationRecord(directory, { title: "Visible report", message: "Example",
+      data: { kind: "stats", items: [{ appId: google.id, name: google.name, platform: google.platform }] } });
+    assert.deepEqual((await send("/notifications")).notifications.map(row => row.title), ["Visible report"]);
+
+    const webCredentials = await fetch(origin + "/api/auth/login", {
+      method: "POST", headers: { Origin: origin, "Content-Type": "application/json" },
+      body: JSON.stringify({ password: "mobile-owner-fixture" }),
+    });
+    assert.equal(webCredentials.status, 200);
+    const web = await fetch(origin + "/api/portfolio", {
+      method: "POST", headers: { Origin: origin, "Content-Type": "application/json", Cookie: webCredentials.headers.get("set-cookie") },
+      body: JSON.stringify(range),
+    });
+    assert.equal(web.status, 200);
+    assert.equal((await web.json()).apps.find(row => row.id === apple.id).installs, 385);
+
+    await send(visibility, 200, "PUT", { hidden: false });
+    assert.deepEqual((await send("/apps/visibility")).hidden, []);
+    assert.equal((await send("/overview" + query)).current.find(row => row.app.id === apple.id).installs, 385);
+    assert.equal((await send(apples + "/ai/latest")).result.summary, "Example audit");
+    assert.equal((await send("/notifications")).unreadCount, 2);
+    console.log("PASS mobile owner settings, sync, digest, scoped events and export, AI consent, and reversible mobile visibility");
   } finally {
     server.close();
     db.close();

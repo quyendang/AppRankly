@@ -35,6 +35,13 @@ struct SettingsView: View {
                     Text("Tối").tag("dark")
                 }
             }
+            Section("Ứng dụng") {
+                NavigationLink {
+                    AppVisibilityScreen(session: session)
+                } label: {
+                    Label("Hiển thị ứng dụng", systemImage: "eye")
+                }
+            }
             Section("Kết nối") {
                 LabeledContent("Máy chủ", value: session.server)
                 if let integrations {
@@ -69,6 +76,7 @@ struct SettingsView: View {
         }
         .appNavigationTitle("Cài đặt")
         .task { await load() }
+        .onChange(of: session.visibilityGeneration) { preview = nil }
         .refreshable { await load() }
         .confirmationDialog("Bỏ mã gói đã thêm?", isPresented: Binding(get: { removing != nil },
             set: { if !$0 { removing = nil } }), titleVisibility: .visible) {

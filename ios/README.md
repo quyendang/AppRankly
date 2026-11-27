@@ -19,3 +19,7 @@ Access token hết hạn sau tối đa 15 phút. Refresh token có hạn tối �
 Batch 5 bổ sung **Cài đặt** để chọn giao diện và ngôn ngữ, kiểm tra kết nối store, quản lý mã gói Google Play và chạy đồng bộ. **Thông báo** và **Xuất báo cáo** nằm trên thanh công cụ của Thống kê. Báo cáo CSV hoặc JSON dùng ứng dụng và khoảng ngày đang chọn. Từ trang chi tiết ứng dụng, mở **Sự kiện** để thêm mốc lên biểu đồ. Trong ASO, mở **Phân tích AI** để duyệt dữ liệu sẽ gửi và xem lại kết quả đã lưu. Bản tin dùng các kênh đã cấu hình trên máy chủ.
 
 Cài riêng qua Xcode bằng **Signing & Capabilities → Automatically manage signing**, chọn team có quyền phát triển và chọn iPhone làm thiết bị chạy. Nếu iPhone yêu cầu Developer Mode, bật trong **Cài đặt → Quyền riêng tư & Bảo mật**.
+
+Trong **Cài đặt → Hiển thị ứng dụng**, bấm **Ẩn ứng dụng** để loại ứng dụng đó khỏi bộ chọn, báo cáo và tệp xuất trên iPhone. Mục **Đã ẩn** lưu danh sách trên máy chủ. Bấm **Khôi phục** để đưa ứng dụng và lịch sử của nó trở lại báo cáo iPhone. Báo cáo web tiếp tục dùng danh mục riêng của web.
+
+Android icon by Google, from [Material Icons](https://github.com/google/material-design-icons/tree/master/png/action/android/materialicons/24dp). The robot artwork is attributed to Google under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).

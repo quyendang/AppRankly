@@ -8,7 +8,8 @@ struct InboxSection: View {
 
     private var tasks: [InboxTask] {
         (loader.value?.tasks ?? []).filter {
-            !session.dismissedInboxKeys.contains($0.key) && (selectedApp.isEmpty || $0.app.id == selectedApp)
+            guard !session.hiddenAppIDs.contains($0.app.id) else { return false }
+            return !session.dismissedInboxKeys.contains($0.key) && (selectedApp.isEmpty || $0.app.id == selectedApp)
         }
     }
 

@@ -1,4 +1,5 @@
 const store = require("../lib/portfolio");
+const mobileCatalog = require("../lib/mobileCatalog");
 const icons = require("../lib/appIcon");
 const countries = require("../lib/countryRevenue");
 const insights = require("../lib/insights");
@@ -70,10 +71,10 @@ async function periods(range, platform, catalog) {
 
 module.exports = function registerAnalytics(router, authenticate, run) {
   const get = (path, handle) => router.get(path, authenticate, run(handle));
-  const withApp = handle => async (req, res) => handle(req, res, await store.ownedApp(req.params.appId));
+  const withApp = handle => async (req, res) => handle(req, res, await mobileCatalog.ownedApp(req.params.appId));
 
   get("/apps", async (req, res) => {
-    const { apps, warnings } = await store.listApps();
+    const { apps, warnings } = await mobileCatalog.listApps();
     res.json({ apps: apps.map(appDTO), warnings });
   });
   get("/apps/:appId/icon", withApp(async (req, res, app) => {
@@ -88,7 +89,7 @@ module.exports = function registerAnalytics(router, authenticate, run) {
     const platform = req.query.platform;
     if (platform !== undefined && !["apple", "google"].includes(platform))
       throw new Error("INVALID_PLATFORM");
-    res.json(await periods(range, platform, await store.listApps()));
+    res.json(await periods(range, platform, await mobileCatalog.listApps()));
   });
   get("/exchange-rates", async (req, res) => res.json(await exchangeRates.getExchangeRates()));
   get("/apps/:appId/analytics", withApp(async (req, res, app) => {

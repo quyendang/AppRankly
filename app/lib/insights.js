@@ -127,10 +127,10 @@ const sumCurrencies = (days) => days.reduce((acc, d) => {
 }, {});
 const pct = (a, b) => (b > 0 ? ` (${a >= b ? "+" : ""}${Math.round((a / b - 1) * 100)}%)` : "");
 
-async function buildDigest(period = "daily") {
+async function buildDigest(period = "daily", catalog) {
   const settings = getSettings(), s = str(settings.digestLocale), n = period === "weekly" ? 7 : 1;
   const rates = (await require("./exchangeRates").getExchangeRates().catch(() => null))?.rates;
-  const { apps } = await listApps(), lines = [], anomalies = [];
+  const { apps } = catalog || await listApps(), lines = [], anomalies = [];
   let idle = 0;
   let totalInstalls = 0, hasInstalls = false;
   const items = [];
@@ -155,7 +155,9 @@ async function buildDigest(period = "daily") {
       ] });
   }
   const since = new Date(Date.now() - n * DAY).toISOString();
-  const archive = db.prepare("SELECT payload FROM review_archive").all().map((r) => JSON.parse(r.payload));
+  const ids = new Set(apps.map(app => app.id));
+  const archive = db.prepare("SELECT app_id, payload FROM review_archive").all()
+    .filter(row => !catalog || ids.has(row.app_id)).map(row => JSON.parse(row.payload));
   const fresh = archive.filter((r) => r.date && r.date >= since);
   const open = archive.filter((r) => !r.replyText && r.canReply).length;
   const avg = fresh.length ? sum(fresh.map((r) => r.rating || 0)) / fresh.length : null;

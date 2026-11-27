@@ -12,6 +12,8 @@ final class OwnerSession {
     private(set) var message: String?
     private(set) var reviewGeneration = 0
     private(set) var catalogGeneration = 0
+    private(set) var visibilityGeneration = 0
+    private(set) var hiddenAppIDs: Set<String> = []
     private(set) var dismissedInboxKeys: Set<String> = []
     private var reviewDrafts: [String: ReviewDraftRecord] = [:]
 
@@ -135,6 +137,12 @@ final class OwnerSession {
     func reviewsChanged() { reviewGeneration += 1 }
     func catalogChanged() { catalogGeneration += 1 }
 
+    func visibilityChanged(_ appId: String, hidden: Bool) {
+        if hidden { hiddenAppIDs.insert(appId) } else { hiddenAppIDs.remove(appId) }
+        visibilityGeneration += 1
+        catalogChanged()
+    }
+
     func exportReport(format: String, range: ReportRange, appId: String) async throws -> Data {
         var query = range.query + [.init(name: "format", value: format)]
         if !appId.isEmpty { query.append(.init(name: "appId", value: appId)) }
@@ -247,6 +255,9 @@ final class OwnerSession {
         } catch {
             try? await api.logout(accessToken: pair.accessToken)
             throw error
+        }
+        if client?.origin != api.origin || phase != .signedIn {
+            hiddenAppIDs.removeAll()
         }
         client = api
         tokens = pair

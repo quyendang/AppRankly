@@ -93,6 +93,57 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/AppCatalog' }
         '401': { $ref: '#/components/responses/Error' }
+  /apps/visibility:
+    get:
+      operationId: listAppVisibility
+      summary: List visible and hidden apps for the iPhone settings screen
+      responses:
+        '200':
+          description: Current owner visibility and store discovery warnings
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/AppCatalog' }
+                  - type: object
+                    required: [hidden]
+                    properties:
+                      hidden:
+                        type: array
+                        items:
+                          type: object
+                          required: [id, name, platform, packageName]
+                          properties:
+                            id: { type: string }
+                            name: { type: string }
+                            platform: { type: string, enum: [apple, google] }
+                            packageName: { type: string }
+        '401': { $ref: '#/components/responses/Error' }
+  /apps/{appId}/visibility:
+    parameters:
+      - $ref: '#/components/parameters/AppId'
+    put:
+      operationId: setAppVisibility
+      summary: Hide or restore an app in the mobile API
+      description: A hidden app is excluded from mobile reports and app routes. Restoration preserves history and works even if the app is temporarily unavailable from its store.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hidden]
+              properties:
+                hidden: { type: boolean }
+      responses:
+        '200':
+          description: Visibility updated
+          content:
+            application/json:
+              schema: { type: object, properties: { success: { type: boolean } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
   /apps/{appId}/icon:
     parameters:
       - $ref: '#/components/parameters/AppId'

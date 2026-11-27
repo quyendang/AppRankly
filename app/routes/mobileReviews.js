@@ -1,6 +1,7 @@
 const { db } = require("../lib/db");
 const { createLimiter } = require("../lib/utils/concurrency");
 const store = require("../lib/portfolio");
+const mobileCatalog = require("../lib/mobileCatalog");
 const reviews = require("../lib/storeReviews");
 const replies = require("../lib/reviewReplies");
 const templates = require("../lib/reviewTemplates");
@@ -95,14 +96,14 @@ function verifyWrite(input) {
 
 module.exports = function registerReviews(router, authenticate, run) {
   const link = (method, path, handle) => router[method](path, authenticate, run(handle));
-  const withApp = fn => async (req, res) => fn(req, res, await store.ownedApp(req.params.appId));
+  const withApp = fn => async (req, res) => fn(req, res, await mobileCatalog.ownedApp(req.params.appId));
   link("get", "/reviews", async (req, res) => {
-    const apps = req.query.appId === undefined ? (await store.listApps()).apps : [await store.ownedApp(req.query.appId)];
+    const apps = req.query.appId === undefined ? (await mobileCatalog.listApps()).apps : [await mobileCatalog.ownedApp(req.query.appId)];
     res.json(page(apps, req.query));
   });
   link("get", "/apps/:appId/reviews", withApp(async (req, res, app) => res.json(page([app], req.query))));
   link("post", "/reviews/refresh", async (req, res) => {
-    const apps = req.body?.appId === undefined ? (await store.listApps()).apps : [await store.ownedApp(req.body.appId)];
+    const apps = req.body?.appId === undefined ? (await mobileCatalog.listApps()).apps : [await mobileCatalog.ownedApp(req.body.appId)];
     resolver.clearCache("managed:reviews");
     res.json({ sources: await Promise.all(apps.map(refreshApp)) });
   });
@@ -144,7 +145,7 @@ module.exports = function registerReviews(router, authenticate, run) {
   link("get", "/inbox", async (req, res) => {
     const { buildTasks } = await import("../lib/actionTasks.mjs");
     const range = rangeOf(req.query);
-    const catalog = await store.listApps();
+    const catalog = await mobileCatalog.listApps();
     const [portfolio, anomalies] = await Promise.all([
       store.portfolio(range, catalog), insights.collectAnomalies(catalog),
     ]);

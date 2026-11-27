@@ -39,9 +39,7 @@ struct KeywordsScreen: View {
         List {
             if !apps.isEmpty {
                 Section {
-                    Picker("Ứng dụng", selection: $scope.appId) {
-                        ForEach(apps) { Text($0.name).tag($0.id) }
-                    }
+                    AppPicker(apps: apps, selection: $scope.appId)
                     Picker("Thị trường", selection: $scope.country) {
                         ForEach(markets) { Text($0.label(in: locale)).tag($0.country) }
                     }
